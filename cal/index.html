@@ -5,18 +5,20 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Calendar</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #0e0e0e;
-    --surface: #161616;
-    --border: #2a2a2a;
-    --accent: #e8ff47;
-    --accent2: #ff5c3a;
-    --text: #f0f0f0;
-    --muted: #666;
-    --tile-w: 260px;
-    --today-glow: 0 0 0 2px var(--accent);
+    --bg: #111;
+    --surface: #1a1a1a;
+    --border: #2c2c2c;
+    --text: #e0e0e0;
+    --muted: #555;
+    --accent: #4f8ef7;
+    --holiday: #e05a4a;
+    --tile-w: 240px;
+    --font: 'Inter', system-ui, sans-serif;
   }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -24,275 +26,173 @@
 body {
 background: var(–bg);
 color: var(–text);
-font-family: ‘DM Mono’, monospace;
+font-family: var(–font);
+font-size: 13px;
 min-height: 100vh;
-overflow-x: hidden;
 }
 
-/* ── HEADER ── */
 header {
 display: flex;
 align-items: center;
-justify-content: space-between;
-padding: 28px 36px 20px;
+gap: 20px;
+flex-wrap: wrap;
+padding: 14px 24px;
 border-bottom: 1px solid var(–border);
 position: sticky;
 top: 0;
 background: var(–bg);
-z-index: 100;
-gap: 16px;
-flex-wrap: wrap;
+z-index: 10;
 }
 
 .logo {
-font-family: ‘Syne’, sans-serif;
-font-weight: 800;
-font-size: 1.4rem;
-letter-spacing: -0.02em;
-color: var(–accent);
-}
-
-.controls {
-display: flex;
-align-items: center;
-gap: 12px;
-flex-wrap: wrap;
+font-size: 12px;
+font-weight: 600;
+color: var(–muted);
+letter-spacing: 0.12em;
+text-transform: uppercase;
 }
 
 .ctrl-group {
 display: flex;
 align-items: center;
 gap: 6px;
-font-size: 0.72rem;
 color: var(–muted);
-text-transform: uppercase;
-letter-spacing: 0.08em;
+font-size: 12px;
 }
 
-.ctrl-group label { white-space: nowrap; }
-
-select, input[type=range], input[type=number] {
+select, input[type=number] {
 background: var(–surface);
 border: 1px solid var(–border);
 color: var(–text);
-font-family: ‘DM Mono’, monospace;
-font-size: 0.75rem;
-padding: 5px 8px;
+font-family: var(–font);
+font-size: 12px;
+padding: 4px 6px;
 border-radius: 4px;
 outline: none;
-cursor: pointer;
 }
 
-select:focus, input:focus {
-border-color: var(–accent);
-}
-
-input[type=range] {
-padding: 0;
-width: 80px;
-accent-color: var(–accent);
-}
-
-.country-flags { display: flex; gap: 4px; flex-wrap: wrap; }
+input[type=number] { width: 60px; }
+input[type=range] { width: 72px; accent-color: var(–accent); cursor: pointer; }
 
 .flag-btn {
-background: var(–surface);
+background: none;
 border: 1px solid var(–border);
-color: var(–text);
-font-size: 0.7rem;
-padding: 4px 8px;
+color: var(–muted);
+font-size: 11px;
+padding: 3px 8px;
 border-radius: 4px;
 cursor: pointer;
-font-family: ‘DM Mono’, monospace;
-transition: border-color 0.15s, background 0.15s;
-white-space: nowrap;
+font-family: var(–font);
 }
 
-.flag-btn.active {
-border-color: var(–accent);
-background: rgba(232,255,71,0.08);
-color: var(–accent);
-}
+.flag-btn.active { color: var(–text); border-color: #555; }
+.country-flags { display: flex; gap: 4px; flex-wrap: wrap; }
 
-/* ── MAIN GRID ── */
-main {
-padding: 32px 36px 64px;
-}
+main { padding: 28px 24px 60px; }
 
-.year-section { margin-bottom: 56px; }
+.year-section { margin-bottom: 36px; }
 
 .year-label {
-font-family: ‘Syne’, sans-serif;
-font-size: 5rem;
-font-weight: 800;
-color: var(–border);
-line-height: 1;
-margin-bottom: 24px;
-letter-spacing: -0.04em;
-user-select: none;
+font-size: 11px;
+font-weight: 600;
+letter-spacing: 0.1em;
+text-transform: uppercase;
+color: var(–muted);
+margin-bottom: 14px;
 }
 
-.months-row {
-display: flex;
-flex-wrap: wrap;
-gap: 16px;
-}
+.months-row { display: flex; flex-wrap: wrap; gap: 12px; }
 
-/* ── MONTH TILE ── */
-.month-tile {
-width: var(–tile-w);
-background: var(–surface);
-border: 1px solid var(–border);
-border-radius: 8px;
-padding: 16px;
-flex-shrink: 0;
-transition: border-color 0.2s;
-}
-
-.month-tile:hover { border-color: #444; }
+.month-tile { width: var(–tile-w); flex-shrink: 0; }
 
 .month-header {
 display: flex;
 justify-content: space-between;
-align-items: baseline;
-margin-bottom: 12px;
+align-items: center;
+margin-bottom: 8px;
+padding-bottom: 6px;
+border-bottom: 1px solid var(–border);
 }
 
-.month-name {
-font-family: ‘Syne’, sans-serif;
-font-weight: 700;
-font-size: 1rem;
-text-transform: uppercase;
-letter-spacing: 0.06em;
-}
+.month-name { font-size: 12px; font-weight: 600; }
+.month-num { font-size: 11px; color: var(–muted); }
 
-.month-num {
-font-size: 0.65rem;
-color: var(–muted);
-}
-
-/* day grid: 8 cols (week# + 7 days) */
 .day-grid {
 display: grid;
-grid-template-columns: 28px repeat(7, 1fr);
-gap: 2px;
+grid-template-columns: 20px repeat(7, 1fr);
+gap: 1px;
 }
 
 .cell {
 display: flex;
 align-items: center;
 justify-content: center;
-font-size: 0.65rem;
-height: 26px;
+height: 24px;
+font-size: 11px;
 border-radius: 3px;
 position: relative;
 }
 
-/* column headers */
-.hdr {
-color: var(–muted);
-font-size: 0.6rem;
-text-transform: uppercase;
-letter-spacing: 0.05em;
-}
+.hdr { font-size: 10px; color: var(–muted); font-weight: 500; }
+.week-num { font-size: 9px; color: #2e2e2e; }
 
-.hdr.week-hdr { color: #333; }
+.day { cursor: default; }
+.day.sat, .day.sun { color: var(–muted); }
 
-/* week number */
-.week-num {
-color: #383838;
-font-size: 0.58rem;
-}
-
-/* empty cell */
-.empty { background: transparent; }
-
-/* regular day */
-.day {
-cursor: default;
-transition: background 0.1s;
-}
-
-.day:hover { background: #222; }
-
-/* saturday/sunday */
-.day.sat, .day.sun { color: #888; }
-
-/* today */
 .day.today {
 background: var(–accent);
-color: #0e0e0e;
-font-weight: 500;
+color: #fff;
+font-weight: 600;
 border-radius: 50%;
-box-shadow: var(–today-glow);
 }
 
-/* holiday */
-.day.holiday {
-color: var(–accent2);
-font-weight: 500;
-}
+.day.holiday { color: var(–holiday); }
 
 .day.holiday::after {
 content: ‘’;
 position: absolute;
-bottom: 2px;
+bottom: 1px;
 left: 50%;
 transform: translateX(-50%);
-width: 3px;
-height: 3px;
+width: 2px; height: 2px;
 border-radius: 50%;
-background: var(–accent2);
+background: var(–holiday);
 }
 
-.day.today.holiday {
-color: #0e0e0e;
-}
+.day.today.holiday { color: #fff; }
+.day.today.holiday::after { display: none; }
 
-.day.today.holiday::after {
-background: #0e0e0e;
-}
-
-/* holiday tooltip */
 .day[data-h]:hover::before {
 content: attr(data-h);
 position: absolute;
 bottom: 110%;
 left: 50%;
 transform: translateX(-50%);
-background: #222;
+background: #1e1e1e;
 border: 1px solid var(–border);
 color: var(–text);
-font-size: 0.6rem;
-padding: 4px 8px;
+font-size: 10px;
+padding: 3px 8px;
 border-radius: 4px;
 white-space: nowrap;
-z-index: 200;
+z-index: 100;
 pointer-events: none;
 }
 
-/* legend */
 .legend {
 display: flex;
 gap: 16px;
-margin-top: 28px;
-font-size: 0.65rem;
+margin-top: 20px;
+font-size: 11px;
 color: var(–muted);
-flex-wrap: wrap;
 }
 
-.legend-item { display: flex; align-items: center; gap: 6px; }
+.legend-item { display: flex; align-items: center; gap: 5px; }
+.legend-dot { width: 6px; height: 6px; border-radius: 50%; }
 
-.legend-dot {
-width: 8px; height: 8px;
-border-radius: 50%;
-}
-
-/* responsive */
 @media (max-width: 600px) {
-header { padding: 16px; }
-main { padding: 20px 16px 48px; }
-.year-label { font-size: 3rem; }
+header { padding: 12px 16px; }
+main { padding: 20px 16px 40px; }
 }
 </style>
 
@@ -300,377 +200,205 @@ main { padding: 20px 16px 48px; }
 <body>
 
 <header>
-  <div class="logo">CAL</div>
-  <div class="controls">
+  <span class="logo">Cal</span>
 
-```
-<div class="ctrl-group">
-  <label>From</label>
-  <select id="startMonth">
-    <option value="0">Jan</option><option value="1">Feb</option>
-    <option value="2">Mar</option><option value="3">Apr</option>
-    <option value="4">May</option><option value="5">Jun</option>
-    <option value="6">Jul</option><option value="7">Aug</option>
-    <option value="8">Sep</option><option value="9">Oct</option>
-    <option value="10">Nov</option><option value="11">Dec</option>
-  </select>
-  <input type="number" id="startYear" value="2025" min="2000" max="2040" style="width:70px">
-</div>
+  <div class="ctrl-group">
+    <span>From</span>
+    <select id="startMonth">
+      <option value="0">Jan</option><option value="1">Feb</option>
+      <option value="2">Mar</option><option value="3">Apr</option>
+      <option value="4">May</option><option value="5">Jun</option>
+      <option value="6">Jul</option><option value="7">Aug</option>
+      <option value="8">Sep</option><option value="9">Oct</option>
+      <option value="10">Nov</option><option value="11">Dec</option>
+    </select>
+    <input type="number" id="startYear" value="2025" min="2000" max="2040">
+  </div>
 
-<div class="ctrl-group">
-  <label>To</label>
-  <select id="endMonth">
-    <option value="0">Jan</option><option value="1">Feb</option>
-    <option value="2">Mar</option><option value="3">Apr</option>
-    <option value="4">May</option><option value="5">Jun</option>
-    <option value="6">Jul</option><option value="7">Aug</option>
-    <option value="8">Sep</option><option value="9">Oct</option>
-    <option value="10">Nov</option><option value="11" selected>Dec</option>
-  </select>
-  <input type="number" id="endYear" value="2026" min="2000" max="2040" style="width:70px">
-</div>
+  <div class="ctrl-group">
+    <span>To</span>
+    <select id="endMonth">
+      <option value="0">Jan</option><option value="1">Feb</option>
+      <option value="2">Mar</option><option value="3">Apr</option>
+      <option value="4">May</option><option value="5">Jun</option>
+      <option value="6">Jul</option><option value="7">Aug</option>
+      <option value="8">Sep</option><option value="9">Oct</option>
+      <option value="10">Nov</option><option value="11" selected>Dec</option>
+    </select>
+    <input type="number" id="endYear" value="2026" min="2000" max="2040">
+  </div>
 
-<div class="ctrl-group">
-  <label>Width</label>
-  <input type="range" id="tileWidth" min="200" max="380" value="260">
-</div>
+  <div class="ctrl-group">
+    <span>Width</span>
+    <input type="range" id="tileWidth" min="180" max="360" value="240">
+  </div>
 
-<div class="ctrl-group">
-  <label>Holidays</label>
-  <div class="country-flags" id="countryBtns"></div>
-</div>
-```
-
+  <div class="ctrl-group">
+    <span>Holidays</span>
+    <div class="country-flags" id="countryBtns"></div>
   </div>
 </header>
 
 <main id="calRoot"></main>
 
 <script>
-// ─── EASTER (Anonymous Gregorian algorithm) ───────────────────────────────
 function easter(y) {
-  const a = y % 19, b = Math.floor(y/100), c = y % 100;
-  const d = Math.floor(b/4), e = b % 4;
-  const f = Math.floor((b+8)/25), g = Math.floor((b-f+1)/3);
-  const h = (19*a + b - d - g + 15) % 30;
-  const i = Math.floor(c/4), k = c % 4;
-  const l = (32 + 2*e + 2*i - h - k) % 7;
-  const m = Math.floor((a + 11*h + 22*l) / 451);
-  const month = Math.floor((h + l - 7*m + 114) / 31) - 1; // 0-based
-  const day   = ((h + l - 7*m + 114) % 31) + 1;
-  return { m: month, d: day };
+  const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4;
+  const f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3);
+  const h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4;
+  const l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451);
+  return{m:Math.floor((h+l-7*m+114)/31)-1,d:((h+l-7*m+114)%31)+1};
 }
 
-// ─── HOLIDAY DEFINITIONS ──────────────────────────────────────────────────
 function getHolidays(year, countries) {
-  // Map: "YYYY-MM-DD" -> Set of names
-  const map = {};
-  const add = (m, d, name) => {
-    const key = `${year}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    if (!map[key]) map[key] = new Set();
-    map[key].add(name);
+  const map={};
+  const add=(m,d,name)=>{
+    const key=`${year}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    if(!map[key])map[key]=new Set(); map[key].add(name);
   };
-
-  const e = easter(year);
-  // Easter-relative helper (offset in days)
-  const easterOffset = (offset, name) => {
-    const base = new Date(year, e.m, e.d);
-    base.setDate(base.getDate() + offset);
-    add(base.getMonth(), base.getDate(), name);
+  const e=easter(year);
+  const eOff=(offset,name)=>{
+    const b=new Date(year,e.m,e.d); b.setDate(b.getDate()+offset);
+    add(b.getMonth(),b.getDate(),name);
   };
-
-  if (countries.has('DE')) {
-    add(0,1,'New Year'); add(4,0,'Labour Day');
-    add(9,2,'German Unity Day'); add(11,25,'Christmas'); add(11,26,'Boxing Day');
-    easterOffset(-2,'Good Friday'); easterOffset(0,'Easter Sunday');
-    easterOffset(1,'Easter Monday'); easterOffset(39,'Ascension');
-    easterOffset(49,'Whit Sunday'); easterOffset(50,'Whit Monday');
+  if(countries.has('DE')){
+    add(0,1,'New Year');add(4,0,'Labour Day');add(9,2,'German Unity Day');
+    add(11,25,'Christmas');add(11,26,'2nd Christmas');
+    eOff(-2,'Good Friday');eOff(0,'Easter');eOff(1,'Easter Monday');
+    eOff(39,'Ascension');eOff(49,'Whit Sunday');eOff(50,'Whit Monday');
   }
-  if (countries.has('AT')) {
-    add(0,1,'New Year'); add(0,5,'Epiphany'); add(4,0,'Labour Day');
-    add(7,14,'Assumption'); add(9,25,'National Day');
-    add(10,0,'All Saints'); add(11,7,'Immaculate Conception');
-    add(11,25,'Christmas'); add(11,26,'St Stephen\'s Day');
-    easterOffset(-2,'Good Friday'); easterOffset(0,'Easter');
-    easterOffset(1,'Easter Monday'); easterOffset(39,'Ascension');
-    easterOffset(49,'Whit Sunday'); easterOffset(50,'Whit Monday');
-    easterOffset(60,'Corpus Christi');
+  if(countries.has('AT')){
+    add(0,1,'New Year');add(0,5,'Epiphany');add(4,0,'Labour Day');
+    add(7,14,'Assumption');add(9,25,'National Day');add(10,0,'All Saints');
+    add(11,7,'Immaculate Conception');add(11,25,'Christmas');add(11,26,'St Stephen');
+    eOff(-2,'Good Friday');eOff(0,'Easter');eOff(1,'Easter Monday');
+    eOff(39,'Ascension');eOff(49,'Whit Sunday');eOff(50,'Whit Monday');eOff(60,'Corpus Christi');
   }
-  if (countries.has('CH')) {
-    add(0,1,'New Year'); add(7,0,'Swiss National Day');
-    add(11,25,'Christmas'); add(11,26,'St Stephen\'s Day');
-    easterOffset(-2,'Good Friday'); easterOffset(1,'Easter Monday');
-    easterOffset(39,'Ascension'); easterOffset(50,'Whit Monday');
+  if(countries.has('CH')){
+    add(0,1,'New Year');add(7,0,'National Day');add(11,25,'Christmas');add(11,26,'St Stephen');
+    eOff(-2,'Good Friday');eOff(1,'Easter Monday');eOff(39,'Ascension');eOff(50,'Whit Monday');
   }
-  if (countries.has('US')) {
-    add(0,1,'New Year');
-    // MLK 3rd Mon Jan
-    add(0, nthWeekday(year,0,1,3), 'MLK Day');
-    // Presidents 3rd Mon Feb
-    add(1, nthWeekday(year,1,1,3), 'Presidents\' Day');
-    // Memorial last Mon May
-    add(4, lastWeekday(year,4,1), 'Memorial Day');
-    add(5,18,'Juneteenth');
-    add(6,3,'Independence Day');
-    // Labor 1st Mon Sep
-    add(8, nthWeekday(year,8,1,1), 'Labor Day');
-    // Thanksgiving 4th Thu Nov
-    add(10, nthWeekday(year,10,4,4), 'Thanksgiving');
-    add(11,24,'Christmas Eve'); add(11,25,'Christmas');
-  }
-  if (countries.has('GB')) {
-    add(0,1,'New Year'); add(11,25,'Christmas'); add(11,26,'Boxing Day');
-    easterOffset(-2,'Good Friday'); easterOffset(1,'Easter Monday');
-    // Early May Bank Holiday (1st Mon May)
-    add(4, nthWeekday(year,4,1,1), 'Early May BH');
-    // Spring Bank Holiday (last Mon May)
-    add(4, lastWeekday(year,4,1), 'Spring BH');
-    // Summer Bank Holiday (last Mon Aug)
-    add(7, lastWeekday(year,7,1), 'Summer BH');
-  }
-  if (countries.has('FR')) {
-    add(0,1,'New Year'); add(4,0,'Labour Day'); add(4,7,'Victory 1945');
-    add(6,13,'Bastille Day'); add(7,14,'Assumption');
-    add(10,0,'All Saints'); add(10,10,'Armistice');
+  if(countries.has('US')){
+    add(0,1,'New Year');add(0,nthWd(year,0,1,3),'MLK Day');
+    add(1,nthWd(year,1,1,3),"Presidents' Day");add(4,lastWd(year,4,1),'Memorial Day');
+    add(5,18,'Juneteenth');add(6,3,'Independence Day');
+    add(8,nthWd(year,8,1,1),'Labor Day');add(10,nthWd(year,10,4,4),'Thanksgiving');
     add(11,25,'Christmas');
-    easterOffset(1,'Easter Monday'); easterOffset(39,'Ascension');
-    easterOffset(50,'Whit Monday');
   }
-
+  if(countries.has('GB')){
+    add(0,1,'New Year');add(11,25,'Christmas');add(11,26,'Boxing Day');
+    eOff(-2,'Good Friday');eOff(1,'Easter Monday');
+    add(4,nthWd(year,4,1,1),'Early May BH');add(4,lastWd(year,4,1),'Spring BH');
+    add(7,lastWd(year,7,1),'Summer BH');
+  }
+  if(countries.has('FR')){
+    add(0,1,'New Year');add(4,0,'Labour Day');add(4,7,'Victory 1945');
+    add(6,13,'Bastille Day');add(7,14,'Assumption');add(10,0,'All Saints');
+    add(10,10,'Armistice');add(11,25,'Christmas');
+    eOff(1,'Easter Monday');eOff(39,'Ascension');eOff(50,'Whit Monday');
+  }
   return map;
 }
 
-// nth weekday of month (weekday: 0=Sun,1=Mon..6=Sat, n=1-based)
-function nthWeekday(y, m, weekday, n) {
-  let d = 1, count = 0;
-  while (true) {
-    const dt = new Date(y, m, d);
-    if (dt.getDay() === weekday) { count++; if (count === n) return d; }
-    d++;
-  }
-}
-// last weekday of month
-function lastWeekday(y, m, weekday) {
-  const lastDay = new Date(y, m+1, 0).getDate();
-  for (let d = lastDay; d >= 1; d--) {
-    if (new Date(y, m, d).getDay() === weekday) return d;
-  }
+function nthWd(y,m,wd,n){let d=1,c=0;while(true){if(new Date(y,m,d).getDay()===wd){c++;if(c===n)return d;}d++;}}
+function lastWd(y,m,wd){for(let d=new Date(y,m+1,0).getDate();d>=1;d--)if(new Date(y,m,d).getDay()===wd)return d;}
+function isoWeek(date){
+  const d=new Date(Date.UTC(date.getFullYear(),date.getMonth(),date.getDate()));
+  d.setUTCDate(d.getUTCDate()+4-(d.getUTCDay()||7));
+  return Math.ceil((((d-new Date(Date.UTC(d.getUTCFullYear(),0,1)))/86400000)+1)/7);
 }
 
-// ─── ISO WEEK NUMBER ──────────────────────────────────────────────────────
-function isoWeek(date) {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-}
+const state={startYear:2025,startMonth:0,endYear:2026,endMonth:11,tileWidth:240,countries:new Set(['DE'])};
+const today=new Date();
+const todayKey=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const DAYS=['Mo','Tu','We','Th','Fr','Sa','Su'];
 
-// ─── STATE ────────────────────────────────────────────────────────────────
-const state = {
-  startYear: 2025, startMonth: 0,
-  endYear: 2026,   endMonth: 11,
-  tileWidth: 260,
-  countries: new Set(['DE'])
-};
-
-const today = new Date();
-const todayKey = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-
-const MONTH_NAMES = ['January','February','March','April','May','June',
-                     'July','August','September','October','November','December'];
-const DAY_ABBR = ['Mo','Tu','We','Th','Fr','Sa','Su'];
-
-// ─── RENDER ───────────────────────────────────────────────────────────────
-function render() {
-  document.documentElement.style.setProperty('--tile-w', state.tileWidth + 'px');
-
-  const root = document.getElementById('calRoot');
-  root.innerHTML = '';
-
-  // collect all year-month combos
-  const months = [];
-  let y = state.startYear, m = state.startMonth;
-  while (y < state.endYear || (y === state.endYear && m <= state.endMonth)) {
-    months.push({y, m});
-    m++; if (m > 11) { m = 0; y++; }
-  }
-
-  // group by year
-  const byYear = {};
-  months.forEach(({y, m}) => {
-    if (!byYear[y]) byYear[y] = [];
-    byYear[y].push(m);
+function render(){
+  document.documentElement.style.setProperty('--tile-w',state.tileWidth+'px');
+  const root=document.getElementById('calRoot');
+  root.innerHTML='';
+  const months=[];
+  let y=state.startYear,m=state.startMonth;
+  while(y<state.endYear||(y===state.endYear&&m<=state.endMonth)){months.push({y,m});m++;if(m>11){m=0;y++;}}
+  const byYear={};
+  months.forEach(({y,m})=>{if(!byYear[y])byYear[y]=[];byYear[y].push(m);});
+  Object.entries(byYear).forEach(([year,mList])=>{
+    const y=parseInt(year);
+    const holidays=getHolidays(y,state.countries);
+    const sec=document.createElement('div'); sec.className='year-section';
+    const yl=document.createElement('div'); yl.className='year-label'; yl.textContent=year;
+    sec.appendChild(yl);
+    const row=document.createElement('div'); row.className='months-row';
+    mList.forEach(m=>row.appendChild(buildTile(y,m,holidays)));
+    sec.appendChild(row); root.appendChild(sec);
   });
-
-  Object.entries(byYear).forEach(([year, mList]) => {
-    const y = parseInt(year);
-    const holidays = getHolidays(y, state.countries);
-
-    const section = document.createElement('div');
-    section.className = 'year-section';
-
-    const yLabel = document.createElement('div');
-    yLabel.className = 'year-label';
-    yLabel.textContent = year;
-    section.appendChild(yLabel);
-
-    const row = document.createElement('div');
-    row.className = 'months-row';
-
-    mList.forEach(m => {
-      row.appendChild(buildTile(y, m, holidays));
-    });
-
-    section.appendChild(row);
-    root.appendChild(section);
-  });
-
-  // legend
-  const leg = document.createElement('div');
-  leg.className = 'legend';
-  leg.innerHTML = `
+  const leg=document.createElement('div'); leg.className='legend';
+  leg.innerHTML=`
     <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div>Today</div>
-    <div class="legend-item"><div class="legend-dot" style="background:var(--accent2)"></div>Public holiday</div>
-    <div class="legend-item" style="color:#555">Hover day for holiday name</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--holiday)"></div>Holiday</div>
   `;
   root.appendChild(leg);
 }
 
-function buildTile(year, month, holidays) {
-  const tile = document.createElement('div');
-  tile.className = 'month-tile';
-
-  const firstDay = new Date(year, month, 1);
-  const daysInMonth = new Date(year, month+1, 0).getDate();
-  // Monday-first: 0=Mon..6=Sun
-  let startDow = (firstDay.getDay() + 6) % 7;
-
-  const hdr = document.createElement('div');
-  hdr.className = 'month-header';
-  hdr.innerHTML = `<span class="month-name">${MONTH_NAMES[month]}</span><span class="month-num">${String(month+1).padStart(2,'0')}</span>`;
+function buildTile(year,month,holidays){
+  const tile=document.createElement('div'); tile.className='month-tile';
+  const daysInMonth=new Date(year,month+1,0).getDate();
+  const startDow=(new Date(year,month,1).getDay()+6)%7;
+  const hdr=document.createElement('div'); hdr.className='month-header';
+  hdr.innerHTML=`<span class="month-name">${MONTHS[month]}</span><span class="month-num">${String(month+1).padStart(2,'0')}</span>`;
   tile.appendChild(hdr);
-
-  const grid = document.createElement('div');
-  grid.className = 'day-grid';
-
-  // header row
-  const wkHdr = document.createElement('div');
-  wkHdr.className = 'cell hdr week-hdr';
-  wkHdr.textContent = 'W';
-  grid.appendChild(wkHdr);
-
-  DAY_ABBR.forEach(d => {
-    const h = document.createElement('div');
-    h.className = 'cell hdr';
-    h.textContent = d;
-    grid.appendChild(h);
-  });
-
-  // fill weeks
-  let dayNum = 1;
-  let col = startDow;
-
-  while (dayNum <= daysInMonth) {
-    // week number cell (only at start of row)
-    if (col === 0 || dayNum === 1) {
-      // pad empties if first week
-      if (dayNum === 1 && col > 0) {
-        // week num
-        const wn = document.createElement('div');
-        wn.className = 'cell week-num';
-        wn.textContent = isoWeek(new Date(year, month, 1));
-        grid.appendChild(wn);
-        // empty cells
-        for (let i = 0; i < col; i++) {
-          const emp = document.createElement('div');
-          emp.className = 'cell empty';
-          grid.appendChild(emp);
-        }
+  const grid=document.createElement('div'); grid.className='day-grid';
+  const wh=document.createElement('div'); wh.className='cell'; grid.appendChild(wh);
+  DAYS.forEach(d=>{const h=document.createElement('div');h.className='cell hdr';h.textContent=d;grid.appendChild(h);});
+  let dayNum=1,col=startDow;
+  while(dayNum<=daysInMonth){
+    if(col===0||dayNum===1){
+      if(dayNum===1&&col>0){
+        const wn=document.createElement('div');wn.className='cell week-num';wn.textContent=isoWeek(new Date(year,month,1));grid.appendChild(wn);
+        for(let i=0;i<col;i++){const e=document.createElement('div');e.className='cell';grid.appendChild(e);}
       } else {
-        const wn = document.createElement('div');
-        wn.className = 'cell week-num';
-        wn.textContent = isoWeek(new Date(year, month, dayNum));
-        grid.appendChild(wn);
+        const wn=document.createElement('div');wn.className='cell week-num';wn.textContent=isoWeek(new Date(year,month,dayNum));grid.appendChild(wn);
       }
     }
-
-    const dateKey = `${year}-${String(month+1).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`;
-    const isToday = dateKey === todayKey;
-    const hols = holidays[dateKey];
-    const dow = (col) % 7; // 0=Mon..6=Sun
-
-    const cell = document.createElement('div');
-    cell.className = 'cell day';
-    if (dow === 5) cell.classList.add('sat');
-    if (dow === 6) cell.classList.add('sun');
-    if (isToday) cell.classList.add('today');
-    if (hols) {
-      cell.classList.add('holiday');
-      cell.setAttribute('data-h', [...hols].join(' · '));
-    }
-    cell.textContent = dayNum;
+    const key=`${year}-${String(month+1).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`;
+    const cell=document.createElement('div'); cell.className='cell day';
+    if(col===5)cell.classList.add('sat');
+    if(col===6)cell.classList.add('sun');
+    if(key===todayKey)cell.classList.add('today');
+    const hols=holidays[key];
+    if(hols){cell.classList.add('holiday');cell.setAttribute('data-h',[...hols].join(' · '));}
+    cell.textContent=dayNum;
     grid.appendChild(cell);
-
-    col++;
-    if (col === 7) col = 0;
-    dayNum++;
+    col++;if(col===7)col=0;dayNum++;
   }
-
-  // fill trailing empties to complete last row
-  if (col > 0) {
-    for (let i = col; i < 7; i++) {
-      const emp = document.createElement('div');
-      emp.className = 'cell empty';
-      grid.appendChild(emp);
-    }
-  }
-
+  if(col>0)for(let i=col;i<7;i++){const e=document.createElement('div');e.className='cell';grid.appendChild(e);}
   tile.appendChild(grid);
   return tile;
 }
 
-// ─── CONTROLS ─────────────────────────────────────────────────────────────
-const COUNTRIES = [
-  {code:'DE', label:'🇩🇪 DE'},
-  {code:'AT', label:'🇦🇹 AT'},
-  {code:'CH', label:'🇨🇭 CH'},
-  {code:'US', label:'🇺🇸 US'},
-  {code:'GB', label:'🇬🇧 GB'},
-  {code:'FR', label:'🇫🇷 FR'},
+const COUNTRIES=[
+  {code:'DE',label:'🇩🇪 DE'},{code:'AT',label:'🇦🇹 AT'},{code:'CH',label:'🇨🇭 CH'},
+  {code:'US',label:'🇺🇸 US'},{code:'GB',label:'🇬🇧 GB'},{code:'FR',label:'🇫🇷 FR'},
 ];
-
-const btnContainer = document.getElementById('countryBtns');
-COUNTRIES.forEach(({code, label}) => {
-  const btn = document.createElement('button');
-  btn.className = 'flag-btn' + (state.countries.has(code) ? ' active' : '');
-  btn.textContent = label;
-  btn.addEventListener('click', () => {
-    state.countries.has(code) ? state.countries.delete(code) : state.countries.add(code);
-    btn.classList.toggle('active');
-    render();
+COUNTRIES.forEach(({code,label})=>{
+  const btn=document.createElement('button');
+  btn.className='flag-btn'+(state.countries.has(code)?' active':'');
+  btn.textContent=label;
+  btn.addEventListener('click',()=>{
+    state.countries.has(code)?state.countries.delete(code):state.countries.add(code);
+    btn.classList.toggle('active'); render();
   });
-  btnContainer.appendChild(btn);
+  document.getElementById('countryBtns').appendChild(btn);
 });
 
-function bindSelect(id, key) {
-  const el = document.getElementById(id);
-  el.value = state[key];
-  el.addEventListener('change', () => { state[key] = parseInt(el.value); render(); });
-}
-function bindNumber(id, key) {
-  const el = document.getElementById(id);
-  el.value = state[key];
-  el.addEventListener('change', () => { state[key] = parseInt(el.value); render(); });
-}
-
-bindSelect('startMonth', 'startMonth');
-bindNumber('startYear', 'startYear');
-bindSelect('endMonth', 'endMonth');
-bindNumber('endYear', 'endYear');
-
-document.getElementById('tileWidth').addEventListener('input', e => {
-  state.tileWidth = parseInt(e.target.value);
-  document.documentElement.style.setProperty('--tile-w', state.tileWidth + 'px');
+const sm=document.getElementById('startMonth'); sm.value=state.startMonth; sm.addEventListener('change',()=>{state.startMonth=parseInt(sm.value);render();});
+const em=document.getElementById('endMonth'); em.value=state.endMonth; em.addEventListener('change',()=>{state.endMonth=parseInt(em.value);render();});
+const sy=document.getElementById('startYear'); sy.value=state.startYear; sy.addEventListener('change',()=>{state.startYear=parseInt(sy.value);render();});
+const ey=document.getElementById('endYear'); ey.value=state.endYear; ey.addEventListener('change',()=>{state.endYear=parseInt(ey.value);render();});
+document.getElementById('tileWidth').addEventListener('input',e=>{
+  state.tileWidth=parseInt(e.target.value);
+  document.documentElement.style.setProperty('--tile-w',state.tileWidth+'px');
 });
 
 render();
