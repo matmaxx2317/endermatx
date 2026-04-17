@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deploy</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #111;
+    color: #e0e0e0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 14px;
+    padding: 24px 20px;
+    max-width: 540px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 13px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #555; margin-bottom: 28px; }
+  label { display: block; font-size: 11px; color: #555; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+  input, textarea {
+    width: 100%;
+    background: #1a1a1a;
+    border: 1px solid #2c2c2c;
+    color: #e0e0e0;
+    font-family: inherit;
+    font-size: 13px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    outline: none;
+    margin-bottom: 18px;
+  }
+  input:focus, textarea:focus { border-color: #444; }
+  textarea { height: 180px; resize: vertical; font-family: 'SF Mono', monospace; font-size: 11px; }
+  button {
+    width: 100%;
+    background: #4f8ef7;
+    color: #fff;
+    border: none;
+    padding: 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:disabled { background: #2a2a2a; color: #555; cursor: default; }
+  #status {
+    margin-top: 16px;
+    font-size: 12px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    display: none;
+  }
+  #status.ok { background: #1a2a1a; color: #6dbf6d; display: block; }
+  #status.err { background: #2a1a1a; color: #e05a4a; display: block; }
+  #status.loading { background: #1a1a2a; color: #4f8ef7; display: block; }
+  .note { font-size: 11px; color: #444; margin-top: -12px; margin-bottom: 18px; }
+  .saved-badge { font-size: 10px; color: #4f8ef7; margin-left: 8px; }
+</style>
+</head>
+<body>
+
+<h1>Deploy Tool</h1>
+
+<label>GitHub Token <span class="saved-badge" id="tokenBadge"></span></label>
+<input type="password" id="token" placeholder="ghp_..." autocomplete="off" spellcheck="false">
+
+<label>Repo</label>
+<input type="text" id="repo" value="matmaxx2317/endermatx" spellcheck="false">
+
+<label>File path in repo</label>
+<input type="text" id="filepath" value="cal/index.html" spellcheck="false">
+
+<label>File content</label>
+
+<p class="note">Paste the full file content from Claude here</p>
+<textarea id="content" placeholder="Paste file content here..." spellcheck="false" autocorrect="off" autocapitalize="off"></textarea>
+
+<button id="deployBtn" onclick="deploy()">Push to GitHub</button>
+
+<div id="status"></div>
+
+<script>
+  // Load saved values
+  const saved = JSON.parse(localStorage.getItem('deployConfig') || '{}');
+  if (saved.token) { document.getElementById('token').value = saved.token; document.getElementById('tokenBadge').textContent = '(saved)'; }
+  if (saved.repo) document.getElementById('repo').value = saved.repo;
+  if (saved.filepath) document.getElementById('filepath').value = saved.filepath;
+
+  // Save token/repo/path on change
+  ['token','repo','filepath'].forEach(id => {
+    document.getElementById(id).addEventListener('change', saveConfig);
+  });
+
+  function saveConfig() {
+    const config = {
+      token: document.getElementById('token').value,
+      repo: document.getElementById('repo').value,
+      filepath: document.getElementById('filepath').value,
+    };
+    localStorage.setItem('deployConfig', JSON.stringify(config));
+    document.getElementById('tokenBadge').textContent = '(saved)';
+  }
+
+  function setStatus(msg, type) {
+    const el = document.getElementById('status');
+    el.textContent = msg;
+    el.className = type;
+  }
+
+  async function deploy() {
+    const token = document.getElementById('token').value.trim();
+    const repo = document.getElementById('repo').value.trim();
+    const filepath = document.getElementById('filepath').value.trim();
+    const content = document.getElementById('content').value;
+
+    if (!token) { setStatus('Enter your GitHub token', 'err'); return; }
+    if (!content) { setStatus('Paste file content first', 'err'); return; }
+
+    document.getElementById('deployBtn').disabled = true;
+    setStatus('Getting current file SHA...', 'loading');
+
+    const headers = {
+      'Authorization': 'token ' + token,
+      'Content-Type': 'application/json',
+    };
+
+    const apiBase = 'https://api.github.com/repos/' + repo + '/contents/' + filepath;
+
+    try {
+      // Get current SHA
+      let sha = null;
+      const getRes = await fetch(apiBase, { headers });
+      if (getRes.ok) {
+        const data = await getRes.json();
+        sha = data.sha;
+      } else if (getRes.status !== 404) {
+        throw new Error('Failed to fetch file: ' + getRes.status);
+      }
+
+      setStatus('Pushing file...', 'loading');
+
+      // Encode content to base64
+      const encoded = btoa(unescape(encodeURIComponent(content)));
+
+      const body = {
+        message: 'update ' + filepath,
+        content: encoded,
+      };
+      if (sha) body.sha = sha;
+
+      const putRes = await fetch(apiBase, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(body),
+      });
+
+      if (!putRes.ok) {
+        const err = await putRes.json();
+        throw new Error(err.message || putRes.status);
+      }
+
+      saveConfig();
+      setStatus('✓ Pushed! Site updates in ~30 seconds.', 'ok');
+      document.getElementById('content').value = '';
+
+    } catch (e) {
+      setStatus('Error: ' + e.message, 'err');
+    }
+
+    document.getElementById('deployBtn').disabled = false;
+  }
+</script>
+
+</body>
+</html>
