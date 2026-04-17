@@ -6,24 +6,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Calendar</title>
 <style>
-  :root {
-    --bg: #2a2a2a;
-    --surface: #333;
-    --border: #3d3d3d;
-    --text: #c8c8c8;
-    --muted: #777;
-    --accent: #ff6b35;
-    --holiday: #5bb8f5;
-    --tile-w: 360px;
-    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-  }
-
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-background: var(–bg);
-color: var(–text);
-font-family: var(–font);
+background: #2a2a2a;
+color: #c8c8c8;
+font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
 font-size: 13px;
 min-height: 100vh;
 }
@@ -34,22 +22,22 @@ align-items: center;
 gap: 20px;
 flex-wrap: wrap;
 padding: 14px 24px;
-border-bottom: 1px solid var(–border);
+border-bottom: 1px solid #3d3d3d;
 position: sticky;
 top: 0;
-background: var(–bg);
+background: #2a2a2a;
 z-index: 10;
 }
 
-.logo { font-size: 12px; font-weight: 600; color: var(–muted); letter-spacing: 0.12em; text-transform: uppercase; }
+.logo { font-size: 12px; font-weight: 600; color: #777; letter-spacing: 0.12em; text-transform: uppercase; }
 
-.ctrl-group { display: flex; align-items: center; gap: 6px; color: var(–muted); font-size: 12px; }
+.ctrl-group { display: flex; align-items: center; gap: 6px; color: #777; font-size: 12px; }
 
 select, input[type=number] {
-background: var(–surface);
-border: 1px solid var(–border);
-color: var(–text);
-font-family: var(–font);
+background: #333;
+border: 1px solid #3d3d3d;
+color: #c8c8c8;
+font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
 font-size: 12px;
 padding: 4px 6px;
 border-radius: 4px;
@@ -57,23 +45,22 @@ outline: none;
 }
 
 input[type=number] { width: 60px; }
-input[type=range] { width: 72px; accent-color: var(–accent); cursor: pointer; }
+input[type=range] { width: 72px; accent-color: #ff6b35; cursor: pointer; }
 
 .flag-btn {
 background: none;
-border: 1px solid var(–border);
-color: var(–muted);
+border: 1px solid #3d3d3d;
+color: #777;
 font-size: 11px;
 padding: 3px 8px;
 border-radius: 4px;
 cursor: pointer;
-font-family: var(–font);
+font-family: inherit;
 }
-.flag-btn.active { color: var(–text); border-color: #666; }
+.flag-btn.active { color: #c8c8c8; border-color: #666; }
 .country-flags { display: flex; gap: 4px; flex-wrap: wrap; }
 
 main { padding: 28px 24px 60px; }
-
 .year-section { margin-bottom: 36px; }
 
 .year-label {
@@ -81,12 +68,12 @@ font-size: 11px;
 font-weight: 600;
 letter-spacing: 0.1em;
 text-transform: uppercase;
-color: var(–muted);
+color: #777;
 margin-bottom: 14px;
 }
 
 .months-row { display: flex; flex-wrap: wrap; gap: 12px; }
-.month-tile { width: var(–tile-w); flex-shrink: 0; }
+.month-tile { width: 360px; flex-shrink: 0; }
 
 .month-header {
 display: flex;
@@ -94,13 +81,12 @@ justify-content: space-between;
 align-items: center;
 margin-bottom: 8px;
 padding-bottom: 6px;
-border-bottom: 1px solid var(–border);
+border-bottom: 1px solid #3d3d3d;
 }
 
-.month-name { font-size: 12px; font-weight: 600; color: var(–text); }
-.month-num { font-size: 11px; color: var(–muted); }
+.month-name { font-size: 12px; font-weight: 600; color: #c8c8c8; }
+.month-num { font-size: 11px; color: #777; }
 
-/* 9 cols: week# + 7 days */
 .day-grid {
 display: grid;
 grid-template-columns: 24px repeat(7, 1fr);
@@ -117,45 +103,44 @@ border-radius: 3px;
 position: relative;
 }
 
-.hdr { font-size: 10px; color: var(–muted); font-weight: 500; }
+.hdr { font-size: 10px; color: #777; font-weight: 500; }
 .hdr.wk-hdr { color: #555; font-size: 9px; }
 
 .week-num {
 font-size: 9px;
 color: #555;
-border-right: 1px solid var(–border);
+border-right: 1px solid #3d3d3d;
 margin-right: 2px;
 }
 
 .day { cursor: default; }
-.day.sat, .day.sun { color: var(–muted); }
+.day.sat, .day.sun { color: #777; }
 
-/* TODAY: bold orange circle with a pulsing ring */
 .day.today {
-background: var(–accent);
+background: #ff6b35;
 color: #fff;
 font-weight: 700;
 border-radius: 50%;
 box-shadow: 0 0 0 3px rgba(255,107,53,0.25), 0 0 12px rgba(255,107,53,0.4);
-animation: pulse 2s ease-in-out infinite;
+animation: todaypulse 2s ease-in-out infinite;
 z-index: 1;
 }
 
-@keyframes pulse {
+@keyframes todaypulse {
 0%, 100% { box-shadow: 0 0 0 3px rgba(255,107,53,0.25), 0 0 12px rgba(255,107,53,0.35); }
 50%       { box-shadow: 0 0 0 6px rgba(255,107,53,0.15), 0 0 20px rgba(255,107,53,0.5); }
 }
 
-.day.holiday { color: var(–holiday); }
+.day.holiday { color: #5bb8f5; }
 .day.holiday::after {
-content: ‘’;
+content: '';
 position: absolute;
 bottom: 1px;
 left: 50%;
 transform: translateX(-50%);
 width: 2px; height: 2px;
 border-radius: 50%;
-background: var(–holiday);
+background: #5bb8f5;
 }
 
 .day.today.holiday { color: #fff; }
@@ -168,8 +153,8 @@ bottom: 110%;
 left: 50%;
 transform: translateX(-50%);
 background: #222;
-border: 1px solid var(–border);
-color: var(–text);
+border: 1px solid #3d3d3d;
+color: #c8c8c8;
 font-size: 10px;
 padding: 3px 8px;
 border-radius: 4px;
@@ -178,15 +163,10 @@ z-index: 100;
 pointer-events: none;
 }
 
-/* highlight the tile containing today */
-.month-tile.has-today .month-header {
-border-bottom-color: var(–accent);
-}
-.month-tile.has-today .month-name {
-color: var(–accent);
-}
+.month-tile.has-today .month-header { border-bottom-color: #ff6b35; }
+.month-tile.has-today .month-name { color: #ff6b35; }
 
-.legend { display: flex; gap: 16px; margin-top: 20px; font-size: 11px; color: var(–muted); }
+.legend { display: flex; gap: 16px; margin-top: 20px; font-size: 11px; color: #777; }
 .legend-item { display: flex; align-items: center; gap: 5px; }
 .legend-dot { width: 6px; height: 6px; border-radius: 50%; }
 
@@ -201,7 +181,6 @@ main { padding: 20px 16px 40px; }
 
 <header>
   <span class="logo">Cal</span>
-
   <div class="ctrl-group">
     <span>From</span>
     <select id="startMonth">
@@ -214,7 +193,6 @@ main { padding: 20px 16px 40px; }
     </select>
     <input type="number" id="startYear" value="2025" min="2000" max="2040">
   </div>
-
   <div class="ctrl-group">
     <span>To</span>
     <select id="endMonth">
@@ -227,12 +205,10 @@ main { padding: 20px 16px 40px; }
     </select>
     <input type="number" id="endYear" value="2026" min="2000" max="2040">
   </div>
-
   <div class="ctrl-group">
     <span>Width</span>
     <input type="range" id="tileWidth" min="180" max="360" value="360">
   </div>
-
   <div class="ctrl-group">
     <span>Holidays</span>
     <div class="country-flags" id="countryBtns"></div>
@@ -261,7 +237,6 @@ function getHolidays(year, countries) {
     const b=new Date(year,e.m,e.d); b.setDate(b.getDate()+offset);
     add(b.getMonth(),b.getDate(),name);
   };
-
   if(countries.has('DE')){
     add(0,1,'New Year');add(4,0,'Labour Day');add(9,2,'German Unity Day');
     add(11,25,'Christmas');add(11,26,'2nd Christmas');
@@ -277,7 +252,7 @@ function getHolidays(year, countries) {
   }
   if(countries.has('US')){
     add(0,1,'New Year');add(0,nthWd(year,0,1,3),'MLK Day');
-    add(1,nthWd(year,1,1,3),"Presidents' Day");add(4,lastWd(year,4,1),'Memorial Day');
+    add(1,nthWd(year,1,1,3),"Presidents Day");add(4,lastWd(year,4,1),'Memorial Day');
     add(5,18,'Juneteenth');add(6,3,'Independence Day');
     add(8,nthWd(year,8,1,1),'Labor Day');add(10,nthWd(year,10,4,4),'Thanksgiving');
     add(11,25,'Christmas');
@@ -295,9 +270,8 @@ function getHolidays(year, countries) {
     eOff(1,'Easter Monday');eOff(39,'Ascension');eOff(50,'Whit Monday');
   }
   if(countries.has('CN')){
-    add(0,1,'New Year');add(4,0,'Labour Day');add(9,0,'National Day');
-    add(9,1,'National Day');add(9,2,'National Day');
-    // Spring Festival (Chinese New Year) - fixed dates per year
+    add(0,1,'New Year');add(4,0,'Labour Day');
+    add(9,0,'National Day');add(9,1,'National Day');add(9,2,'National Day');
     const cny={2024:[1,10],2025:[1,29],2026:[2,17],2027:[2,6],2028:[1,26]};
     if(cny[year]){
       const [cm,cd]=cny[year];
@@ -306,30 +280,23 @@ function getHolidays(year, countries) {
         add(dt.getMonth(),dt.getDate(),'Spring Festival');
       }
     }
-    add(3,4,'Qingming Festival');
-    add(5,9,'Dragon Boat Festival');
-    add(8,17,'Mid-Autumn Festival');
+    add(3,4,'Qingming');add(5,9,'Dragon Boat');add(8,17,'Mid-Autumn');
   }
   if(countries.has('JP')){
     add(0,1,'New Year');add(0,2,'New Year');add(0,3,'New Year');
     add(0,nthWd(year,0,1,2),'Coming of Age');
-    add(1,11,'National Foundation Day');
-    add(2,20,'Vernal Equinox');
-    add(3,29,'Showa Day');
-    add(4,3,'Constitution Day');add(4,4,'Greenery Day');add(4,5,"Children's Day");
-    add(6,nthWd(year,6,1,3),'Marine Day');
-    add(7,11,'Mountain Day');
-    add(8,nthWd(year,8,1,3),'Respect for the Aged');
-    add(8,23,'Autumnal Equinox');
+    add(1,11,'Foundation Day');add(2,20,'Vernal Equinox');add(3,29,'Showa Day');
+    add(4,3,'Constitution Day');add(4,4,'Greenery Day');add(4,5,'Childrens Day');
+    add(6,nthWd(year,6,1,3),'Marine Day');add(7,11,'Mountain Day');
+    add(8,nthWd(year,8,1,3),'Respect for Aged');add(8,23,'Autumnal Equinox');
     add(9,nthWd(year,9,1,2),'Sports Day');
-    add(10,3,'Culture Day');add(10,23,'Labour Thanksgiving');
-    add(11,23,'Emperor Birthday');
+    add(10,3,'Culture Day');add(10,23,'Labour Thanksgiving');add(11,23,'Emperors Birthday');
   }
   return map;
 }
 
 function nthWd(y,m,wd,n){let d=1,c=0;while(true){if(new Date(y,m,d).getDay()===wd){c++;if(c===n)return d;}d++;}}
-function lastWd(y,m,wd){for(let d=new Date(y,m+1,0).getDate();d>=1;d--)if(new Date(y,m,d).getDay()===wd)return d;}
+function lastWd(y,m,wd){let d=new Date(y,m+1,0).getDate();while(d>=1){if(new Date(y,m,d).getDay()===wd)return d;d-=1;}}
 function isoWeek(date){
   const d=new Date(Date.UTC(date.getFullYear(),date.getMonth(),date.getDate()));
   d.setUTCDate(d.getUTCDate()+4-(d.getUTCDay()||7));
@@ -342,12 +309,9 @@ const todayYear=today.getFullYear();
 const todayMonth=today.getMonth();
 
 const state={
-  startYear:todayYear,
-  startMonth:todayMonth,
-  endYear:todayMonth>=6?todayYear+1:todayYear,
-  endMonth:11,
-  tileWidth:360,
-  countries:new Set(['DE'])
+  startYear:todayYear, startMonth:todayMonth,
+  endYear:todayMonth>=6?todayYear+1:todayYear, endMonth:11,
+  tileWidth:360, countries:new Set(['DE'])
 };
 
 const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -361,7 +325,8 @@ function scrollToToday(){
 }
 
 function render(){
-  document.documentElement.style.setProperty('--tile-w',state.tileWidth+'px');
+  const tw=state.tileWidth+'px';
+  document.querySelectorAll('.month-tile').forEach(t=>t.style.width=tw);
   const root=document.getElementById('calRoot');
   root.innerHTML='';
   const months=[];
@@ -380,33 +345,23 @@ function render(){
     sec.appendChild(row); root.appendChild(sec);
   });
   const leg=document.createElement('div'); leg.className='legend';
-  leg.innerHTML=`
-    <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div>Today</div>
-    <div class="legend-item"><div class="legend-dot" style="background:var(--holiday)"></div>Holiday</div>
-  `;
+  leg.innerHTML='<div class="legend-item"><div class="legend-dot" style="background:#ff6b35"></div>Today</div><div class="legend-item"><div class="legend-dot" style="background:#5bb8f5"></div>Holiday</div>';
   root.appendChild(leg);
   scrollToToday();
 }
 
 function buildTile(year,month,holidays){
   const tile=document.createElement('div'); tile.className='month-tile';
+  tile.style.width=state.tileWidth+'px';
   const daysInMonth=new Date(year,month+1,0).getDate();
   const startDow=(new Date(year,month,1).getDay()+6)%7;
-
-  // check if this tile contains today
   if(year===todayYear&&month===todayMonth) tile.classList.add('has-today');
-
   const hdr=document.createElement('div'); hdr.className='month-header';
-  hdr.innerHTML=`<span class="month-name">${MONTHS[month]}</span><span class="month-num">${String(month+1).padStart(2,'0')}</span>`;
+  hdr.innerHTML='<span class="month-name">'+MONTHS[month]+'</span><span class="month-num">'+String(month+1).padStart(2,'0')+'</span>';
   tile.appendChild(hdr);
-
   const grid=document.createElement('div'); grid.className='day-grid';
-
-  // header row: W + day names
-  const wkHdrCell=document.createElement('div'); wkHdrCell.className='cell hdr wk-hdr'; wkHdrCell.textContent='W';
-  grid.appendChild(wkHdrCell);
+  const wkH=document.createElement('div'); wkH.className='cell hdr wk-hdr'; wkH.textContent='W'; grid.appendChild(wkH);
   DAYS.forEach(d=>{const h=document.createElement('div');h.className='cell hdr';h.textContent=d;grid.appendChild(h);});
-
   let dayNum=1,col=startDow;
   while(dayNum<=daysInMonth){
     if(col===0||dayNum===1){
@@ -417,13 +372,13 @@ function buildTile(year,month,holidays){
         const wn=document.createElement('div');wn.className='cell week-num';wn.textContent=isoWeek(new Date(year,month,dayNum));grid.appendChild(wn);
       }
     }
-    const key=`${year}-${String(month+1).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`;
+    const key=year+'-'+String(month+1).padStart(2,'0')+'-'+String(dayNum).padStart(2,'0');
     const cell=document.createElement('div'); cell.className='cell day';
     if(col===5)cell.classList.add('sat');
     if(col===6)cell.classList.add('sun');
     if(key===todayKey)cell.classList.add('today');
     const hols=holidays[key];
-    if(hols){cell.classList.add('holiday');cell.setAttribute('data-h',[...hols].join(' · '));}
+    if(hols){cell.classList.add('holiday');cell.setAttribute('data-h',[...hols].join(' - '));}
     cell.textContent=dayNum;
     grid.appendChild(cell);
     col++;if(col===7)col=0;dayNum++;
@@ -433,31 +388,30 @@ function buildTile(year,month,holidays){
   return tile;
 }
 
-// Controls
 const COUNTRIES=[
-  {code:'DE',label:'🇩🇪 DE'},{code:'AT',label:'🇦🇹 AT'},
-  {code:'US',label:'🇺🇸 US'},{code:'GB',label:'🇬🇧 GB'},
-  {code:'FR',label:'🇫🇷 FR'},{code:'CN',label:'🇨🇳 CN'},
-  {code:'JP',label:'🇯🇵 JP'},
+  {code:'DE',label:'DE'},{code:'AT',label:'AT'},
+  {code:'US',label:'US'},{code:'GB',label:'GB'},
+  {code:'FR',label:'FR'},{code:'CN',label:'CN'},
+  {code:'JP',label:'JP'},
 ];
-COUNTRIES.forEach(({code,label})=>{
+COUNTRIES.forEach(function(c){
   const btn=document.createElement('button');
-  btn.className='flag-btn'+(state.countries.has(code)?' active':'');
-  btn.textContent=label;
-  btn.addEventListener('click',()=>{
-    state.countries.has(code)?state.countries.delete(code):state.countries.add(code);
+  btn.className='flag-btn'+(state.countries.has(c.code)?' active':'');
+  btn.textContent=c.label;
+  btn.addEventListener('click',function(){
+    state.countries.has(c.code)?state.countries.delete(c.code):state.countries.add(c.code);
     btn.classList.toggle('active'); render();
   });
   document.getElementById('countryBtns').appendChild(btn);
 });
 
-const sm=document.getElementById('startMonth'); sm.value=state.startMonth; sm.addEventListener('change',()=>{state.startMonth=parseInt(sm.value);render();scrollToToday();});
-const em=document.getElementById('endMonth'); em.value=state.endMonth; em.addEventListener('change',()=>{state.endMonth=parseInt(em.value);render();scrollToToday();});
-const sy=document.getElementById('startYear'); sy.value=state.startYear; sy.addEventListener('change',()=>{state.startYear=parseInt(sy.value);render();scrollToToday();});
-const ey=document.getElementById('endYear'); ey.value=state.endYear; ey.addEventListener('change',()=>{state.endYear=parseInt(ey.value);render();scrollToToday();});
-document.getElementById('tileWidth').addEventListener('input',e=>{
+const sm=document.getElementById('startMonth'); sm.value=state.startMonth; sm.addEventListener('change',function(){state.startMonth=parseInt(sm.value);render();});
+const em=document.getElementById('endMonth'); em.value=state.endMonth; em.addEventListener('change',function(){state.endMonth=parseInt(em.value);render();});
+const sy=document.getElementById('startYear'); sy.value=state.startYear; sy.addEventListener('change',function(){state.startYear=parseInt(sy.value);render();});
+const ey=document.getElementById('endYear'); ey.value=state.endYear; ey.addEventListener('change',function(){state.endYear=parseInt(ey.value);render();});
+document.getElementById('tileWidth').addEventListener('input',function(e){
   state.tileWidth=parseInt(e.target.value);
-  document.documentElement.style.setProperty('--tile-w',state.tileWidth+'px');
+  document.querySelectorAll('.month-tile').forEach(function(t){t.style.width=state.tileWidth+'px';});
 });
 
 render();
