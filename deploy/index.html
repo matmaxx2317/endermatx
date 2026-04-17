@@ -140,8 +140,17 @@
 
       setStatus('Pushing file...', 'loading');
 
+      // Fix iOS Smart Punctuation corruption: em-dash back to double hyphen
+      const clean = content
+        .replace(/\u2013/g, '--')
+        .replace(/\u2014/g, '--')
+        .replace(/\u2018/g, "'")
+        .replace(/\u2019/g, "'")
+        .replace(/\u201C/g, '"')
+        .replace(/\u201D/g, '"');
+
       // Encode content to base64
-      const encoded = btoa(unescape(encodeURIComponent(content)));
+      const encoded = btoa(unescape(encodeURIComponent(clean)));
 
       const body = {
         message: 'update ' + filepath,
