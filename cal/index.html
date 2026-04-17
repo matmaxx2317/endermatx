@@ -246,40 +246,21 @@ pointer-events: none;
 .month-tile.has-today .month-header { border-bottom-color: #ff6b35; }
 .month-tile.has-today .month-name { color: #ff6b35; }
 
-/* PROJECT BARS */
-.project-bars {
-margin-top: 6px;
-display: flex;
-flex-direction: column;
-gap: 3px;
-}
-
-.project-bar {
-height: 5px;
-border-radius: 3px;
-position: relative;
-display: flex;
-align-items: center;
-}
-
-/* bar segments: full, left-cap only, right-cap only, middle */
-.bar-full { border-radius: 3px; }
-.bar-start { border-radius: 3px 0 0 3px; }
-.bar-end { border-radius: 0 3px 3px 0; }
-.bar-mid { border-radius: 0; }
-
-.bar-label {
+/* PROJECT DAY HIGHLIGHTS */
+.day.proj-mid { border-radius: 0; }
+.day.proj-start { border-radius: 4px 0 0 4px; }
+.day.proj-end { border-radius: 0 4px 4px 0; }
+.day.proj-solo { border-radius: 4px; }
+.proj-name-label {
 position: absolute;
-left: 6px;
-font-size: 9px;
-font-weight: 600;
-color: rgba(255,255,255,0.9);
+top: -13px;
+left: 2px;
+font-size: 8px;
+font-weight: 700;
 white-space: nowrap;
-overflow: hidden;
 pointer-events: none;
-line-height: 1;
-top: 50%;
-transform: translateY(-50%);
+letter-spacing: 0.02em;
+z-index: 5;
 }
 
 .legend { display: flex; gap: 16px; margin-top: 20px; font-size: 11px; color: #777; }
@@ -488,23 +469,16 @@ function getProjectBarsForMonth(year, month) {
   var monthStart = new Date(year, month, 1);
   var monthEnd = new Date(year, month, daysInMonth);
   var bars = [];
-
   projects.forEach(function(p) {
     if(p.endDate < monthStart || p.startDate > monthEnd) return;
-
-    var clampedStart = p.startDate < monthStart ? monthStart : p.startDate;
-    var clampedEnd = p.endDate > monthEnd ? monthEnd : p.endDate;
-
-    var startsThisMonth = p.startDate >= monthStart;
-    var endsThisMonth = p.endDate <= monthEnd;
-
+    var startDay = p.startDate < monthStart ? 1 : p.startDate.getDate();
+    var endDay = p.endDate > monthEnd ? daysInMonth : p.endDate.getDate();
     bars.push({
       proj: p,
-      startDay: clampedStart.getDate(),
-      endDay: clampedEnd.getDate(),
-      startsHere: startsThisMonth,
-      endsHere: endsThisMonth,
-      daysInMonth: daysInMonth
+      startDay: startDay,
+      endDay: endDay,
+      startsHere: p.startDate >= monthStart,
+      endsHere: p.endDate <= monthEnd
     });
   });
   return bars;
@@ -681,64 +655,37 @@ function buildTile(year,month,holidays){
   if(col>0){for(var j=col;j<7;j+=1){var emp1=document.createElement('div');emp1.className='cell';grid.appendChild(emp1);}}
   tile.appendChild(grid);
 
-  // Project bars
+  // Color day cells for each project
   var bars = getProjectBarsForMonth(year, month);
   if(bars.length > 0) {
-    var barsEl = document.createElement('div');
-    barsEl.className = 'project-bars';
-
-    bars.forEach(function(bar) {
-      var totalCols = 7; // day columns only
-      var tileInnerWidth = state.tileWidth - 32; // approx padding
-      var dayColWidth = (tileInnerWidth - 24) / 7; // subtract week-num col
-
-      // Calculate pixel left/width based on day position in month grid
-      // We need to figure out what column day 1 starts in
-      var firstDayCol = (new Date(year, month, 1).getDay() + 6) % 7;
-
-      // Position of startDay and endDay in grid (0-indexed column 0-6)
-      // Day d occupies grid column: (firstDayCol + d - 1) % 7
-      // We want left offset and width as % of tile inner width
-
-      var startCol = (firstDayCol + bar.startDay - 1) % 7;
-      var endCol = (firstDayCol + bar.endDay - 1) % 7;
-
-      // For a continuous bar across the month, use day fractions
-      var startFrac = (bar.startDay - 1) / bar.daysInMonth;
-      var endFrac = bar.endDay / bar.daysInMonth;
-
-      var weekNumWidth = 24;
-      var usableWidth = state.tileWidth - 32 - weekNumWidth; // 32 = tile padding
-
-      var left = weekNumWidth + startFrac * usableWidth;
-      var width = (endFrac - startFrac) * usableWidth;
-
-      var barEl = document.createElement('div');
-      barEl.className = 'project-bar';
-      barEl.style.background = bar.proj.color;
-      barEl.style.marginLeft = left + 'px';
-      barEl.style.width = Math.max(width, 4) + 'px';
-      barEl.style.opacity = '0.85';
-
-      // Round caps
-      if(bar.startsHere && bar.endsHere) barEl.classList.add('bar-full');
-      else if(bar.startsHere) barEl.classList.add('bar-start');
-      else if(bar.endsHere) barEl.classList.add('bar-end');
-      else barEl.classList.add('bar-mid');
-
-      // Label on first month only
-      if(bar.startsHere && width > 40) {
-        var lbl = document.createElement('span');
-        lbl.className = 'bar-label';
-        lbl.textContent = bar.proj.name;
-        barEl.appendChild(lbl);
-      }
-
-      barEl.title = bar.proj.name + ': ' + fmtDate(bar.proj.startDate) + ' - ' + fmtDate(bar.proj.endDate);
-      barsEl.appendChild(barEl);
+    var dayCells = grid.querySelectorAll('.day');
+    bars.forEach(function(bar, barIdx) {
+      var col = bar.proj.color;
+      var alpha = '33'; // subtle background tint
+      dayCells.forEach(function(cell) {
+        var d = parseInt(cell.textContent);
+        if(d < bar.startDay || d > bar.endDay) return;
+        var isStart = (d === bar.startDay && bar.startsHere);
+        var isEnd = (d === bar.endDay && bar.endsHere);
+        // Stack multiple projects: use outline + background
+        cell.style.background = col + alpha;
+        cell.style.outline = '1px solid ' + col + '66';
+        cell.style.outlineOffset = '-1px';
+        if(isStart && isEnd) { cell.style.borderRadius = '4px'; }
+        else if(isStart) { cell.style.borderRadius = '4px 0 0 4px'; }
+        else if(isEnd) { cell.style.borderRadius = '0 4px 4px 0'; }
+        else { cell.style.borderRadius = '0'; }
+        // Project name label on the start day
+        if(isStart) {
+          var lbl = document.createElement('span');
+          lbl.className = 'proj-name-label';
+          lbl.style.color = col;
+          lbl.textContent = bar.proj.name;
+          cell.appendChild(lbl);
+        }
+        cell.title = bar.proj.name + ': ' + fmtDate(bar.proj.startDate) + ' - ' + fmtDate(bar.proj.endDate);
+      });
     });
-
-    tile.appendChild(barsEl);
   }
 
   return tile;
