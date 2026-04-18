@@ -545,7 +545,7 @@ function getHolidays(year, countries) {
     add(b.getMonth(),b.getDate(),name);
   }
   if(countries.has('DE')){
-    add(0,1,'Neujahr');add(0,5,'Heilige Drei Koenige');add(4,1,'Tag der Arbeit');
+    add(0,1,'Neujahr');add(0,6,'Heilige Drei Koenige');add(4,1,'Tag der Arbeit');
     add(7,15,'Mariae Himmelfahrt');add(9,3,'Tag der Deutschen Einheit');
     add(10,1,'Allerheiligen');add(11,25,'Weihnachten');add(11,26,'2. Weihnachtstag');
     eOff(-2,'Karfreitag');eOff(0,'Ostersonntag');eOff(1,'Ostermontag');
@@ -553,16 +553,16 @@ function getHolidays(year, countries) {
     eOff(60,'Fronleichnam');
   }
   if(countries.has('AT')){
-    add(0,1,'Neujahr');add(0,5,'Heilige Drei Koenige');add(4,1,'Tag der Arbeit');
-    add(7,15,'Mariä Himmelfahrt');add(9,25,'Nationalfeiertag');add(10,1,'Allerheiligen');
-    add(11,7,'Mariä Empfaengnis');add(11,25,'Weihnachten');add(11,26,'Stephanstag');
+    add(0,1,'Neujahr');add(0,6,'Heilige Drei Koenige');add(4,1,'Tag der Arbeit');
+    add(7,15,'Mariä Himmelfahrt');add(9,26,'Nationalfeiertag');add(10,1,'Allerheiligen');
+    add(11,8,'Mariä Empfaengnis');add(11,25,'Weihnachten');add(11,26,'Stephanstag');
     eOff(-2,'Karfreitag');eOff(0,'Ostersonntag');eOff(1,'Ostermontag');
     eOff(39,'Christi Himmelfahrt');eOff(49,'Pfingstsonntag');eOff(50,'Pfingstmontag');eOff(60,'Fronleichnam');
   }
   if(countries.has('US')){
     add(0,1,'Neujahr');add(0,nthWd(year,0,1,3),'MLK-Tag');
     add(1,nthWd(year,1,1,3),'Praesidemtentag');add(4,lastWd(year,4,1),'Gefallenengedenktag');
-    add(5,18,'Juneteenth');add(6,3,'Unabhaengigkeitstag');
+    add(5,19,'Juneteenth');add(6,4,'Unabhaengigkeitstag');
     add(8,nthWd(year,8,1,1),'Tag der Arbeit');add(10,nthWd(year,10,4,4),'Erntedankfest');
     add(11,25,'Weihnachten');
   }
@@ -573,9 +573,9 @@ function getHolidays(year, countries) {
     add(7,lastWd(year,7,1),'Sommerbank');
   }
   if(countries.has('FR')){
-    add(0,1,'Neujahr');add(4,1,'Tag der Arbeit');add(4,7,'Kriegsende 1945');
-    add(6,13,'Bastilletag');add(7,15,'Mariä Himmelfahrt');add(10,1,'Allerheiligen');
-    add(10,10,'Waffenstillstand');add(11,25,'Weihnachten');
+    add(0,1,'Neujahr');add(4,1,'Tag der Arbeit');add(4,8,'Kriegsende 1945');
+    add(6,14,'Bastilletag');add(7,15,'Mariä Himmelfahrt');add(10,1,'Allerheiligen');
+    add(10,11,'Waffenstillstand');add(11,25,'Weihnachten');
     eOff(1,'Ostermontag');eOff(39,'Christi Himmelfahrt');eOff(50,'Pfingstmontag');
   }
   if(countries.has('CN')){
@@ -586,7 +586,7 @@ function getHolidays(year, countries) {
       var cm=cny[year][0],cd=cny[year][1];
       for(var i=0;i<7;i+=1){var dt=new Date(year,cm-1,cd+i);add(dt.getMonth(),dt.getDate(),'Fruehlingsfest');}
     }
-    add(3,4,'Qingming-Fest');add(5,9,'Drachenbootfest');add(8,17,'Mondfest');
+    add(3,5,'Qingming-Fest');add(5,10,'Drachenbootfest');add(8,18,'Mondfest');
   }
   if(countries.has('JP')){
     add(0,1,'Neujahr');add(0,2,'Neujahr');add(0,3,'Neujahr');
@@ -596,7 +596,7 @@ function getHolidays(year, countries) {
     add(6,nthWd(year,6,1,3),'Meerestag');add(7,11,'Bergtag');
     add(8,nthWd(year,8,1,3),'Tag der Aelteren');add(8,23,'Herbstbeginn');
     add(9,nthWd(year,9,1,2),'Sporttag');
-    add(10,3,'Kulturtag');add(10,23,'Arbeitsdankfest');add(11,23,'Kaisers Geburtstag');
+    add(10,3,'Kulturtag');add(10,23,'Arbeitsdankfest');add(1,23,'Kaisers Geburtstag');
   }
   return map;
 }
