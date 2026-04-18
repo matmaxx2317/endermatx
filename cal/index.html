@@ -321,15 +321,31 @@ main { padding: 20px 16px 40px; }
       <input type="text" id="projName" class="form-input wide" placeholder="e.g. Supplier A delivery">
     </div>
     <div class="form-field">
-      <span class="form-label">Starts in</span>
-      <input type="number" id="projStartWeeks" class="form-input narrow" value="2" min="0" max="200">
-    </div>
-    <div class="form-field">
-      <span class="form-label">&nbsp;</span>
-      <select id="projStartUnit" class="form-select">
-        <option value="weeks">weeks</option>
-        <option value="months">months</option>
+      <span class="form-label">Starts</span>
+      <select id="projStartMode" class="form-select" style="width:110px">
+        <option value="offset">In...</option>
+        <option value="after">After...</option>
       </select>
+    </div>
+    <div id="offsetFields" style="display:flex;gap:10px;align-items:flex-end">
+      <div class="form-field">
+        <span class="form-label">&nbsp;</span>
+        <input type="number" id="projStartWeeks" class="form-input narrow" value="2" min="0" max="200">
+      </div>
+      <div class="form-field">
+        <span class="form-label">&nbsp;</span>
+        <select id="projStartUnit" class="form-select">
+          <option value="weeks">weeks</option>
+          <option value="months">months</option>
+        </select>
+      </div>
+    </div>
+    <div id="afterFields" style="display:none;align-items:flex-end">
+      <div class="form-field">
+        <span class="form-label">&nbsp;</span>
+        <select id="projAfterRef" class="form-select" style="width:160px">
+        </select>
+      </div>
     </div>
     <div class="form-field">
       <span class="form-label">Duration</span>
@@ -360,22 +376,56 @@ function nextColor() { var c=COLORS[colorIdx%COLORS.length]; colorIdx+=1; return
 
 var projects = [];
 
+function updateAfterRefDropdown() {
+  var sel = document.getElementById('projAfterRef');
+  sel.innerHTML = '';
+  if(projects.length === 0) {
+    var opt = document.createElement('option');
+    opt.textContent = '(no projects yet)';
+    sel.appendChild(opt);
+  } else {
+    projects.forEach(function(p) {
+      var opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = p.name + ' (ends ' + fmtDate(p.endDate) + ')';
+      sel.appendChild(opt);
+    });
+  }
+}
+
+document.getElementById('projStartMode').addEventListener('change', function() {
+  var mode = this.value;
+  document.getElementById('offsetFields').style.display = mode === 'offset' ? 'flex' : 'none';
+  document.getElementById('afterFields').style.display = mode === 'after' ? 'flex' : 'none';
+  if(mode === 'after') updateAfterRefDropdown();
+});
+
 function addProject() {
   var name = document.getElementById('projName').value.trim();
   if(!name) { document.getElementById('projName').focus(); return; }
-  var startVal = parseInt(document.getElementById('projStartWeeks').value) || 0;
-  var startUnit = document.getElementById('projStartUnit').value;
-  var durVal = parseInt(document.getElementById('projDur').value) || 1;
-  var durUnit = document.getElementById('projDurUnit').value;
 
+  var mode = document.getElementById('projStartMode').value;
   var startDate = new Date();
   startDate.setHours(0,0,0,0);
-  if(startUnit === 'weeks') {
-    startDate.setDate(startDate.getDate() + startVal * 7);
+
+  if(mode === 'offset') {
+    var startVal = parseInt(document.getElementById('projStartWeeks').value) || 0;
+    var startUnit = document.getElementById('projStartUnit').value;
+    if(startUnit === 'weeks') {
+      startDate.setDate(startDate.getDate() + startVal * 7);
+    } else {
+      startDate.setMonth(startDate.getMonth() + startVal);
+    }
   } else {
-    startDate.setMonth(startDate.getMonth() + startVal);
+    var refId = parseInt(document.getElementById('projAfterRef').value);
+    var refProj = projects.find(function(p){ return p.id === refId; });
+    if(!refProj) { alert('Select a project to start after'); return; }
+    startDate = new Date(refProj.endDate);
+    startDate.setDate(startDate.getDate() + 1);
   }
 
+  var durVal = parseInt(document.getElementById('projDur').value) || 1;
+  var durUnit = document.getElementById('projDurUnit').value;
   var endDate = new Date(startDate);
   if(durUnit === 'weeks') {
     endDate.setDate(endDate.getDate() + durVal * 7 - 1);
@@ -384,18 +434,9 @@ function addProject() {
     endDate.setDate(endDate.getDate() - 1);
   }
 
-  var proj = {
-    id: Date.now(),
-    name: name,
-    startDate: startDate,
-    endDate: endDate,
-    color: nextColor()
-  };
+  var proj = { id: Date.now(), name: name, startDate: startDate, endDate: endDate, color: nextColor() };
   projects.push(proj);
-
-  // Auto-expand calendar range if needed, +1 month buffer
   expandRangeForProject(proj);
-
   document.getElementById('projName').value = '';
   renderProjectList();
   render();
