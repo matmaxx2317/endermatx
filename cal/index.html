@@ -194,7 +194,7 @@ position: relative;
 
 .hdr { font-size: 10px; color: #777; font-weight: 500; }
 .hdr.wk-hdr { color: #555; font-size: 9px; }
-.week-num { font-size: 9px; color: #555; border-right: 1px solid #3d3d3d; margin-right: 2px; }
+.week-num { font-size: 9px; color: #aaa; border-right: 1px solid #3d3d3d; margin-right: 2px; }
 .day { cursor: default; }
 .day.sat, .day.sun { color: #777; }
 
@@ -226,8 +226,7 @@ background: #5bb8f5;
 .day.today.holiday { color: #fff; }
 .day.today.holiday::after { display: none; }
 
-.day[data-h]:hover::before {
-content: attr(data-h);
+.holiday-tooltip {
 position: absolute;
 bottom: 110%;
 left: 50%;
@@ -330,7 +329,7 @@ main { padding: 20px 16px 40px; }
     <div id="offsetFields" style="display:flex;gap:10px;align-items:flex-end">
       <div class="form-field">
         <span class="form-label">&nbsp;</span>
-        <input type="number" id="projStartWeeks" class="form-input narrow" value="2" min="0" max="200">
+        <input type="number" id="projStartWeeks" class="form-input narrow" value="0" min="0" max="200">
       </div>
       <div class="form-field">
         <span class="form-label">&nbsp;</span>
@@ -349,13 +348,13 @@ main { padding: 20px 16px 40px; }
     </div>
     <div class="form-field">
       <span class="form-label">Duration</span>
-      <input type="number" id="projDur" class="form-input narrow" value="6" min="1" max="200">
+      <input type="number" id="projDur" class="form-input narrow" value="4" min="1" max="200">
     </div>
     <div class="form-field">
       <span class="form-label">&nbsp;</span>
       <select id="projDurUnit" class="form-select">
-        <option value="weeks">weeks</option>
-        <option value="months" selected>months</option>
+        <option value="weeks" selected>weeks</option>
+        <option value="months">months</option>
       </select>
     </div>
     <div class="form-field">
@@ -546,56 +545,58 @@ function getHolidays(year, countries) {
     add(b.getMonth(),b.getDate(),name);
   }
   if(countries.has('DE')){
-    add(0,1,'New Year');add(4,0,'Labour Day');add(9,2,'German Unity Day');
-    add(11,25,'Christmas');add(11,26,'2nd Christmas');
-    eOff(-2,'Good Friday');eOff(0,'Easter');eOff(1,'Easter Monday');
-    eOff(39,'Ascension');eOff(49,'Whit Sunday');eOff(50,'Whit Monday');
+    add(0,1,'Neujahr');add(0,5,'Heilige Drei Koenige');add(4,1,'Tag der Arbeit');
+    add(7,15,'Mariae Himmelfahrt');add(9,3,'Tag der Deutschen Einheit');
+    add(10,1,'Allerheiligen');add(11,25,'Weihnachten');add(11,26,'2. Weihnachtstag');
+    eOff(-2,'Karfreitag');eOff(0,'Ostersonntag');eOff(1,'Ostermontag');
+    eOff(39,'Christi Himmelfahrt');eOff(49,'Pfingstsonntag');eOff(50,'Pfingstmontag');
+    eOff(60,'Fronleichnam');
   }
   if(countries.has('AT')){
-    add(0,1,'New Year');add(0,5,'Epiphany');add(4,0,'Labour Day');
-    add(7,14,'Assumption');add(9,25,'National Day');add(10,0,'All Saints');
-    add(11,7,'Immaculate Conception');add(11,25,'Christmas');add(11,26,'St Stephen');
-    eOff(-2,'Good Friday');eOff(0,'Easter');eOff(1,'Easter Monday');
-    eOff(39,'Ascension');eOff(49,'Whit Sunday');eOff(50,'Whit Monday');eOff(60,'Corpus Christi');
+    add(0,1,'Neujahr');add(0,5,'Heilige Drei Koenige');add(4,1,'Tag der Arbeit');
+    add(7,15,'Mariä Himmelfahrt');add(9,25,'Nationalfeiertag');add(10,1,'Allerheiligen');
+    add(11,7,'Mariä Empfaengnis');add(11,25,'Weihnachten');add(11,26,'Stephanstag');
+    eOff(-2,'Karfreitag');eOff(0,'Ostersonntag');eOff(1,'Ostermontag');
+    eOff(39,'Christi Himmelfahrt');eOff(49,'Pfingstsonntag');eOff(50,'Pfingstmontag');eOff(60,'Fronleichnam');
   }
   if(countries.has('US')){
-    add(0,1,'New Year');add(0,nthWd(year,0,1,3),'MLK Day');
-    add(1,nthWd(year,1,1,3),'Presidents Day');add(4,lastWd(year,4,1),'Memorial Day');
-    add(5,18,'Juneteenth');add(6,3,'Independence Day');
-    add(8,nthWd(year,8,1,1),'Labor Day');add(10,nthWd(year,10,4,4),'Thanksgiving');
-    add(11,25,'Christmas');
+    add(0,1,'Neujahr');add(0,nthWd(year,0,1,3),'MLK-Tag');
+    add(1,nthWd(year,1,1,3),'Praesidemtentag');add(4,lastWd(year,4,1),'Gefallenengedenktag');
+    add(5,18,'Juneteenth');add(6,3,'Unabhaengigkeitstag');
+    add(8,nthWd(year,8,1,1),'Tag der Arbeit');add(10,nthWd(year,10,4,4),'Erntedankfest');
+    add(11,25,'Weihnachten');
   }
   if(countries.has('GB')){
-    add(0,1,'New Year');add(11,25,'Christmas');add(11,26,'Boxing Day');
-    eOff(-2,'Good Friday');eOff(1,'Easter Monday');
-    add(4,nthWd(year,4,1,1),'Early May BH');add(4,lastWd(year,4,1),'Spring BH');
-    add(7,lastWd(year,7,1),'Summer BH');
+    add(0,1,'Neujahr');add(11,25,'Weihnachten');add(11,26,'2. Weihnachtstag');
+    eOff(-2,'Karfreitag');eOff(1,'Ostermontag');
+    add(4,nthWd(year,4,1,1),'Fruehjahrsfeiertag');add(4,lastWd(year,4,1),'Fruehlingsbank');
+    add(7,lastWd(year,7,1),'Sommerbank');
   }
   if(countries.has('FR')){
-    add(0,1,'New Year');add(4,0,'Labour Day');add(4,7,'Victory 1945');
-    add(6,13,'Bastille Day');add(7,14,'Assumption');add(10,0,'All Saints');
-    add(10,10,'Armistice');add(11,25,'Christmas');
-    eOff(1,'Easter Monday');eOff(39,'Ascension');eOff(50,'Whit Monday');
+    add(0,1,'Neujahr');add(4,1,'Tag der Arbeit');add(4,7,'Kriegsende 1945');
+    add(6,13,'Bastilletag');add(7,15,'Mariä Himmelfahrt');add(10,1,'Allerheiligen');
+    add(10,10,'Waffenstillstand');add(11,25,'Weihnachten');
+    eOff(1,'Ostermontag');eOff(39,'Christi Himmelfahrt');eOff(50,'Pfingstmontag');
   }
   if(countries.has('CN')){
-    add(0,1,'New Year');add(4,0,'Labour Day');
-    add(9,0,'National Day');add(9,1,'National Day');add(9,2,'National Day');
+    add(0,1,'Neujahr');add(4,1,'Tag der Arbeit');
+    add(9,1,'Nationalfeiertag');add(9,2,'Nationalfeiertag');add(9,3,'Nationalfeiertag');
     var cny={2024:[1,10],2025:[1,29],2026:[2,17],2027:[2,6],2028:[1,26]};
     if(cny[year]){
       var cm=cny[year][0],cd=cny[year][1];
-      for(var i=0;i<7;i+=1){var dt=new Date(year,cm-1,cd+i);add(dt.getMonth(),dt.getDate(),'Spring Festival');}
+      for(var i=0;i<7;i+=1){var dt=new Date(year,cm-1,cd+i);add(dt.getMonth(),dt.getDate(),'Fruehlingsfest');}
     }
-    add(3,4,'Qingming');add(5,9,'Dragon Boat');add(8,17,'Mid-Autumn');
+    add(3,4,'Qingming-Fest');add(5,9,'Drachenbootfest');add(8,17,'Mondfest');
   }
   if(countries.has('JP')){
-    add(0,1,'New Year');add(0,2,'New Year');add(0,3,'New Year');
-    add(0,nthWd(year,0,1,2),'Coming of Age');
-    add(1,11,'Foundation Day');add(2,20,'Vernal Equinox');add(3,29,'Showa Day');
-    add(4,3,'Constitution Day');add(4,4,'Greenery Day');add(4,5,'Childrens Day');
-    add(6,nthWd(year,6,1,3),'Marine Day');add(7,11,'Mountain Day');
-    add(8,nthWd(year,8,1,3),'Respect for Aged');add(8,23,'Autumnal Equinox');
-    add(9,nthWd(year,9,1,2),'Sports Day');
-    add(10,3,'Culture Day');add(10,23,'Labour Thanksgiving');add(11,23,'Emperors Birthday');
+    add(0,1,'Neujahr');add(0,2,'Neujahr');add(0,3,'Neujahr');
+    add(0,nthWd(year,0,1,2),'Volljaerigkeitstag');
+    add(1,11,'Gruendungstag');add(2,20,'Fruehlingsbeginn');add(3,29,'Showa-Tag');
+    add(4,3,'Verfassungstag');add(4,4,'Tag des Gruens');add(4,5,'Kindertag');
+    add(6,nthWd(year,6,1,3),'Meerestag');add(7,11,'Bergtag');
+    add(8,nthWd(year,8,1,3),'Tag der Aelteren');add(8,23,'Herbstbeginn');
+    add(9,nthWd(year,9,1,2),'Sporttag');
+    add(10,3,'Kulturtag');add(10,23,'Arbeitsdankfest');add(11,23,'Kaisers Geburtstag');
   }
   return map;
 }
@@ -761,6 +762,20 @@ document.getElementById('tileWidth').addEventListener('input',function(e){
 });
 document.getElementById('addProjBtn').addEventListener('click', addProject);
 document.getElementById('projName').addEventListener('keydown', function(e){ if(e.key==='Enter') addProject(); });
+
+var activeTooltip = null;
+document.addEventListener('click', function(e) {
+  var cell = e.target.closest ? e.target.closest('.day[data-h]') : null;
+  if(activeTooltip) { activeTooltip.remove(); activeTooltip = null; }
+  if(cell) {
+    var tip = document.createElement('div');
+    tip.className = 'holiday-tooltip';
+    tip.textContent = cell.getAttribute('data-h');
+    cell.appendChild(tip);
+    activeTooltip = tip;
+    e.stopPropagation();
+  }
+});
 
 render();
 </script>
