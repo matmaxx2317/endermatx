@@ -4,181 +4,538 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Deploy</title>
+<title>endermatx deploy</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    background: #111;
-    color: #e0e0e0;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    font-size: 14px;
-    padding: 24px 20px;
-    max-width: 540px;
-    margin: 0 auto;
-  }
-  h1 { font-size: 13px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #555; margin-bottom: 28px; }
-  label { display: block; font-size: 11px; color: #555; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
-  input, textarea {
-    width: 100%;
-    background: #1a1a1a;
-    border: 1px solid #2c2c2c;
-    color: #e0e0e0;
-    font-family: inherit;
-    font-size: 13px;
-    padding: 10px 12px;
-    border-radius: 6px;
-    outline: none;
-    margin-bottom: 18px;
-  }
-  input:focus, textarea:focus { border-color: #444; }
-  textarea { height: 180px; resize: vertical; font-family: 'SF Mono', monospace; font-size: 11px; }
-  button {
-    width: 100%;
-    background: #4f8ef7;
-    color: #fff;
-    border: none;
-    padding: 12px;
-    border-radius: 6px;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-  }
-  button:disabled { background: #2a2a2a; color: #555; cursor: default; }
-  #status {
-    margin-top: 16px;
-    font-size: 12px;
-    padding: 10px 12px;
-    border-radius: 6px;
-    display: none;
-  }
-  #status.ok { background: #1a2a1a; color: #6dbf6d; display: block; }
-  #status.err { background: #2a1a1a; color: #e05a4a; display: block; }
-  #status.loading { background: #1a1a2a; color: #4f8ef7; display: block; }
-  .note { font-size: 11px; color: #444; margin-top: -12px; margin-bottom: 18px; }
-  .saved-badge { font-size: 10px; color: #4f8ef7; margin-left: 8px; }
+
+body {
+background: #0a0a0a;
+color: #e0e0e0;
+font-family: 'Courier New', monospace;
+min-height: 100vh;
+padding: 24px 16px;
+}
+
+header {
+display: flex;
+align-items: baseline;
+gap: 12px;
+margin-bottom: 28px;
+border-bottom: 1px solid #222;
+padding-bottom: 16px;
+}
+
+header h1 {
+font-size: 13px;
+font-weight: 700;
+letter-spacing: 0.15em;
+text-transform: uppercase;
+color: #fff;
+}
+
+header span {
+font-size: 11px;
+color: #555;
+letter-spacing: 0.1em;
+}
+
+.config-row {
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 10px;
+margin-bottom: 20px;
+}
+
+.field label {
+display: block;
+font-size: 10px;
+letter-spacing: 0.12em;
+text-transform: uppercase;
+color: #555;
+margin-bottom: 5px;
+}
+
+.field input {
+width: 100%;
+background: #111;
+border: 1px solid #2a2a2a;
+color: #e0e0e0;
+font-family: 'Courier New', monospace;
+font-size: 12px;
+padding: 8px 10px;
+outline: none;
+transition: border-color 0.15s;
+}
+
+.field input:focus { border-color: #444; }
+
+.field input.full { grid-column: 1 / -1; }
+
+.commit-row {
+margin-bottom: 20px;
+}
+
+.commit-row input {
+width: 100%;
+background: #111;
+border: 1px solid #2a2a2a;
+color: #e0e0e0;
+font-family: 'Courier New', monospace;
+font-size: 12px;
+padding: 8px 10px;
+outline: none;
+transition: border-color 0.15s;
+}
+
+.commit-row input:focus { border-color: #444; }
+
+.files-header {
+display: flex;
+align-items: center;
+justify-content: space-between;
+margin-bottom: 12px;
+}
+
+.files-label {
+font-size: 10px;
+letter-spacing: 0.12em;
+text-transform: uppercase;
+color: #555;
+}
+
+.btn-add {
+background: none;
+border: 1px solid #2a2a2a;
+color: #888;
+font-family: 'Courier New', monospace;
+font-size: 11px;
+padding: 4px 10px;
+cursor: pointer;
+letter-spacing: 0.08em;
+transition: border-color 0.15s, color 0.15s;
+}
+
+.btn-add:hover { border-color: #555; color: #ccc; }
+
+.file-card {
+background: #0e0e0e;
+border: 1px solid #1e1e1e;
+margin-bottom: 10px;
+transition: border-color 0.15s;
+}
+
+.file-card:focus-within { border-color: #333; }
+
+.file-card-header {
+display: flex;
+align-items: center;
+gap: 8px;
+padding: 8px 10px;
+border-bottom: 1px solid #1a1a1a;
+background: #111;
+}
+
+.file-card-header input {
+flex: 1;
+background: none;
+border: none;
+color: #ccc;
+font-family: 'Courier New', monospace;
+font-size: 12px;
+outline: none;
+}
+
+.file-card-header input::placeholder { color: #333; }
+
+.btn-remove {
+background: none;
+border: none;
+color: #333;
+font-size: 16px;
+cursor: pointer;
+line-height: 1;
+padding: 0 2px;
+transition: color 0.15s;
+}
+
+.btn-remove:hover { color: #888; }
+
+.file-card textarea {
+width: 100%;
+background: #0a0a0a;
+border: none;
+color: #ccc;
+font-family: 'Courier New', monospace;
+font-size: 11px;
+line-height: 1.5;
+padding: 10px;
+resize: vertical;
+min-height: 120px;
+outline: none;
+display: block;
+}
+
+.file-card textarea::placeholder { color: #222; }
+
+.file-footer {
+padding: 5px 10px;
+background: #0e0e0e;
+border-top: 1px solid #1a1a1a;
+font-size: 10px;
+color: #333;
+display: flex;
+justify-content: space-between;
+}
+
+.file-footer .warn { color: #8a5a00; }
+
+.actions {
+margin-top: 20px;
+display: flex;
+gap: 10px;
+align-items: center;
+}
+
+.btn-push {
+background: #e0e0e0;
+border: none;
+color: #0a0a0a;
+font-family: 'Courier New', monospace;
+font-size: 12px;
+font-weight: 700;
+letter-spacing: 0.12em;
+text-transform: uppercase;
+padding: 12px 28px;
+cursor: pointer;
+transition: background 0.15s;
+}
+
+.btn-push:hover { background: #fff; }
+.btn-push:disabled { background: #2a2a2a; color: #555; cursor: not-allowed; }
+
+.status {
+font-size: 11px;
+color: #555;
+flex: 1;
+}
+
+.status.ok { color: #4a8a4a; }
+.status.err { color: #8a4a4a; }
+.status.busy { color: #8a7a4a; }
+
+.log {
+margin-top: 20px;
+background: #0e0e0e;
+border: 1px solid #1e1e1e;
+padding: 12px;
+font-size: 11px;
+line-height: 1.7;
+max-height: 200px;
+overflow-y: auto;
+display: none;
+}
+
+.log.visible { display: block; }
+
+.log-line { color: #555; }
+.log-line.ok { color: #4a8a4a; }
+.log-line.err { color: #8a4a4a; }
+.log-line.info { color: #8a7a4a; }
+
+.pat-row {
+display: flex;
+gap: 8px;
+align-items: center;
+margin-bottom: 4px;
+}
+
+.pat-row input {
+flex: 1;
+background: #111;
+border: 1px solid #2a2a2a;
+color: #e0e0e0;
+font-family: 'Courier New', monospace;
+font-size: 12px;
+padding: 8px 10px;
+outline: none;
+transition: border-color 0.15s;
+}
+
+.pat-row input:focus { border-color: #444; }
+
+.btn-save-pat {
+background: none;
+border: 1px solid #2a2a2a;
+color: #888;
+font-family: 'Courier New', monospace;
+font-size: 10px;
+padding: 8px 10px;
+cursor: pointer;
+letter-spacing: 0.08em;
+white-space: nowrap;
+transition: border-color 0.15s, color 0.15s;
+}
+
+.btn-save-pat:hover { border-color: #555; color: #ccc; }
+
+.hint {
+font-size: 10px;
+color: #333;
+margin-bottom: 20px;
+}
+
+.section-divider {
+border: none;
+border-top: 1px solid #1a1a1a;
+margin: 20px 0;
+}
 </style>
+
 </head>
 <body>
 
-<h1>Deploy Tool</h1>
+<header>
+  <h1>endermatx</h1>
+  <span>deploy</span>
+</header>
 
-<label>GitHub Token <span class="saved-badge" id="tokenBadge"></span></label>
-<input type="password" id="token" placeholder="ghp_..." autocomplete="off" spellcheck="false">
+<div class="config-row">
+  <div class="field">
+    <label>Owner</label>
+    <input type="text" id="owner" value="matmaxx2317" />
+  </div>
+  <div class="field">
+    <label>Repo</label>
+    <input type="text" id="repo" value="endermatx" />
+  </div>
+</div>
 
-<label>Repo</label>
-<input type="text" id="repo" value="matmaxx2317/endermatx" spellcheck="false">
+<div class="field" style="margin-bottom:8px;">
+  <label>GitHub Token (PAT)</label>
+  <div class="pat-row">
+    <input type="password" id="pat" placeholder="ghp_..." autocomplete="off" />
+    <button class="btn-save-pat" onclick="savePat()">Save on device</button>
+    <button class="btn-save-pat" onclick="clearPat()">Clear</button>
+  </div>
+</div>
+<div class="hint">Token stored in localStorage -- never leaves your device.</div>
 
-<label>File path in repo</label>
-<input type="text" id="filepath" value="cal/index.html" spellcheck="false">
+<div class="field commit-row">
+  <label>Commit message</label>
+  <input type="text" id="commit-msg" value="deploy: update files" />
+</div>
 
-<label>File content</label>
+<hr class="section-divider">
 
-<p class="note">Paste the full file content from Claude here</p>
-<textarea id="content" placeholder="Paste file content here..." spellcheck="false" autocorrect="off" autocapitalize="off"></textarea>
+<div class="files-header">
+  <span class="files-label">Files</span>
+  <button class="btn-add" onclick="addFile()">+ Add file</button>
+</div>
 
-<button id="deployBtn" onclick="deploy()">Push to GitHub</button>
+<div id="files-container"></div>
 
-<div id="status"></div>
+<div class="actions">
+  <button class="btn-push" id="btn-push" onclick="pushAll()">Push</button>
+  <span class="status" id="status">ready</span>
+</div>
+
+<div class="log" id="log"></div>
 
 <script>
-  // Load saved values
-  const saved = JSON.parse(localStorage.getItem('deployConfig') || '{}');
-  if (saved.token) { document.getElementById('token').value = saved.token; document.getElementById('tokenBadge').textContent = '(saved)'; }
-  if (saved.repo) document.getElementById('repo').value = saved.repo;
-  if (saved.filepath) document.getElementById('filepath').value = saved.filepath;
+  const STORAGE_PAT = 'endermatx_pat';
+  let fileCount = 0;
 
-  // Save token/repo/path on change
-  ['token','repo','filepath'].forEach(id => {
-    document.getElementById(id).addEventListener('change', saveConfig);
-  });
-
-  function saveConfig() {
-    const config = {
-      token: document.getElementById('token').value,
-      repo: document.getElementById('repo').value,
-      filepath: document.getElementById('filepath').value,
-    };
-    localStorage.setItem('deployConfig', JSON.stringify(config));
-    document.getElementById('tokenBadge').textContent = '(saved)';
+  function init() {
+    const saved = localStorage.getItem(STORAGE_PAT);
+    if (saved) document.getElementById('pat').value = saved;
+    addFile();
   }
 
-  function setStatus(msg, type) {
-    const el = document.getElementById('status');
-    el.textContent = msg;
-    el.className = type;
+  function savePat() {
+    const v = document.getElementById('pat').value.trim();
+    if (!v) return;
+    localStorage.setItem(STORAGE_PAT, v);
+    setStatus('Token saved to device.', 'ok');
   }
 
-  async function deploy() {
-    const token = document.getElementById('token').value.trim();
-    const repo = document.getElementById('repo').value.trim();
-    const filepath = document.getElementById('filepath').value.trim();
-    const content = document.getElementById('content').value;
-
-    if (!token) { setStatus('Enter your GitHub token', 'err'); return; }
-    if (!content) { setStatus('Paste file content first', 'err'); return; }
-
-    document.getElementById('deployBtn').disabled = true;
-    setStatus('Getting current file SHA...', 'loading');
-
-    const headers = {
-      'Authorization': 'token ' + token,
-      'Content-Type': 'application/json',
-    };
-
-    const apiBase = 'https://api.github.com/repos/' + repo + '/contents/' + filepath;
-
-    try {
-      // Get current SHA
-      let sha = null;
-      const getRes = await fetch(apiBase, { headers });
-      if (getRes.ok) {
-        const data = await getRes.json();
-        sha = data.sha;
-      } else if (getRes.status !== 404) {
-        throw new Error('Failed to fetch file: ' + getRes.status);
-      }
-
-      setStatus('Pushing file...', 'loading');
-
-      // Fix iOS Smart Punctuation corruption: em-dash back to double hyphen
-      const clean = content
-        .replace(/\u2013/g, '--')
-        .replace(/\u2014/g, '--')
-        .replace(/\u2018/g, "'")
-        .replace(/\u2019/g, "'")
-        .replace(/\u201C/g, '"')
-        .replace(/\u201D/g, '"');
-
-      // Encode content to base64
-      const encoded = btoa(unescape(encodeURIComponent(clean)));
-
-      const body = {
-        message: 'update ' + filepath,
-        content: encoded,
-      };
-      if (sha) body.sha = sha;
-
-      const putRes = await fetch(apiBase, {
-        method: 'PUT',
-        headers,
-        body: JSON.stringify(body),
-      });
-
-      if (!putRes.ok) {
-        const err = await putRes.json();
-        throw new Error(err.message || putRes.status);
-      }
-
-      saveConfig();
-      setStatus('✓ Pushed! Site updates in ~30 seconds.', 'ok');
-      document.getElementById('content').value = '';
-
-    } catch (e) {
-      setStatus('Error: ' + e.message, 'err');
-    }
-
-    document.getElementById('deployBtn').disabled = false;
+  function clearPat() {
+    localStorage.removeItem(STORAGE_PAT);
+    document.getElementById('pat').value = '';
+    setStatus('Token cleared.', '');
   }
+
+  function addFile() {
+    fileCount++;
+    const id = fileCount;
+    const container = document.getElementById('files-container');
+    const card = document.createElement('div');
+    card.className = 'file-card';
+    card.id = 'file-card-' + id;
+    card.innerHTML =
+      '<div class="file-card-header">' +
+        '<input type="text" placeholder="path/to/file.html" id="path-' + id + '" oninput="checkDashes(' + id + ')" />' +
+        '<button class="btn-remove" onclick="removeFile(' + id + ')">x</button>' +
+      '</div>' +
+      '<textarea id="content-' + id + '" placeholder="Paste file content here..." oninput="checkDashes(' + id + ')"></textarea>' +
+
+```
+  '<div class="file-footer">' +
+    '<span id="chars-' + id + '">0 chars</span>' +
+    '<span id="warn-' + id + '"></span>' +
+  '</div>';
+container.appendChild(card);
+
+document.getElementById('content-' + id).addEventListener('input', function() {
+  const len = this.value.length;
+  document.getElementById('chars-' + id).textContent = len.toLocaleString() + ' chars';
+  checkDashes(id);
+});
+```
+
+}
+
+function removeFile(id) {
+const card = document.getElementById('file-card-' + id);
+if (card) card.remove();
+}
+
+function checkDashes(id) {
+const content = document.getElementById('content-' + id).value;
+const path = document.getElementById('path-' + id).value;
+const combined = content + path;
+const hits = (combined.match(/--/g) || []).length;
+const warn = document.getElementById('warn-' + id);
+if (hits > 0) {
+warn.textContent = hits + ' CSS var hit' + (hits > 1 ? 's' : '') + ' detected';
+warn.className = 'warn';
+} else {
+warn.textContent = '';
+warn.className = '';
+}
+}
+
+function log(msg, type) {
+const el = document.getElementById('log');
+el.classList.add('visible');
+const line = document.createElement('div');
+line.className = 'log-line' + (type ? ' ' + type : '');
+line.textContent = '> ' + msg;
+el.appendChild(line);
+el.scrollTop = el.scrollHeight;
+}
+
+function clearLog() {
+const el = document.getElementById('log');
+el.innerHTML = '';
+el.classList.remove('visible');
+}
+
+function setStatus(msg, type) {
+const el = document.getElementById('status');
+el.textContent = msg;
+el.className = 'status' + (type ? ' ' + type : '');
+}
+
+function getFiles() {
+const cards = document.querySelectorAll('.file-card');
+const files = [];
+cards.forEach(card => {
+const id = card.id.replace('file-card-', '');
+const path = document.getElementById('path-' + id).value.trim();
+const content = document.getElementById('content-' + id).value;
+if (path && content) files.push({ path, content });
+});
+return files;
+}
+
+async function getSHA(owner, repo, path, token) {
+const url = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + path;
+const r = await fetch(url, {
+headers: { Authorization: 'token ' + token, Accept: 'application/vnd.github.v3+json' }
+});
+if (r.status === 404) return null;
+if (!r.ok) throw new Error('SHA fetch failed for ' + path + ': ' + r.status);
+const data = await r.json();
+return data.sha;
+}
+
+async function pushFile(owner, repo, path, content, message, token) {
+log('Fetching SHA for ' + path + '…', 'info');
+const sha = await getSHA(owner, repo, path, token);
+const body = {
+message,
+content: btoa(unescape(encodeURIComponent(content)))
+};
+if (sha) body.sha = sha;
+const url = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + path;
+const r = await fetch(url, {
+method: 'PUT',
+headers: {
+Authorization: 'token ' + token,
+Accept: 'application/vnd.github.v3+json',
+'Content-Type': 'application/json'
+},
+body: JSON.stringify(body)
+});
+if (!r.ok) {
+const err = await r.json();
+throw new Error(path + ': ' + (err.message || r.status));
+}
+log(path + ' pushed OK', 'ok');
+}
+
+async function pushAll() {
+clearLog();
+const owner = document.getElementById('owner').value.trim();
+const repo = document.getElementById('repo').value.trim();
+const token = document.getElementById('pat').value.trim();
+const message = document.getElementById('commit-msg').value.trim() || 'deploy: update files';
+
+```
+if (!token) { setStatus('No PAT entered.', 'err'); return; }
+
+const files = getFiles();
+if (files.length === 0) { setStatus('No files to push.', 'err'); return; }
+
+// Check for CSS var hits
+let hitFiles = [];
+files.forEach(f => {
+  const hits = (f.content.match(/--/g) || []).length;
+  if (hits > 0) hitFiles.push(f.path + ' (' + hits + ' hit' + (hits > 1 ? 's' : '') + ')');
+});
+if (hitFiles.length > 0) {
+  const go = confirm('CSS custom property hits detected:\n\n' + hitFiles.join('\n') + '\n\nPush anyway?');
+  if (!go) { setStatus('Cancelled.', ''); return; }
+}
+
+const btn = document.getElementById('btn-push');
+btn.disabled = true;
+setStatus('Pushing ' + files.length + ' file' + (files.length > 1 ? 's' : '') + '...', 'busy');
+log('Starting push of ' + files.length + ' file(s)...', 'info');
+
+let errors = 0;
+for (const f of files) {
+  try {
+    await pushFile(owner, repo, f.path, f.content, message, token);
+  } catch (e) {
+    log('ERROR: ' + e.message, 'err');
+    errors++;
+  }
+}
+
+btn.disabled = false;
+
+if (errors === 0) {
+  setStatus('All ' + files.length + ' file(s) pushed. Live in ~30s.', 'ok');
+  log('Done. GitHub Pages rebuilding...', 'ok');
+} else {
+  setStatus(errors + ' error(s). Check log.', 'err');
+}
+```
+
+}
+
+init();
 </script>
 
 </body>
