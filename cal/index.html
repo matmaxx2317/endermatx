@@ -6,24 +6,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Calendar</title>
 <style>
-  :root {
-    --bg: #2a2a2a;
-    --surface: #333;
-    --border: #3d3d3d;
-    --text: #c8c8c8;
-    --muted: #777;
-    --accent: #ff6b35;
-    --holiday: #5bb8f5;
-    --tile-w: 360px;
-    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-  }
-
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-background: var(–bg);
-color: var(–text);
-font-family: var(–font);
+background: #2a2a2a;
+color: #c8c8c8;
+font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
 font-size: 13px;
 min-height: 100vh;
 }
@@ -34,59 +22,148 @@ align-items: center;
 gap: 20px;
 flex-wrap: wrap;
 padding: 14px 24px;
-border-bottom: 1px solid var(–border);
+border-bottom: 1px solid #3d3d3d;
 position: sticky;
 top: 0;
-background: var(–bg);
+background: #2a2a2a;
 z-index: 10;
 }
 
-.logo { font-size: 12px; font-weight: 600; color: var(–muted); letter-spacing: 0.12em; text-transform: uppercase; }
-
-.ctrl-group { display: flex; align-items: center; gap: 6px; color: var(–muted); font-size: 12px; }
+.logo { font-size: 12px; font-weight: 600; color: #777; letter-spacing: 0.12em; text-transform: uppercase; }
+.ctrl-group { display: flex; align-items: center; gap: 6px; color: #777; font-size: 12px; }
 
 select, input[type=number] {
-background: var(–surface);
-border: 1px solid var(–border);
-color: var(–text);
-font-family: var(–font);
+background: #333;
+border: 1px solid #3d3d3d;
+color: #c8c8c8;
+font-family: inherit;
 font-size: 12px;
 padding: 4px 6px;
 border-radius: 4px;
 outline: none;
 }
-
 input[type=number] { width: 60px; }
-input[type=range] { width: 72px; accent-color: var(–accent); cursor: pointer; }
+input[type=range] { width: 72px; accent-color: #ff6b35; cursor: pointer; }
 
 .flag-btn {
 background: none;
-border: 1px solid var(–border);
-color: var(–muted);
+border: 1px solid #3d3d3d;
+color: #777;
 font-size: 11px;
 padding: 3px 8px;
 border-radius: 4px;
 cursor: pointer;
-font-family: var(–font);
+font-family: inherit;
 }
-.flag-btn.active { color: var(–text); border-color: #666; }
+.flag-btn.active { color: #c8c8c8; border-color: #666; }
 .country-flags { display: flex; gap: 4px; flex-wrap: wrap; }
 
-main { padding: 28px 24px 60px; }
+/* PROJECT PANEL */
+.project-panel {
+background: #242424;
+border-bottom: 1px solid #3d3d3d;
+padding: 16px 24px;
+}
 
-.year-section { margin-bottom: 36px; }
-
-.year-label {
+.panel-title {
 font-size: 11px;
 font-weight: 600;
 letter-spacing: 0.1em;
 text-transform: uppercase;
-color: var(–muted);
+color: #666;
+margin-bottom: 12px;
+}
+
+.project-form {
+display: flex;
+align-items: flex-end;
+gap: 10px;
+flex-wrap: wrap;
 margin-bottom: 14px;
 }
 
+.form-field { display: flex; flex-direction: column; gap: 4px; }
+.form-label { font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 0.06em; }
+
+.form-input {
+background: #333;
+border: 1px solid #3d3d3d;
+color: #c8c8c8;
+font-family: inherit;
+font-size: 12px;
+padding: 6px 8px;
+border-radius: 4px;
+outline: none;
+height: 30px;
+}
+.form-input:focus { border-color: #555; }
+.form-input.wide { width: 160px; }
+.form-input.narrow { width: 70px; }
+
+.form-select {
+background: #333;
+border: 1px solid #3d3d3d;
+color: #c8c8c8;
+font-family: inherit;
+font-size: 12px;
+padding: 6px 8px;
+border-radius: 4px;
+outline: none;
+height: 30px;
+cursor: pointer;
+}
+
+.add-btn {
+background: #ff6b35;
+border: none;
+color: #fff;
+font-family: inherit;
+font-size: 12px;
+font-weight: 600;
+padding: 0 16px;
+border-radius: 4px;
+cursor: pointer;
+height: 30px;
+white-space: nowrap;
+}
+.add-btn:hover { background: #ff8255; }
+
+/* PROJECT LIST */
+.project-list { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.project-tag {
+display: flex;
+align-items: center;
+gap: 6px;
+padding: 4px 10px;
+border-radius: 20px;
+font-size: 11px;
+font-weight: 500;
+cursor: default;
+}
+
+.project-tag-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+.project-tag-dates { font-size: 10px; opacity: 0.7; }
+
+.project-remove {
+background: none;
+border: none;
+color: inherit;
+cursor: pointer;
+font-size: 13px;
+opacity: 0.5;
+padding: 0;
+line-height: 1;
+}
+.project-remove:hover { opacity: 1; }
+
+/* MAIN */
+main { padding: 28px 24px 60px; }
+.year-section { margin-bottom: 36px; }
+.year-label { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #777; margin-bottom: 14px; }
 .months-row { display: flex; flex-wrap: wrap; gap: 12px; }
-.month-tile { width: var(–tile-w); flex-shrink: 0; }
+.month-tile { flex-shrink: 0; }
 
 .month-header {
 display: flex;
@@ -94,13 +171,11 @@ justify-content: space-between;
 align-items: center;
 margin-bottom: 8px;
 padding-bottom: 6px;
-border-bottom: 1px solid var(–border);
+border-bottom: 1px solid #3d3d3d;
 }
+.month-name { font-size: 12px; font-weight: 600; color: #c8c8c8; }
+.month-num { font-size: 11px; color: #777; }
 
-.month-name { font-size: 12px; font-weight: 600; color: var(–text); }
-.month-num { font-size: 11px; color: var(–muted); }
-
-/* 9 cols: week# + 7 days */
 .day-grid {
 display: grid;
 grid-template-columns: 24px repeat(7, 1fr);
@@ -117,59 +192,48 @@ border-radius: 3px;
 position: relative;
 }
 
-.hdr { font-size: 10px; color: var(–muted); font-weight: 500; }
+.hdr { font-size: 10px; color: #777; font-weight: 500; }
 .hdr.wk-hdr { color: #555; font-size: 9px; }
-
-.week-num {
-font-size: 9px;
-color: #555;
-border-right: 1px solid var(–border);
-margin-right: 2px;
-}
-
+.week-num { font-size: 9px; color: #aaa; border-right: 1px solid #3d3d3d; margin-right: 2px; }
 .day { cursor: default; }
-.day.sat, .day.sun { color: var(–muted); }
+.day.sat, .day.sun { color: #777; }
 
-/* TODAY: bold orange circle with a pulsing ring */
 .day.today {
-background: var(–accent);
+background: #ff6b35;
 color: #fff;
 font-weight: 700;
 border-radius: 50%;
 box-shadow: 0 0 0 3px rgba(255,107,53,0.25), 0 0 12px rgba(255,107,53,0.4);
-animation: pulse 2s ease-in-out infinite;
-z-index: 1;
+animation: todaypulse 2s ease-in-out infinite;
+z-index: 2;
 }
-
-@keyframes pulse {
+@keyframes todaypulse {
 0%, 100% { box-shadow: 0 0 0 3px rgba(255,107,53,0.25), 0 0 12px rgba(255,107,53,0.35); }
 50%       { box-shadow: 0 0 0 6px rgba(255,107,53,0.15), 0 0 20px rgba(255,107,53,0.5); }
 }
 
-.day.holiday { color: var(–holiday); }
+.day.holiday { color: #5bb8f5; }
 .day.holiday::after {
-content: ‘’;
+content: '';
 position: absolute;
 bottom: 1px;
 left: 50%;
 transform: translateX(-50%);
 width: 2px; height: 2px;
 border-radius: 50%;
-background: var(–holiday);
+background: #5bb8f5;
 }
-
 .day.today.holiday { color: #fff; }
 .day.today.holiday::after { display: none; }
 
-.day[data-h]:hover::before {
-content: attr(data-h);
+.holiday-tooltip {
 position: absolute;
 bottom: 110%;
 left: 50%;
 transform: translateX(-50%);
 background: #222;
-border: 1px solid var(–border);
-color: var(–text);
+border: 1px solid #3d3d3d;
+color: #c8c8c8;
 font-size: 10px;
 padding: 3px 8px;
 border-radius: 4px;
@@ -178,20 +242,33 @@ z-index: 100;
 pointer-events: none;
 }
 
-/* highlight the tile containing today */
-.month-tile.has-today .month-header {
-border-bottom-color: var(–accent);
-}
-.month-tile.has-today .month-name {
-color: var(–accent);
+.month-tile.has-today .month-header { border-bottom-color: #ff6b35; }
+.month-tile.has-today .month-name { color: #ff6b35; }
+
+/* PROJECT DAY HIGHLIGHTS */
+.day.proj-mid { border-radius: 0; }
+.day.proj-start { border-radius: 4px 0 0 4px; }
+.day.proj-end { border-radius: 0 4px 4px 0; }
+.day.proj-solo { border-radius: 4px; }
+.proj-name-label {
+position: absolute;
+top: -13px;
+left: 2px;
+font-size: 8px;
+font-weight: 700;
+white-space: nowrap;
+pointer-events: none;
+letter-spacing: 0.02em;
+z-index: 5;
 }
 
-.legend { display: flex; gap: 16px; margin-top: 20px; font-size: 11px; color: var(–muted); }
+.legend { display: flex; gap: 16px; margin-top: 20px; font-size: 11px; color: #777; }
 .legend-item { display: flex; align-items: center; gap: 5px; }
 .legend-dot { width: 6px; height: 6px; border-radius: 50%; }
 
 @media (max-width: 600px) {
 header { padding: 12px 16px; }
+.project-panel { padding: 14px 16px; }
 main { padding: 20px 16px 40px; }
 }
 </style>
@@ -201,7 +278,6 @@ main { padding: 20px 16px 40px; }
 
 <header>
   <span class="logo">Cal</span>
-
   <div class="ctrl-group">
     <span>From</span>
     <select id="startMonth">
@@ -214,7 +290,6 @@ main { padding: 20px 16px 40px; }
     </select>
     <input type="number" id="startYear" value="2025" min="2000" max="2040">
   </div>
-
   <div class="ctrl-group">
     <span>To</span>
     <select id="endMonth">
@@ -227,237 +302,479 @@ main { padding: 20px 16px 40px; }
     </select>
     <input type="number" id="endYear" value="2026" min="2000" max="2040">
   </div>
-
   <div class="ctrl-group">
     <span>Width</span>
     <input type="range" id="tileWidth" min="180" max="360" value="360">
   </div>
-
   <div class="ctrl-group">
     <span>Holidays</span>
     <div class="country-flags" id="countryBtns"></div>
   </div>
 </header>
 
+<div class="project-panel">
+  <div class="panel-title">Project Timelines</div>
+  <div class="project-form">
+    <div class="form-field">
+      <span class="form-label">Name</span>
+      <input type="text" id="projName" class="form-input wide" placeholder="e.g. Supplier A delivery">
+    </div>
+    <div class="form-field">
+      <span class="form-label">Starts</span>
+      <select id="projStartMode" class="form-select" style="width:110px">
+        <option value="offset">In...</option>
+        <option value="after">After...</option>
+      </select>
+    </div>
+    <div id="offsetFields" style="display:flex;gap:10px;align-items:flex-end">
+      <div class="form-field">
+        <span class="form-label">&nbsp;</span>
+        <input type="number" id="projStartWeeks" class="form-input narrow" value="0" min="0" max="200">
+      </div>
+      <div class="form-field">
+        <span class="form-label">&nbsp;</span>
+        <select id="projStartUnit" class="form-select">
+          <option value="weeks">weeks</option>
+          <option value="months">months</option>
+        </select>
+      </div>
+    </div>
+    <div id="afterFields" style="display:none;align-items:flex-end">
+      <div class="form-field">
+        <span class="form-label">&nbsp;</span>
+        <select id="projAfterRef" class="form-select" style="width:160px">
+        </select>
+      </div>
+    </div>
+    <div class="form-field">
+      <span class="form-label">Duration</span>
+      <input type="number" id="projDur" class="form-input narrow" value="4" min="1" max="200">
+    </div>
+    <div class="form-field">
+      <span class="form-label">&nbsp;</span>
+      <select id="projDurUnit" class="form-select">
+        <option value="weeks" selected>weeks</option>
+        <option value="months">months</option>
+      </select>
+    </div>
+    <div class="form-field">
+      <span class="form-label">&nbsp;</span>
+      <button class="add-btn" id="addProjBtn">+ Add</button>
+    </div>
+  </div>
+  <div class="project-list" id="projectList"></div>
+</div>
+
 <main id="calRoot"></main>
 
 <script>
+var COLORS = ['#4e9af1','#a78bfa','#34d399','#fb923c','#f472b6','#facc15','#38bdf8','#f87171','#a3e635','#e879f9'];
+var colorIdx = 0;
+
+function nextColor() { var c=COLORS[colorIdx%COLORS.length]; colorIdx+=1; return c; }
+
+var projects = [];
+
+function updateAfterRefDropdown() {
+  var sel = document.getElementById('projAfterRef');
+  sel.innerHTML = '';
+  if(projects.length === 0) {
+    var opt = document.createElement('option');
+    opt.textContent = '(no projects yet)';
+    sel.appendChild(opt);
+  } else {
+    projects.forEach(function(p) {
+      var opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = p.name + ' (ends ' + fmtDate(p.endDate) + ')';
+      sel.appendChild(opt);
+    });
+  }
+}
+
+document.getElementById('projStartMode').addEventListener('change', function() {
+  var mode = this.value;
+  document.getElementById('offsetFields').style.display = mode === 'offset' ? 'flex' : 'none';
+  document.getElementById('afterFields').style.display = mode === 'after' ? 'flex' : 'none';
+  if(mode === 'after') updateAfterRefDropdown();
+});
+
+function addProject() {
+  var name = document.getElementById('projName').value.trim();
+  if(!name) { document.getElementById('projName').focus(); return; }
+
+  var mode = document.getElementById('projStartMode').value;
+  var startDate = new Date();
+  startDate.setHours(0,0,0,0);
+
+  if(mode === 'offset') {
+    var startVal = parseInt(document.getElementById('projStartWeeks').value) || 0;
+    var startUnit = document.getElementById('projStartUnit').value;
+    if(startUnit === 'weeks') {
+      startDate.setDate(startDate.getDate() + startVal * 7);
+    } else {
+      startDate.setMonth(startDate.getMonth() + startVal);
+    }
+  } else {
+    var refId = parseInt(document.getElementById('projAfterRef').value);
+    var refProj = projects.find(function(p){ return p.id === refId; });
+    if(!refProj) { alert('Select a project to start after'); return; }
+    startDate = new Date(refProj.endDate);
+    startDate.setDate(startDate.getDate() + 1);
+  }
+
+  var durVal = parseInt(document.getElementById('projDur').value) || 1;
+  var durUnit = document.getElementById('projDurUnit').value;
+  var endDate = new Date(startDate);
+  if(durUnit === 'weeks') {
+    endDate.setDate(endDate.getDate() + durVal * 7 - 1);
+  } else {
+    endDate.setMonth(endDate.getMonth() + durVal);
+    endDate.setDate(endDate.getDate() - 1);
+  }
+
+  var proj = { id: Date.now(), name: name, startDate: startDate, endDate: endDate, color: nextColor() };
+  projects.push(proj);
+  expandRangeForProject(proj);
+  document.getElementById('projName').value = '';
+  renderProjectList();
+  render();
+}
+
+function expandRangeForProject(proj) {
+  var pStartY = proj.startDate.getFullYear();
+  var pStartM = proj.startDate.getMonth();
+  var pEndY = proj.endDate.getFullYear();
+  var pEndM = proj.endDate.getMonth();
+
+  // buffer: one month before start, one month after end
+  var bufStart = new Date(pStartY, pStartM - 1, 1);
+  var bufEnd = new Date(pEndY, pEndM + 1, 1);
+
+  var calStart = new Date(state.startYear, state.startMonth, 1);
+  var calEnd = new Date(state.endYear, state.endMonth, 1);
+
+  if(bufStart < calStart) {
+    state.startYear = bufStart.getFullYear();
+    state.startMonth = bufStart.getMonth();
+    document.getElementById('startMonth').value = state.startMonth;
+    document.getElementById('startYear').value = state.startYear;
+  }
+  if(bufEnd > calEnd) {
+    state.endYear = bufEnd.getFullYear();
+    state.endMonth = bufEnd.getMonth();
+    document.getElementById('endMonth').value = state.endMonth;
+    document.getElementById('endYear').value = state.endYear;
+  }
+}
+
+function removeProject(id) {
+  projects = projects.filter(function(p){ return p.id !== id; });
+  renderProjectList();
+  render();
+}
+
+function fmtDate(d) {
+  return d.toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'});
+}
+
+function renderProjectList() {
+  var list = document.getElementById('projectList');
+  list.innerHTML = '';
+  projects.forEach(function(p) {
+    var tag = document.createElement('div');
+    tag.className = 'project-tag';
+    tag.style.background = p.color+'22';
+    tag.style.border = '1px solid '+p.color+'55';
+    tag.style.color = p.color;
+    tag.innerHTML =
+      '<div class="project-tag-dot" style="background:'+p.color+'"></div>'+
+      '<span>'+p.name+'</span>'+
+      '<span class="project-tag-dates">'+fmtDate(p.startDate)+' - '+fmtDate(p.endDate)+'</span>'+
+      '<button class="project-remove" data-id="'+p.id+'">x</button>';
+    list.appendChild(tag);
+  });
+  list.querySelectorAll('.project-remove').forEach(function(btn) {
+    btn.addEventListener('click', function() { removeProject(parseInt(btn.getAttribute('data-id'))); });
+  });
+}
+
+function dateKey(d) {
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
+// Returns project bar info for a given year/month
+function getProjectBarsForMonth(year, month) {
+  var daysInMonth = new Date(year, month+1, 0).getDate();
+  var monthStart = new Date(year, month, 1);
+  var monthEnd = new Date(year, month, daysInMonth);
+  var bars = [];
+  projects.forEach(function(p) {
+    if(p.endDate < monthStart || p.startDate > monthEnd) return;
+    var startDay = p.startDate < monthStart ? 1 : p.startDate.getDate();
+    var endDay = p.endDate > monthEnd ? daysInMonth : p.endDate.getDate();
+    bars.push({
+      proj: p,
+      startDay: startDay,
+      endDay: endDay,
+      startsHere: p.startDate >= monthStart,
+      endsHere: p.endDate <= monthEnd
+    });
+  });
+  return bars;
+}
+
+// EASTER
 function easter(y) {
-  const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4;
-  const f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3);
-  const h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4;
-  const l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451);
+  var a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4;
+  var f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3);
+  var h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4;
+  var l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451);
   return{m:Math.floor((h+l-7*m+114)/31)-1,d:((h+l-7*m+114)%31)+1};
 }
 
 function getHolidays(year, countries) {
-  const map={};
-  const add=(m,d,name)=>{
-    const key=`${year}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  var map={};
+  function add(m,d,name){
+    var key=year+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
     if(!map[key])map[key]=new Set(); map[key].add(name);
-  };
-  const e=easter(year);
-  const eOff=(offset,name)=>{
-    const b=new Date(year,e.m,e.d); b.setDate(b.getDate()+offset);
+  }
+  var e=easter(year);
+  function eOff(offset,name){
+    var b=new Date(year,e.m,e.d); b.setDate(b.getDate()+offset);
     add(b.getMonth(),b.getDate(),name);
-  };
-
+  }
   if(countries.has('DE')){
-    add(0,1,'New Year');add(4,0,'Labour Day');add(9,2,'German Unity Day');
-    add(11,25,'Christmas');add(11,26,'2nd Christmas');
-    eOff(-2,'Good Friday');eOff(0,'Easter');eOff(1,'Easter Monday');
-    eOff(39,'Ascension');eOff(49,'Whit Sunday');eOff(50,'Whit Monday');
+    add(0,1,'Neujahr');add(0,6,'Heilige Drei Koenige');add(4,1,'Tag der Arbeit');
+    add(7,15,'Mariae Himmelfahrt');add(9,3,'Tag der Deutschen Einheit');
+    add(10,1,'Allerheiligen');add(11,25,'Weihnachten');add(11,26,'2. Weihnachtstag');
+    eOff(-2,'Karfreitag');eOff(0,'Ostersonntag');eOff(1,'Ostermontag');
+    eOff(39,'Christi Himmelfahrt');eOff(49,'Pfingstsonntag');eOff(50,'Pfingstmontag');
+    eOff(60,'Fronleichnam');
   }
   if(countries.has('AT')){
-    add(0,1,'New Year');add(0,5,'Epiphany');add(4,0,'Labour Day');
-    add(7,14,'Assumption');add(9,25,'National Day');add(10,0,'All Saints');
-    add(11,7,'Immaculate Conception');add(11,25,'Christmas');add(11,26,'St Stephen');
-    eOff(-2,'Good Friday');eOff(0,'Easter');eOff(1,'Easter Monday');
-    eOff(39,'Ascension');eOff(49,'Whit Sunday');eOff(50,'Whit Monday');eOff(60,'Corpus Christi');
+    add(0,1,'Neujahr');add(0,6,'Heilige Drei Koenige');add(4,1,'Tag der Arbeit');
+    add(7,15,'Mariä Himmelfahrt');add(9,26,'Nationalfeiertag');add(10,1,'Allerheiligen');
+    add(11,8,'Mariä Empfaengnis');add(11,25,'Weihnachten');add(11,26,'Stephanstag');
+    eOff(-2,'Karfreitag');eOff(0,'Ostersonntag');eOff(1,'Ostermontag');
+    eOff(39,'Christi Himmelfahrt');eOff(49,'Pfingstsonntag');eOff(50,'Pfingstmontag');eOff(60,'Fronleichnam');
   }
   if(countries.has('US')){
-    add(0,1,'New Year');add(0,nthWd(year,0,1,3),'MLK Day');
-    add(1,nthWd(year,1,1,3),"Presidents' Day");add(4,lastWd(year,4,1),'Memorial Day');
-    add(5,18,'Juneteenth');add(6,3,'Independence Day');
-    add(8,nthWd(year,8,1,1),'Labor Day');add(10,nthWd(year,10,4,4),'Thanksgiving');
-    add(11,25,'Christmas');
+    add(0,1,'Neujahr');add(0,nthWd(year,0,1,3),'MLK-Tag');
+    add(1,nthWd(year,1,1,3),'Praesidemtentag');add(4,lastWd(year,4,1),'Gefallenengedenktag');
+    add(5,19,'Juneteenth');add(6,4,'Unabhaengigkeitstag');
+    add(8,nthWd(year,8,1,1),'Tag der Arbeit');add(10,nthWd(year,10,4,4),'Erntedankfest');
+    add(11,25,'Weihnachten');
   }
   if(countries.has('GB')){
-    add(0,1,'New Year');add(11,25,'Christmas');add(11,26,'Boxing Day');
-    eOff(-2,'Good Friday');eOff(1,'Easter Monday');
-    add(4,nthWd(year,4,1,1),'Early May BH');add(4,lastWd(year,4,1),'Spring BH');
-    add(7,lastWd(year,7,1),'Summer BH');
+    add(0,1,'Neujahr');add(11,25,'Weihnachten');add(11,26,'2. Weihnachtstag');
+    eOff(-2,'Karfreitag');eOff(1,'Ostermontag');
+    add(4,nthWd(year,4,1,1),'Fruehjahrsfeiertag');add(4,lastWd(year,4,1),'Fruehlingsbank');
+    add(7,lastWd(year,7,1),'Sommerbank');
   }
   if(countries.has('FR')){
-    add(0,1,'New Year');add(4,0,'Labour Day');add(4,7,'Victory 1945');
-    add(6,13,'Bastille Day');add(7,14,'Assumption');add(10,0,'All Saints');
-    add(10,10,'Armistice');add(11,25,'Christmas');
-    eOff(1,'Easter Monday');eOff(39,'Ascension');eOff(50,'Whit Monday');
+    add(0,1,'Neujahr');add(4,1,'Tag der Arbeit');add(4,8,'Kriegsende 1945');
+    add(6,14,'Bastilletag');add(7,15,'Mariä Himmelfahrt');add(10,1,'Allerheiligen');
+    add(10,11,'Waffenstillstand');add(11,25,'Weihnachten');
+    eOff(1,'Ostermontag');eOff(39,'Christi Himmelfahrt');eOff(50,'Pfingstmontag');
   }
   if(countries.has('CN')){
-    add(0,1,'New Year');add(4,0,'Labour Day');add(9,0,'National Day');
-    add(9,1,'National Day');add(9,2,'National Day');
-    // Spring Festival (Chinese New Year) - fixed dates per year
-    const cny={2024:[1,10],2025:[1,29],2026:[2,17],2027:[2,6],2028:[1,26]};
+    add(0,1,'Neujahr');add(4,1,'Tag der Arbeit');
+    add(9,1,'Nationalfeiertag');add(9,2,'Nationalfeiertag');add(9,3,'Nationalfeiertag');
+    var cny={2024:[1,10],2025:[1,29],2026:[2,17],2027:[2,6],2028:[1,26]};
     if(cny[year]){
-      const [cm,cd]=cny[year];
-      for(let i=0;i<7;i++){
-        const dt=new Date(year,cm-1,cd+i);
-        add(dt.getMonth(),dt.getDate(),'Spring Festival');
-      }
+      var cm=cny[year][0],cd=cny[year][1];
+      for(var i=0;i<7;i+=1){var dt=new Date(year,cm-1,cd+i);add(dt.getMonth(),dt.getDate(),'Fruehlingsfest');}
     }
-    add(3,4,'Qingming Festival');
-    add(5,9,'Dragon Boat Festival');
-    add(8,17,'Mid-Autumn Festival');
+    add(3,5,'Qingming-Fest');add(5,10,'Drachenbootfest');add(8,18,'Mondfest');
   }
   if(countries.has('JP')){
-    add(0,1,'New Year');add(0,2,'New Year');add(0,3,'New Year');
-    add(0,nthWd(year,0,1,2),'Coming of Age');
-    add(1,11,'National Foundation Day');
-    add(2,20,'Vernal Equinox');
-    add(3,29,'Showa Day');
-    add(4,3,'Constitution Day');add(4,4,'Greenery Day');add(4,5,"Children's Day");
-    add(6,nthWd(year,6,1,3),'Marine Day');
-    add(7,11,'Mountain Day');
-    add(8,nthWd(year,8,1,3),'Respect for the Aged');
-    add(8,23,'Autumnal Equinox');
-    add(9,nthWd(year,9,1,2),'Sports Day');
-    add(10,3,'Culture Day');add(10,23,'Labour Thanksgiving');
-    add(11,23,'Emperor Birthday');
+    add(0,1,'Neujahr');add(0,2,'Neujahr');add(0,3,'Neujahr');
+    add(0,nthWd(year,0,1,2),'Volljaerigkeitstag');
+    add(1,11,'Gruendungstag');add(2,20,'Fruehlingsbeginn');add(3,29,'Showa-Tag');
+    add(4,3,'Verfassungstag');add(4,4,'Tag des Gruens');add(4,5,'Kindertag');
+    add(6,nthWd(year,6,1,3),'Meerestag');add(7,11,'Bergtag');
+    add(8,nthWd(year,8,1,3),'Tag der Aelteren');add(8,23,'Herbstbeginn');
+    add(9,nthWd(year,9,1,2),'Sporttag');
+    add(10,3,'Kulturtag');add(10,23,'Arbeitsdankfest');add(1,23,'Kaisers Geburtstag');
   }
   return map;
 }
 
-function nthWd(y,m,wd,n){let d=1,c=0;while(true){if(new Date(y,m,d).getDay()===wd){c++;if(c===n)return d;}d++;}}
-function lastWd(y,m,wd){for(let d=new Date(y,m+1,0).getDate();d>=1;d--)if(new Date(y,m,d).getDay()===wd)return d;}
+function nthWd(y,m,wd,n){var d=1,c=0;while(true){if(new Date(y,m,d).getDay()===wd){c+=1;if(c===n)return d;}d+=1;}}
+function lastWd(y,m,wd){var d=new Date(y,m+1,0).getDate();while(d>=1){if(new Date(y,m,d).getDay()===wd)return d;d-=1;}}
 function isoWeek(date){
-  const d=new Date(Date.UTC(date.getFullYear(),date.getMonth(),date.getDate()));
+  var d=new Date(Date.UTC(date.getFullYear(),date.getMonth(),date.getDate()));
   d.setUTCDate(d.getUTCDate()+4-(d.getUTCDay()||7));
   return Math.ceil((((d-new Date(Date.UTC(d.getUTCFullYear(),0,1)))/86400000)+1)/7);
 }
 
-const today=new Date();
-const todayKey=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-const todayYear=today.getFullYear();
-const todayMonth=today.getMonth();
+var today=new Date();
+today.setHours(0,0,0,0);
+var todayKey=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+var todayYear=today.getFullYear();
+var todayMonth=today.getMonth();
 
-const state={
-  startYear:todayYear,
-  startMonth:todayMonth,
-  endYear:todayMonth>=6?todayYear+1:todayYear,
-  endMonth:11,
-  tileWidth:360,
-  countries:new Set(['DE'])
+var rangeStart = new Date(todayYear, todayMonth - 3, 1);
+var rangeEnd = new Date(todayYear, todayMonth + 12, 1);
+var state={
+  startYear:rangeStart.getFullYear(), startMonth:rangeStart.getMonth(),
+  endYear:rangeEnd.getFullYear(), endMonth:rangeEnd.getMonth(),
+  tileWidth:360, countries:new Set(['DE'])
 };
 
-const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
-const DAYS=['Mo','Tu','We','Th','Fr','Sa','Su'];
+var MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+var DAYS=['Mo','Tu','We','Th','Fr','Sa','Su'];
 
 function scrollToToday(){
-  setTimeout(()=>{
-    const el=document.querySelector('.month-tile.has-today');
+  setTimeout(function(){
+    var el=document.querySelector('.month-tile.has-today');
     if(el) el.scrollIntoView({behavior:'smooth',block:'center'});
-  },50);
+  },80);
 }
 
 function render(){
-  document.documentElement.style.setProperty('--tile-w',state.tileWidth+'px');
-  const root=document.getElementById('calRoot');
+  var root=document.getElementById('calRoot');
   root.innerHTML='';
-  const months=[];
-  let y=state.startYear,m=state.startMonth;
-  while(y<state.endYear||(y===state.endYear&&m<=state.endMonth)){months.push({y,m});m++;if(m>11){m=0;y++;}}
-  const byYear={};
-  months.forEach(({y,m})=>{if(!byYear[y])byYear[y]=[];byYear[y].push(m);});
-  Object.entries(byYear).forEach(([year,mList])=>{
-    const y=parseInt(year);
-    const holidays=getHolidays(y,state.countries);
-    const sec=document.createElement('div'); sec.className='year-section';
-    const yl=document.createElement('div'); yl.className='year-label'; yl.textContent=year;
+  var months=[];
+  var y=state.startYear,m=state.startMonth;
+  while(y<state.endYear||(y===state.endYear&&m<=state.endMonth)){months.push({y:y,m:m});m+=1;if(m>11){m=0;y+=1;}}
+  var byYear={};
+  months.forEach(function(obj){if(!byYear[obj.y])byYear[obj.y]=[];byYear[obj.y].push(obj.m);});
+  Object.keys(byYear).forEach(function(year){
+    var y=parseInt(year);
+    var mList=byYear[year];
+    var holidays=getHolidays(y,state.countries);
+    var sec=document.createElement('div'); sec.className='year-section';
+    var yl=document.createElement('div'); yl.className='year-label'; yl.textContent=year;
     sec.appendChild(yl);
-    const row=document.createElement('div'); row.className='months-row';
-    mList.forEach(m=>row.appendChild(buildTile(y,m,holidays)));
+    var row=document.createElement('div'); row.className='months-row';
+    mList.forEach(function(m){ row.appendChild(buildTile(y,m,holidays)); });
     sec.appendChild(row); root.appendChild(sec);
   });
-  const leg=document.createElement('div'); leg.className='legend';
-  leg.innerHTML=`
-    <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div>Today</div>
-    <div class="legend-item"><div class="legend-dot" style="background:var(--holiday)"></div>Holiday</div>
-  `;
+  var leg=document.createElement('div'); leg.className='legend';
+  leg.innerHTML='<div class="legend-item"><div class="legend-dot" style="background:#ff6b35"></div>Today</div><div class="legend-item"><div class="legend-dot" style="background:#5bb8f5"></div>Holiday</div>';
   root.appendChild(leg);
   scrollToToday();
 }
 
 function buildTile(year,month,holidays){
-  const tile=document.createElement('div'); tile.className='month-tile';
-  const daysInMonth=new Date(year,month+1,0).getDate();
-  const startDow=(new Date(year,month,1).getDay()+6)%7;
-
-  // check if this tile contains today
+  var tile=document.createElement('div'); tile.className='month-tile';
+  tile.style.width=state.tileWidth+'px';
+  var daysInMonth=new Date(year,month+1,0).getDate();
+  var startDow=(new Date(year,month,1).getDay()+6)%7;
   if(year===todayYear&&month===todayMonth) tile.classList.add('has-today');
 
-  const hdr=document.createElement('div'); hdr.className='month-header';
-  hdr.innerHTML=`<span class="month-name">${MONTHS[month]}</span><span class="month-num">${String(month+1).padStart(2,'0')}</span>`;
+  var hdr=document.createElement('div'); hdr.className='month-header';
+  hdr.innerHTML='<span class="month-name">'+MONTHS[month]+'</span><span class="month-num">'+String(month+1).padStart(2,'0')+'</span>';
   tile.appendChild(hdr);
 
-  const grid=document.createElement('div'); grid.className='day-grid';
+  var grid=document.createElement('div'); grid.className='day-grid';
+  var wkH=document.createElement('div'); wkH.className='cell hdr wk-hdr'; wkH.textContent='W'; grid.appendChild(wkH);
+  DAYS.forEach(function(d){var h=document.createElement('div');h.className='cell hdr';h.textContent=d;grid.appendChild(h);});
 
-  // header row: W + day names
-  const wkHdrCell=document.createElement('div'); wkHdrCell.className='cell hdr wk-hdr'; wkHdrCell.textContent='W';
-  grid.appendChild(wkHdrCell);
-  DAYS.forEach(d=>{const h=document.createElement('div');h.className='cell hdr';h.textContent=d;grid.appendChild(h);});
-
-  let dayNum=1,col=startDow;
+  var dayNum=1,col=startDow;
   while(dayNum<=daysInMonth){
     if(col===0||dayNum===1){
       if(dayNum===1&&col>0){
-        const wn=document.createElement('div');wn.className='cell week-num';wn.textContent=isoWeek(new Date(year,month,1));grid.appendChild(wn);
-        for(let i=0;i<col;i++){const e=document.createElement('div');e.className='cell';grid.appendChild(e);}
+        var wn0=document.createElement('div');wn0.className='cell week-num';wn0.textContent=isoWeek(new Date(year,month,1));grid.appendChild(wn0);
+        for(var i=0;i<col;i+=1){var emp0=document.createElement('div');emp0.className='cell';grid.appendChild(emp0);}
       } else {
-        const wn=document.createElement('div');wn.className='cell week-num';wn.textContent=isoWeek(new Date(year,month,dayNum));grid.appendChild(wn);
+        var wn1=document.createElement('div');wn1.className='cell week-num';wn1.textContent=isoWeek(new Date(year,month,dayNum));grid.appendChild(wn1);
       }
     }
-    const key=`${year}-${String(month+1).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`;
-    const cell=document.createElement('div'); cell.className='cell day';
+    var key=year+'-'+String(month+1).padStart(2,'0')+'-'+String(dayNum).padStart(2,'0');
+    var cell=document.createElement('div'); cell.className='cell day';
     if(col===5)cell.classList.add('sat');
     if(col===6)cell.classList.add('sun');
     if(key===todayKey)cell.classList.add('today');
-    const hols=holidays[key];
-    if(hols){cell.classList.add('holiday');cell.setAttribute('data-h',[...hols].join(' · '));}
+    var hols=holidays[key];
+    if(hols){cell.classList.add('holiday');cell.setAttribute('data-h',[...hols].join(' - '));}
     cell.textContent=dayNum;
     grid.appendChild(cell);
-    col++;if(col===7)col=0;dayNum++;
+    col+=1;if(col===7)col=0;dayNum+=1;
   }
-  if(col>0)for(let i=col;i<7;i++){const e=document.createElement('div');e.className='cell';grid.appendChild(e);}
+  if(col>0){for(var j=col;j<7;j+=1){var emp1=document.createElement('div');emp1.className='cell';grid.appendChild(emp1);}}
   tile.appendChild(grid);
+
+  // Color day cells for each project
+  var bars = getProjectBarsForMonth(year, month);
+  if(bars.length > 0) {
+    var dayCells = grid.querySelectorAll('.day');
+    bars.forEach(function(bar, barIdx) {
+      var col = bar.proj.color;
+      var alpha = '33'; // subtle background tint
+      dayCells.forEach(function(cell) {
+        var d = parseInt(cell.textContent);
+        if(d < bar.startDay || d > bar.endDay) return;
+        var isStart = (d === bar.startDay && bar.startsHere);
+        var isEnd = (d === bar.endDay && bar.endsHere);
+        // Stack multiple projects: use outline + background
+        cell.style.background = col + alpha;
+        cell.style.outline = '1px solid ' + col + '66';
+        cell.style.outlineOffset = '-1px';
+        if(isStart && isEnd) { cell.style.borderRadius = '4px'; }
+        else if(isStart) { cell.style.borderRadius = '4px 0 0 4px'; }
+        else if(isEnd) { cell.style.borderRadius = '0 4px 4px 0'; }
+        else { cell.style.borderRadius = '0'; }
+        // Project name label on the start day
+        if(isStart) {
+          var lbl = document.createElement('span');
+          lbl.className = 'proj-name-label';
+          lbl.style.color = col;
+          lbl.textContent = bar.proj.name;
+          cell.appendChild(lbl);
+        }
+        cell.title = bar.proj.name + ': ' + fmtDate(bar.proj.startDate) + ' - ' + fmtDate(bar.proj.endDate);
+      });
+    });
+  }
+
   return tile;
 }
 
 // Controls
-const COUNTRIES=[
-  {code:'DE',label:'🇩🇪 DE'},{code:'AT',label:'🇦🇹 AT'},
-  {code:'US',label:'🇺🇸 US'},{code:'GB',label:'🇬🇧 GB'},
-  {code:'FR',label:'🇫🇷 FR'},{code:'CN',label:'🇨🇳 CN'},
-  {code:'JP',label:'🇯🇵 JP'},
+var COUNTRIES=[
+  {code:'DE',label:'DE'},{code:'AT',label:'AT'},
+  {code:'US',label:'US'},{code:'GB',label:'GB'},
+  {code:'FR',label:'FR'},{code:'CN',label:'CN'},
+  {code:'JP',label:'JP'},
 ];
-COUNTRIES.forEach(({code,label})=>{
-  const btn=document.createElement('button');
-  btn.className='flag-btn'+(state.countries.has(code)?' active':'');
-  btn.textContent=label;
-  btn.addEventListener('click',()=>{
-    state.countries.has(code)?state.countries.delete(code):state.countries.add(code);
+COUNTRIES.forEach(function(c){
+  var btn=document.createElement('button');
+  btn.className='flag-btn'+(state.countries.has(c.code)?' active':'');
+  btn.textContent=c.label;
+  btn.addEventListener('click',function(){
+    state.countries.has(c.code)?state.countries.delete(c.code):state.countries.add(c.code);
     btn.classList.toggle('active'); render();
   });
   document.getElementById('countryBtns').appendChild(btn);
 });
 
-const sm=document.getElementById('startMonth'); sm.value=state.startMonth; sm.addEventListener('change',()=>{state.startMonth=parseInt(sm.value);render();scrollToToday();});
-const em=document.getElementById('endMonth'); em.value=state.endMonth; em.addEventListener('change',()=>{state.endMonth=parseInt(em.value);render();scrollToToday();});
-const sy=document.getElementById('startYear'); sy.value=state.startYear; sy.addEventListener('change',()=>{state.startYear=parseInt(sy.value);render();scrollToToday();});
-const ey=document.getElementById('endYear'); ey.value=state.endYear; ey.addEventListener('change',()=>{state.endYear=parseInt(ey.value);render();scrollToToday();});
-document.getElementById('tileWidth').addEventListener('input',e=>{
+var sm=document.getElementById('startMonth'); sm.value=state.startMonth; sm.addEventListener('change',function(){state.startMonth=parseInt(sm.value);render();});
+var em=document.getElementById('endMonth'); em.value=state.endMonth; em.addEventListener('change',function(){state.endMonth=parseInt(em.value);render();});
+var sy=document.getElementById('startYear'); sy.value=state.startYear; sy.addEventListener('change',function(){state.startYear=parseInt(sy.value);render();});
+var ey=document.getElementById('endYear'); ey.value=state.endYear; ey.addEventListener('change',function(){state.endYear=parseInt(ey.value);render();});
+document.getElementById('tileWidth').addEventListener('input',function(e){
   state.tileWidth=parseInt(e.target.value);
-  document.documentElement.style.setProperty('--tile-w',state.tileWidth+'px');
+  document.querySelectorAll('.month-tile').forEach(function(t){t.style.width=state.tileWidth+'px';});
+  render();
+});
+document.getElementById('addProjBtn').addEventListener('click', addProject);
+document.getElementById('projName').addEventListener('keydown', function(e){ if(e.key==='Enter') addProject(); });
+
+var activeTooltip = null;
+document.addEventListener('click', function(e) {
+  var cell = e.target.closest ? e.target.closest('.day[data-h]') : null;
+  if(activeTooltip) { activeTooltip.remove(); activeTooltip = null; }
+  if(cell) {
+    var tip = document.createElement('div');
+    tip.className = 'holiday-tooltip';
+    tip.textContent = cell.getAttribute('data-h');
+    cell.appendChild(tip);
+    activeTooltip = tip;
+    e.stopPropagation();
+  }
 });
 
 render();
