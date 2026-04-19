@@ -11,7 +11,7 @@
 body {
 background: #0a0a0a;
 color: #e0e0e0;
-font-family: 'Courier New', monospace;
+font-family: ‘Courier New’, monospace;
 min-height: 100vh;
 padding: 24px 16px;
 }
@@ -60,7 +60,7 @@ width: 100%;
 background: #111;
 border: 1px solid #2a2a2a;
 color: #e0e0e0;
-font-family: 'Courier New', monospace;
+font-family: ‘Courier New’, monospace;
 font-size: 12px;
 padding: 8px 10px;
 outline: none;
@@ -80,7 +80,7 @@ width: 100%;
 background: #111;
 border: 1px solid #2a2a2a;
 color: #e0e0e0;
-font-family: 'Courier New', monospace;
+font-family: ‘Courier New’, monospace;
 font-size: 12px;
 padding: 8px 10px;
 outline: none;
@@ -107,7 +107,7 @@ color: #555;
 background: none;
 border: 1px solid #2a2a2a;
 color: #888;
-font-family: 'Courier New', monospace;
+font-family: ‘Courier New’, monospace;
 font-size: 11px;
 padding: 4px 10px;
 cursor: pointer;
@@ -140,7 +140,7 @@ flex: 1;
 background: none;
 border: none;
 color: #ccc;
-font-family: 'Courier New', monospace;
+font-family: ‘Courier New’, monospace;
 font-size: 12px;
 outline: none;
 }
@@ -165,7 +165,7 @@ width: 100%;
 background: #0a0a0a;
 border: none;
 color: #ccc;
-font-family: 'Courier New', monospace;
+font-family: ‘Courier New’, monospace;
 font-size: 11px;
 line-height: 1.5;
 padding: 10px;
@@ -200,7 +200,7 @@ align-items: center;
 background: #e0e0e0;
 border: none;
 color: #0a0a0a;
-font-family: 'Courier New', monospace;
+font-family: ‘Courier New’, monospace;
 font-size: 12px;
 font-weight: 700;
 letter-spacing: 0.12em;
@@ -254,7 +254,7 @@ flex: 1;
 background: #111;
 border: 1px solid #2a2a2a;
 color: #e0e0e0;
-font-family: 'Courier New', monospace;
+font-family: ‘Courier New’, monospace;
 font-size: 12px;
 padding: 8px 10px;
 outline: none;
@@ -267,7 +267,7 @@ transition: border-color 0.15s;
 background: none;
 border: 1px solid #2a2a2a;
 color: #888;
-font-family: 'Courier New', monospace;
+font-family: ‘Courier New’, monospace;
 font-size: 10px;
 padding: 8px 10px;
 cursor: pointer;
@@ -318,7 +318,7 @@ margin: 20px 0;
     <button class="btn-save-pat" onclick="clearPat()">Clear</button>
   </div>
 </div>
-<div class="hint">Token stored in localStorage -- never leaves your device.</div>
+<div class="hint">Token stored in localStorage — never leaves your device.</div>
 
 <div class="field commit-row">
   <label>Commit message</label>
@@ -368,174 +368,194 @@ margin: 20px 0;
     fileCount++;
     const id = fileCount;
     const container = document.getElementById('files-container');
+
     const card = document.createElement('div');
     card.className = 'file-card';
     card.id = 'file-card-' + id;
-    card.innerHTML =
-      '<div class="file-card-header">' +
-        '<input type="text" placeholder="path/to/file.html" id="path-' + id + '" oninput="checkDashes(' + id + ')" />' +
-        '<button class="btn-remove" onclick="removeFile(' + id + ')">x</button>' +
-      '</div>' +
-      '<textarea id="content-' + id + '" placeholder="Paste file content here..." oninput="checkDashes(' + id + ')"></textarea>' +
 
-```
-  '<div class="file-footer">' +
-    '<span id="chars-' + id + '">0 chars</span>' +
-    '<span id="warn-' + id + '"></span>' +
-  '</div>';
-container.appendChild(card);
+    const header = document.createElement('div');
+    header.className = 'file-card-header';
 
-document.getElementById('content-' + id).addEventListener('input', function() {
-  const len = this.value.length;
-  document.getElementById('chars-' + id).textContent = len.toLocaleString() + ' chars';
-  checkDashes(id);
-});
-```
+    const pathInput = document.createElement('input');
+    pathInput.type = 'text';
+    pathInput.placeholder = 'path/to/file.html';
+    pathInput.id = 'path-' + id;
+    pathInput.addEventListener('input', function() { checkDashes(id); });
 
-}
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'btn-remove';
+    removeBtn.textContent = 'x';
+    removeBtn.addEventListener('click', function() { removeFile(id); });
 
-function removeFile(id) {
-const card = document.getElementById('file-card-' + id);
-if (card) card.remove();
-}
+    header.appendChild(pathInput);
+    header.appendChild(removeBtn);
 
-function checkDashes(id) {
-const content = document.getElementById('content-' + id).value;
-const path = document.getElementById('path-' + id).value;
-const combined = content + path;
-const hits = (combined.match(/--/g) || []).length;
-const warn = document.getElementById('warn-' + id);
-if (hits > 0) {
-warn.textContent = hits + ' CSS var hit' + (hits > 1 ? 's' : '') + ' detected';
-warn.className = 'warn';
-} else {
-warn.textContent = '';
-warn.className = '';
-}
-}
+    const textarea = document.createElement('textarea');
+    textarea.id = 'content-' + id;
+    textarea.placeholder = 'Paste file content here...';
+    textarea.addEventListener('input', function() {
+      document.getElementById('chars-' + id).textContent = this.value.length.toLocaleString() + ' chars';
+      checkDashes(id);
+    });
 
-function log(msg, type) {
-const el = document.getElementById('log');
-el.classList.add('visible');
-const line = document.createElement('div');
-line.className = 'log-line' + (type ? ' ' + type : '');
-line.textContent = '> ' + msg;
-el.appendChild(line);
-el.scrollTop = el.scrollHeight;
-}
+    const footer = document.createElement('div');
+    footer.className = 'file-footer';
 
-function clearLog() {
-const el = document.getElementById('log');
-el.innerHTML = '';
-el.classList.remove('visible');
-}
+    const chars = document.createElement('span');
+    chars.id = 'chars-' + id;
+    chars.textContent = '0 chars';
 
-function setStatus(msg, type) {
-const el = document.getElementById('status');
-el.textContent = msg;
-el.className = 'status' + (type ? ' ' + type : '');
-}
+    const warn = document.createElement('span');
+    warn.id = 'warn-' + id;
 
-function getFiles() {
-const cards = document.querySelectorAll('.file-card');
-const files = [];
-cards.forEach(card => {
-const id = card.id.replace('file-card-', '');
-const path = document.getElementById('path-' + id).value.trim();
-const content = document.getElementById('content-' + id).value;
-if (path && content) files.push({ path, content });
-});
-return files;
-}
+    footer.appendChild(chars);
+    footer.appendChild(warn);
 
-async function getSHA(owner, repo, path, token) {
-const url = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + path;
-const r = await fetch(url, {
-headers: { Authorization: 'token ' + token, Accept: 'application/vnd.github.v3+json' }
-});
-if (r.status === 404) return null;
-if (!r.ok) throw new Error('SHA fetch failed for ' + path + ': ' + r.status);
-const data = await r.json();
-return data.sha;
-}
-
-async function pushFile(owner, repo, path, content, message, token) {
-log('Fetching SHA for ' + path + '…', 'info');
-const sha = await getSHA(owner, repo, path, token);
-const body = {
-message,
-content: btoa(unescape(encodeURIComponent(content)))
-};
-if (sha) body.sha = sha;
-const url = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + path;
-const r = await fetch(url, {
-method: 'PUT',
-headers: {
-Authorization: 'token ' + token,
-Accept: 'application/vnd.github.v3+json',
-'Content-Type': 'application/json'
-},
-body: JSON.stringify(body)
-});
-if (!r.ok) {
-const err = await r.json();
-throw new Error(path + ': ' + (err.message || r.status));
-}
-log(path + ' pushed OK', 'ok');
-}
-
-async function pushAll() {
-clearLog();
-const owner = document.getElementById('owner').value.trim();
-const repo = document.getElementById('repo').value.trim();
-const token = document.getElementById('pat').value.trim();
-const message = document.getElementById('commit-msg').value.trim() || 'deploy: update files';
-
-```
-if (!token) { setStatus('No PAT entered.', 'err'); return; }
-
-const files = getFiles();
-if (files.length === 0) { setStatus('No files to push.', 'err'); return; }
-
-// Check for CSS var hits
-let hitFiles = [];
-files.forEach(f => {
-  const hits = (f.content.match(/--/g) || []).length;
-  if (hits > 0) hitFiles.push(f.path + ' (' + hits + ' hit' + (hits > 1 ? 's' : '') + ')');
-});
-if (hitFiles.length > 0) {
-  const go = confirm('CSS custom property hits detected:\n\n' + hitFiles.join('\n') + '\n\nPush anyway?');
-  if (!go) { setStatus('Cancelled.', ''); return; }
-}
-
-const btn = document.getElementById('btn-push');
-btn.disabled = true;
-setStatus('Pushing ' + files.length + ' file' + (files.length > 1 ? 's' : '') + '...', 'busy');
-log('Starting push of ' + files.length + ' file(s)...', 'info');
-
-let errors = 0;
-for (const f of files) {
-  try {
-    await pushFile(owner, repo, f.path, f.content, message, token);
-  } catch (e) {
-    log('ERROR: ' + e.message, 'err');
-    errors++;
+    card.appendChild(header);
+    card.appendChild(textarea);
+    card.appendChild(footer);
+    container.appendChild(card);
   }
-}
 
-btn.disabled = false;
+  function removeFile(id) {
+    const card = document.getElementById('file-card-' + id);
+    if (card) card.remove();
+  }
 
-if (errors === 0) {
-  setStatus('All ' + files.length + ' file(s) pushed. Live in ~30s.', 'ok');
-  log('Done. GitHub Pages rebuilding...', 'ok');
-} else {
-  setStatus(errors + ' error(s). Check log.', 'err');
-}
-```
+  function checkDashes(id) {
+    const content = document.getElementById('content-' + id).value;
+    const path = document.getElementById('path-' + id).value;
+    const combined = content + path;
+    const hits = (combined.match(/--/g) || []).length;
+    const warn = document.getElementById('warn-' + id);
+    if (hits > 0) {
+      warn.textContent = hits + ' CSS var hit' + (hits > 1 ? 's' : '') + ' detected';
+      warn.className = 'warn';
+    } else {
+      warn.textContent = '';
+      warn.className = '';
+    }
+  }
 
-}
+  function log(msg, type) {
+    const el = document.getElementById('log');
+    el.classList.add('visible');
+    const line = document.createElement('div');
+    line.className = 'log-line' + (type ? ' ' + type : '');
+    line.textContent = '> ' + msg;
+    el.appendChild(line);
+    el.scrollTop = el.scrollHeight;
+  }
 
-init();
+  function clearLog() {
+    const el = document.getElementById('log');
+    el.innerHTML = '';
+    el.classList.remove('visible');
+  }
+
+  function setStatus(msg, type) {
+    const el = document.getElementById('status');
+    el.textContent = msg;
+    el.className = 'status' + (type ? ' ' + type : '');
+  }
+
+  function getFiles() {
+    const cards = document.querySelectorAll('.file-card');
+    const files = [];
+    cards.forEach(card => {
+      const id = card.id.replace('file-card-', '');
+      const path = document.getElementById('path-' + id).value.trim();
+      const content = document.getElementById('content-' + id).value;
+      if (path && content) files.push({ path, content });
+    });
+    return files;
+  }
+
+  async function getSHA(owner, repo, path, token) {
+    const url = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + path;
+    const r = await fetch(url, {
+      headers: { Authorization: 'token ' + token, Accept: 'application/vnd.github.v3+json' }
+    });
+    if (r.status === 404) return null;
+    if (!r.ok) throw new Error('SHA fetch failed for ' + path + ': ' + r.status);
+    const data = await r.json();
+    return data.sha;
+  }
+
+  async function pushFile(owner, repo, path, content, message, token) {
+    log('Fetching SHA for ' + path + '...', 'info');
+    const sha = await getSHA(owner, repo, path, token);
+    const body = {
+      message,
+      content: btoa(unescape(encodeURIComponent(content)))
+    };
+    if (sha) body.sha = sha;
+    const url = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + path;
+    const r = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        Authorization: 'token ' + token,
+        Accept: 'application/vnd.github.v3+json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+    if (!r.ok) {
+      const err = await r.json();
+      throw new Error(path + ': ' + (err.message || r.status));
+    }
+    log(path + ' pushed OK', 'ok');
+  }
+
+  async function pushAll() {
+    clearLog();
+    const owner = document.getElementById('owner').value.trim();
+    const repo = document.getElementById('repo').value.trim();
+    const token = document.getElementById('pat').value.trim();
+    const message = document.getElementById('commit-msg').value.trim() || 'deploy: update files';
+
+    if (!token) { setStatus('No PAT entered.', 'err'); return; }
+
+    const files = getFiles();
+    if (files.length === 0) { setStatus('No files to push.', 'err'); return; }
+
+    // Check for CSS var hits
+    let hitFiles = [];
+    files.forEach(f => {
+      const hits = (f.content.match(/--/g) || []).length;
+      if (hits > 0) hitFiles.push(f.path + ' (' + hits + ' hit' + (hits > 1 ? 's' : '') + ')');
+    });
+    if (hitFiles.length > 0) {
+      const go = confirm('CSS custom property hits detected:\n\n' + hitFiles.join('\n') + '\n\nPush anyway?');
+      if (!go) { setStatus('Cancelled.', ''); return; }
+    }
+
+    const btn = document.getElementById('btn-push');
+    btn.disabled = true;
+    setStatus('Pushing ' + files.length + ' file' + (files.length > 1 ? 's' : '') + '...', 'busy');
+    log('Starting push of ' + files.length + ' file(s)...', 'info');
+
+    let errors = 0;
+    for (const f of files) {
+      try {
+        await pushFile(owner, repo, f.path, f.content, message, token);
+      } catch (e) {
+        log('ERROR: ' + e.message, 'err');
+        errors++;
+      }
+    }
+
+    btn.disabled = false;
+
+    if (errors === 0) {
+      setStatus('All ' + files.length + ' file(s) pushed. Live in ~30s.', 'ok');
+      log('Done. GitHub Pages rebuilding...', 'ok');
+    } else {
+      setStatus(errors + ' error(s). Check log.', 'err');
+    }
+  }
+
+  init();
 </script>
 
 </body>
