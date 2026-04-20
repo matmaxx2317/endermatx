@@ -27,6 +27,132 @@ color: #444;
 margin-bottom: 32px;
 }
 
+/* SETUP SCREEN */
+.setup-screen {
+width: 100%;
+max-width: 440px;
+margin-top: 20px;
+}
+
+.setup-title {
+font-size: 13px;
+color: #aaa;
+margin-bottom: 8px;
+letter-spacing: 0.05em;
+}
+
+.setup-desc {
+font-size: 11px;
+color: #444;
+margin-bottom: 24px;
+line-height: 1.7;
+}
+
+.setup-desc a {
+color: #7effa0;
+text-decoration: none;
+}
+
+.setup-field {
+margin-bottom: 14px;
+}
+
+.setup-label {
+font-size: 10px;
+letter-spacing: 0.2em;
+text-transform: uppercase;
+color: #555;
+margin-bottom: 6px;
+display: block;
+}
+
+.setup-input {
+width: 100%;
+background: #141414;
+border: 1px solid #2a2a2a;
+color: #f0f0f0;
+font-size: 13px;
+font-family: inherit;
+padding: 10px 12px;
+outline: none;
+transition: border-color 0.15s;
+}
+
+.setup-input:focus { border-color: #7effa0; }
+
+.setup-btn {
+width: 100%;
+padding: 12px;
+margin-top: 8px;
+background: #0d1a10;
+border: 1px solid #7effa0;
+color: #7effa0;
+font-size: 11px;
+letter-spacing: 0.2em;
+text-transform: uppercase;
+cursor: pointer;
+font-family: inherit;
+transition: all 0.15s;
+}
+
+.setup-btn:hover { background: #122018; }
+
+.setup-hint {
+font-size: 10px;
+color: #333;
+margin-top: 16px;
+line-height: 1.6;
+}
+
+/* SYNC STATUS BAR */
+.sync-bar {
+width: 100%;
+max-width: 560px;
+display: flex;
+justify-content: space-between;
+align-items: center;
+margin-bottom: 24px;
+min-height: 18px;
+}
+
+.sync-status {
+font-size: 10px;
+letter-spacing: 0.1em;
+color: #333;
+transition: color 0.3s;
+}
+
+.sync-status.syncing { color: #ffd56b; }
+.sync-status.synced { color: #7effa0; }
+.sync-status.error { color: #ff6b6b; }
+
+.sync-dot {
+display: inline-block;
+width: 5px;
+height: 5px;
+border-radius: 50%;
+margin-right: 5px;
+vertical-align: middle;
+background: currentColor;
+}
+
+.btn-settings {
+background: none;
+border: none;
+color: #333;
+font-size: 10px;
+letter-spacing: 0.15em;
+cursor: pointer;
+font-family: inherit;
+transition: color 0.15s;
+text-transform: uppercase;
+}
+
+.btn-settings:hover { color: #666; }
+
+/* MAIN APP */
+.app { width: 100%; display: flex; flex-direction: column; align-items: center; }
+
 .top-bar {
 display: flex;
 align-items: center;
@@ -115,7 +241,6 @@ position: relative;
 padding: 14px 12px 12px;
 border: 1px solid #222;
 background: #141414;
-color: #bbb;
 font-family: inherit;
 cursor: pointer;
 text-align: left;
@@ -133,8 +258,6 @@ background: #1a1a1a;
 }
 
 .proj-btn.inactive { cursor: default; opacity: 0.35; }
-
-.proj-btn.active-project { background: #141414; }
 
 .proj-btn-bar {
 position: absolute;
@@ -200,13 +323,7 @@ padding: 10px 0;
 border-bottom: 1px solid #181818;
 }
 
-.log-dot {
-width: 7px;
-height: 7px;
-border-radius: 50%;
-flex-shrink: 0;
-}
-
+.log-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 .log-info { flex: 1; }
 .log-project { font-size: 13px; color: #f0f0f0; }
 .log-meta { font-size: 11px; color: #333; margin-top: 2px; }
@@ -231,11 +348,7 @@ font-family: inherit;
 
 .log-delete:hover { color: #ff6b6b; }
 
-.report-tabs {
-display: flex;
-gap: 2px;
-margin-bottom: 14px;
-}
+.report-tabs { display: flex; gap: 2px; margin-bottom: 14px; }
 
 .report-tab {
 flex: 1;
@@ -276,12 +389,7 @@ text-overflow: ellipsis;
 flex-shrink: 0;
 }
 
-.report-bar-wrap {
-flex: 1;
-height: 3px;
-background: #1e1e1e;
-}
-
+.report-bar-wrap { flex: 1; height: 3px; background: #1e1e1e; }
 .report-bar { height: 3px; transition: width 0.4s ease; }
 
 .report-time {
@@ -349,17 +457,13 @@ font-family: inherit;
 
 .proj-delete:hover { color: #ff6b6b; }
 
-.add-row {
-display: flex;
-gap: 8px;
-margin-top: 12px;
-}
+.add-row { display: flex; gap: 8px; margin-top: 12px; }
 
 .add-input {
 flex: 1;
 background: #141414;
 border: 1px solid #1e1e1e;
-color: #ddd;
+color: #f0f0f0;
 font-size: 13px;
 font-family: inherit;
 padding: 8px 12px;
@@ -414,6 +518,8 @@ text-align: center;
 padding: 20px 0;
 letter-spacing: 0.05em;
 }
+
+.hidden { display: none !important; }
 </style>
 
 </head>
@@ -421,46 +527,91 @@ letter-spacing: 0.05em;
 
 <h1>Time Tracker</h1>
 
-<div class="top-bar">
-  <div class="timer-display" id="timerDisplay">00:00:00</div>
-  <button class="btn-control start" id="btnControl" onclick="toggleTimer()">START</button>
-</div>
+<!-- SETUP SCREEN -->
 
-<div class="active-indicator" id="activeIndicator">&#8212;</div>
-
-<div class="projects-grid" id="projectsGrid"></div>
-
-<div class="color-popup" id="colorPopup"></div>
-
-<div class="section">
-  <div class="section-title">Today's Log</div>
-  <div id="logList"></div>
-</div>
-
-<div class="section">
-  <div class="section-title">Report</div>
-  <div class="report-tabs">
-    <button class="report-tab active" onclick="setReport('week')">This Week</button>
-    <button class="report-tab" onclick="setReport('month')">This Month</button>
-    <button class="report-tab" onclick="setReport('all')">All Time</button>
+<div class="setup-screen" id="setupScreen">
+  <div class="setup-title">Connect to GitHub Gist</div>
+  <div class="setup-desc">
+    Your data syncs across all devices via a private GitHub Gist.<br>
+    One-time setup per device. Credentials stay on this device only.
   </div>
-  <div id="reportContent"></div>
+
+  <div class="setup-field">
+    <label class="setup-label" for="inputToken">Personal Access Token</label>
+    <input class="setup-input" id="inputToken" type="password" placeholder="github_pat_...">
+  </div>
+
+  <div class="setup-field">
+    <label class="setup-label" for="inputGistId">Gist ID</label>
+    <input class="setup-input" id="inputGistId" type="text" placeholder="Leave blank to create a new Gist">
+  </div>
+
+<button class="setup-btn" onclick="setupConnect()">Connect</button>
+
+  <div class="setup-hint">
+    Create a token at github.com/settings/tokens (classic)<br>
+    Required scope: <strong style="color:#7effa0">gist</strong><br><br>
+    Leave Gist ID blank on your first device — a new Gist will be created.<br>
+    Copy the Gist ID shown after setup and enter it on your other devices.
+  </div>
 </div>
 
-<div class="section">
-  <div class="section-title">Projects</div>
-  <div id="projectsMgr"></div>
-  <div class="add-row">
-    <input class="add-input" id="newProjName" placeholder="New project name..."
-      onkeydown="if(event.key==='Enter')addProject()">
-    <button class="add-btn" onclick="addProject()">+</button>
+<!-- MAIN APP -->
+
+<div class="app hidden" id="appScreen">
+
+  <div class="sync-bar" style="width:100%;max-width:560px">
+    <div class="sync-status" id="syncStatus"><span class="sync-dot"></span>Ready</div>
+    <button class="btn-settings" onclick="showSettings()">Settings</button>
   </div>
+
+  <div class="top-bar">
+    <div class="timer-display" id="timerDisplay">00:00:00</div>
+    <button class="btn-control start" id="btnControl" onclick="toggleTimer()">START</button>
+  </div>
+
+  <div class="active-indicator" id="activeIndicator">&#8212;</div>
+
+  <div class="projects-grid" id="projectsGrid"></div>
+
+  <div class="color-popup" id="colorPopup"></div>
+
+  <div class="section">
+    <div class="section-title">Today's Log</div>
+    <div id="logList"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Report</div>
+    <div class="report-tabs">
+      <button class="report-tab active" onclick="setReport('week')">This Week</button>
+      <button class="report-tab" onclick="setReport('month')">This Month</button>
+      <button class="report-tab" onclick="setReport('all')">All Time</button>
+    </div>
+    <div id="reportContent"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Projects</div>
+    <div id="projectsMgr"></div>
+    <div class="add-row">
+      <input class="add-input" id="newProjName" placeholder="New project name..."
+        onkeydown="if(event.key==='Enter')addProject()">
+      <button class="add-btn" onclick="addProject()">+</button>
+    </div>
+  </div>
+
 </div>
 
 <script>
 const COLORS = [
   '#7effa0','#ff6b6b','#6bb5ff','#ffd56b','#d06bff',
   '#ff9f6b','#6bfff0','#ff6bd6','#b5ff6b','#6b7fff'
+];
+
+const DEFAULTS = [
+  'VIO1208','VIO1254','VIO1406','VIO1508','VIO5404',
+  'VX1152','VX1161.02','VX1161.22','VX1161.33','VX1161.52'
 ];
 
 let state = {
@@ -473,18 +624,134 @@ let state = {
   reportMode: 'week'
 };
 
+let gistToken = '';
+let gistId = '';
 let tickInterval = null;
+let syncTimeout = null;
+let syncing = false;
 
-function loadState() {
+// ---- SETUP ----
+
+function loadCredentials() {
+  gistToken = localStorage.getItem('tt_token') || '';
+  gistId = localStorage.getItem('tt_gist_id') || '';
+}
+
+function saveCredentials() {
+  localStorage.setItem('tt_token', gistToken);
+  localStorage.setItem('tt_gist_id', gistId);
+}
+
+async function setupConnect() {
+  const token = document.getElementById('inputToken').value.trim();
+  const gid = document.getElementById('inputGistId').value.trim();
+  if (!token) { alert('Please enter a Personal Access Token.'); return; }
+
+  gistToken = token;
+
+  if (!gid) {
+    // Create a new Gist
+    setSyncStatus('syncing', 'Creating Gist...');
+    try {
+      const res = await fetch('https://api.github.com/gists', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: 'Time Tracker Data',
+          public: false,
+          files: { 'tt_data.json': { content: JSON.stringify(state) } }
+        })
+      });
+      if (!res.ok) throw new Error('GitHub API error: ' + res.status);
+      const data = await res.json();
+      gistId = data.id;
+      saveCredentials();
+      alert('Gist created! Your Gist ID is:\n\n' + gistId + '\n\nCopy this and enter it on your other devices.');
+      showApp();
+    } catch(e) {
+      setSyncStatus('error', 'Error: ' + e.message);
+    }
+  } else {
+    // Load existing Gist
+    gistId = gid;
+    setSyncStatus('syncing', 'Loading...');
+    try {
+      await pullFromGist();
+      saveCredentials();
+      showApp();
+    } catch(e) {
+      setSyncStatus('error', 'Could not load Gist. Check ID and token.');
+    }
+  }
+}
+
+function showApp() {
+  document.getElementById('setupScreen').classList.add('hidden');
+  document.getElementById('appScreen').classList.remove('hidden');
+  initApp();
+}
+
+function showSettings() {
+  const id = gistId;
+  const msg = 'Gist ID: ' + id + '\n\nTo use on another device, go to the app, leave Gist ID blank first time then enter this ID.\n\nClear credentials on this device?';
+  if (confirm(msg)) {
+    localStorage.removeItem('tt_token');
+    localStorage.removeItem('tt_gist_id');
+    location.reload();
+  }
+}
+
+// ---- GIST SYNC ----
+
+async function pullFromGist() {
+  const res = await fetch('https://api.github.com/gists/' + gistId, {
+    headers: { 'Authorization': 'Bearer ' + gistToken }
+  });
+  if (!res.ok) throw new Error('Pull failed: ' + res.status);
+  const data = await res.json();
+  const content = data.files['tt_data.json'] && data.files['tt_data.json'].content;
+  if (content) {
+    const remote = JSON.parse(content);
+    state = Object.assign({
+      projects: [], entries: [], timerRunning: false,
+      timerStart: null, activeProjectId: null,
+      activeSegmentStart: null, reportMode: 'week'
+    }, remote);
+  }
+}
+
+async function pushToGist() {
+  if (!gistToken || !gistId) return;
+  syncing = true;
+  setSyncStatus('syncing', 'Syncing...');
   try {
-    const s = localStorage.getItem('tt2_state');
-    if (s) state = Object.assign(state, JSON.parse(s));
-  } catch(e) {}
+    const res = await fetch('https://api.github.com/gists/' + gistId, {
+      method: 'PATCH',
+      headers: { 'Authorization': 'Bearer ' + gistToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ files: { 'tt_data.json': { content: JSON.stringify(state) } } })
+    });
+    if (!res.ok) throw new Error('Push failed: ' + res.status);
+    setSyncStatus('synced', 'Synced');
+    setTimeout(function() { setSyncStatus('', 'Ready'); }, 2000);
+  } catch(e) {
+    setSyncStatus('error', 'Sync failed');
+  }
+  syncing = false;
 }
 
-function saveState() {
-  localStorage.setItem('tt2_state', JSON.stringify(state));
+function schedulePush() {
+  clearTimeout(syncTimeout);
+  syncTimeout = setTimeout(pushToGist, 1500);
 }
+
+function setSyncStatus(type, text) {
+  const el = document.getElementById('syncStatus');
+  if (!el) return;
+  el.className = 'sync-status' + (type ? ' ' + type : '');
+  el.innerHTML = '<span class="sync-dot"></span>' + text;
+}
+
+// ---- TIMER ----
 
 function toggleTimer() {
   if (state.timerRunning) stopAll(); else startAll();
@@ -495,7 +762,7 @@ function startAll() {
   state.timerStart = Date.now();
   state.activeProjectId = null;
   state.activeSegmentStart = null;
-  saveState();
+  schedulePush();
   updateControlBtn();
   updateIndicator();
   tickInterval = setInterval(tick, 1000);
@@ -511,7 +778,7 @@ function stopAll() {
   state.activeSegmentStart = null;
   clearInterval(tickInterval);
   tickInterval = null;
-  saveState();
+  schedulePush();
   updateControlBtn();
   updateIndicator();
   document.getElementById('timerDisplay').classList.remove('running');
@@ -527,7 +794,7 @@ function selectProject(id) {
   flushSegment();
   state.activeProjectId = id;
   state.activeSegmentStart = Date.now();
-  saveState();
+  schedulePush();
   updateIndicator();
   renderGrid();
 }
@@ -554,6 +821,8 @@ function tick() {
   el.classList.add('running');
   updateGridTimes();
 }
+
+// ---- UI ----
 
 function updateControlBtn() {
   const btn = document.getElementById('btnControl');
@@ -586,18 +855,17 @@ function updateIndicator() {
 }
 
 function sortedProjects() {
-  return state.projects.slice().sort(function(a, b) {
-    return a.name.localeCompare(b.name);
-  });
+  return state.projects.slice().sort(function(a, b) { return a.name.localeCompare(b.name); });
 }
 
 function renderGrid() {
   const grid = document.getElementById('projectsGrid');
+  if (!grid) return;
   if (state.projects.length === 0) {
     grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1">Add projects below to get started.</div>';
     return;
   }
-  grid.innerHTML = sortedProjects().map(p => {
+  grid.innerHTML = sortedProjects().map(function(p) {
     const isActive = state.timerRunning && state.activeProjectId === p.id;
     const isInactive = !state.timerRunning;
     const total = getProjectTotal(p.id);
@@ -614,7 +882,7 @@ function renderGrid() {
 }
 
 function updateGridTimes() {
-  state.projects.forEach(p => {
+  state.projects.forEach(function(p) {
     const el = document.getElementById('pgtime_' + p.id);
     if (!el) return;
     const total = getProjectTotal(p.id);
@@ -623,30 +891,27 @@ function updateGridTimes() {
 }
 
 function getProjectTotal(id) {
-  let total = state.entries
-    .filter(e => e.projectId === id)
-    .reduce((s, e) => s + e.duration, 0);
+  let total = state.entries.filter(function(e) { return e.projectId === id; })
+    .reduce(function(s, e) { return s + e.duration; }, 0);
   if (state.timerRunning && state.activeProjectId === id && state.activeSegmentStart) {
     total += Math.floor((Date.now() - state.activeSegmentStart) / 1000);
   }
   return total;
 }
 
+// ---- LOG ----
+
 function isToday(ts) {
   const d = new Date(ts), n = new Date();
-  return d.getFullYear() === n.getFullYear() &&
-         d.getMonth() === n.getMonth() &&
-         d.getDate() === n.getDate();
+  return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate();
 }
 
 function renderLog() {
   const list = document.getElementById('logList');
-  const today = state.entries.filter(e => isToday(e.start)).slice().reverse();
-  if (today.length === 0) {
-    list.innerHTML = '<div class="empty-state">No entries today yet.</div>';
-    return;
-  }
-  list.innerHTML = today.map(e => {
+  if (!list) return;
+  const today = state.entries.filter(function(e) { return isToday(e.start); }).slice().reverse();
+  if (today.length === 0) { list.innerHTML = '<div class="empty-state">No entries today yet.</div>'; return; }
+  list.innerHTML = today.map(function(e) {
     const p = getProject(e.projectId);
     return '<div class="log-entry">' +
       '<div class="log-dot" style="background:' + p.color + '"></div>' +
@@ -659,16 +924,17 @@ function renderLog() {
 }
 
 function deleteEntry(id) {
-  state.entries = state.entries.filter(e => e.id !== id);
-  saveState();
+  state.entries = state.entries.filter(function(e) { return e.id !== id; });
+  schedulePush();
   renderLog();
   renderReport();
 }
 
+// ---- REPORT ----
+
 function setReport(mode) {
   state.reportMode = mode;
-  saveState();
-  document.querySelectorAll('.report-tab').forEach((t, i) => {
+  document.querySelectorAll('.report-tab').forEach(function(t, i) {
     t.classList.toggle('active', ['week','month','all'][i] === mode);
   });
   renderReport();
@@ -683,92 +949,83 @@ function getReportStart() {
     d.setHours(0,0,0,0);
     return d.getTime();
   }
-  if (state.reportMode === 'month') {
-    return new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-  }
+  if (state.reportMode === 'month') return new Date(now.getFullYear(), now.getMonth(), 1).getTime();
   return 0;
 }
 
 function renderReport() {
-  const start = getReportStart();
-  const filtered = state.entries.filter(e => e.start >= start);
   const content = document.getElementById('reportContent');
-  if (filtered.length === 0) {
-    content.innerHTML = '<div class="empty-state">No entries in this period.</div>';
-    return;
-  }
+  if (!content) return;
+  const start = getReportStart();
+  const filtered = state.entries.filter(function(e) { return e.start >= start; });
+  if (filtered.length === 0) { content.innerHTML = '<div class="empty-state">No entries in this period.</div>'; return; }
   const totals = {};
   let grand = 0;
-  filtered.forEach(e => {
-    totals[e.projectId] = (totals[e.projectId] || 0) + e.duration;
-    grand += e.duration;
-  });
-  const sorted = Object.entries(totals).sort((a,b) => b[1]-a[1]);
+  filtered.forEach(function(e) { totals[e.projectId] = (totals[e.projectId] || 0) + e.duration; grand += e.duration; });
+  const sorted = Object.entries(totals).sort(function(a,b) { return b[1]-a[1]; });
   const max = sorted[0][1];
   content.innerHTML = sorted.map(function(entry) {
-    const pid = entry[0], dur = entry[1];
-    const p = getProject(parseInt(pid));
-    const pct = Math.round((dur / max) * 100);
+    const p = getProject(parseInt(entry[0]));
+    const pct = Math.round((entry[1] / max) * 100);
     return '<div class="report-row">' +
       '<div class="report-label">' + escHtml(p.name) + '</div>' +
       '<div class="report-bar-wrap"><div class="report-bar" style="width:' + pct + '%;background:' + p.color + '"></div></div>' +
-      '<div class="report-time">' + formatDurationShort(dur) + '</div>' +
+      '<div class="report-time">' + formatDurationShort(entry[1]) + '</div>' +
       '</div>';
   }).join('') + '<div class="report-total">Total: ' + formatDurationShort(grand) + '</div>';
 }
 
+// ---- PROJECTS MANAGER ----
+
 function renderProjectsMgr() {
   const list = document.getElementById('projectsMgr');
-  if (state.projects.length === 0) {
-    list.innerHTML = '<div class="empty-state">No projects yet.</div>';
-    return;
-  }
-  list.innerHTML = sortedProjects().map(p =>
-    '<div class="proj-item">' +
-    '<div class="proj-color-dot" style="background:' + p.color + '" onclick="openColorPicker(' + p.id + ',this)"></div>' +
-    '<input class="proj-name-input" value="' + escHtml(p.name) + '" onblur="renameProject(' + p.id + ',this.value)" onkeydown="if(event.key===\'Enter\')this.blur()">' +
-    '<button class="proj-delete" onclick="deleteProject(' + p.id + ')">&#215;</button>' +
-    '</div>'
-  ).join('');
+  if (!list) return;
+  if (state.projects.length === 0) { list.innerHTML = '<div class="empty-state">No projects yet.</div>'; return; }
+  list.innerHTML = sortedProjects().map(function(p) {
+    return '<div class="proj-item">' +
+      '<div class="proj-color-dot" style="background:' + p.color + '" onclick="openColorPicker(' + p.id + ',this)"></div>' +
+      '<input class="proj-name-input" value="' + escHtml(p.name) + '" onblur="renameProject(' + p.id + ',this.value)" onkeydown="if(event.key===\'Enter\')this.blur()">' +
+      '<button class="proj-delete" onclick="deleteProject(' + p.id + ')">&#215;</button>' +
+      '</div>';
+  }).join('');
 }
 
 function addProject() {
   const input = document.getElementById('newProjName');
   const name = input.value.trim();
   if (!name) return;
-  const newP = { id: Date.now(), name, color: COLORS[state.projects.length % COLORS.length] };
-  state.projects.push(newP);
-  state.projects.sort(function(a, b) { return a.name.localeCompare(b.name); });
+  state.projects.push({ id: Date.now(), name: name, color: COLORS[state.projects.length % COLORS.length] });
+  state.projects.sort(function(a,b) { return a.name.localeCompare(b.name); });
   input.value = '';
-  saveState();
+  schedulePush();
   renderProjectsMgr();
   renderGrid();
 }
 
 function renameProject(id, name) {
-  const p = state.projects.find(p => p.id === id);
+  const p = state.projects.find(function(p) { return p.id === id; });
   if (p && name.trim()) {
     p.name = name.trim();
-    state.projects.sort(function(a, b) { return a.name.localeCompare(b.name); });
-    saveState(); renderGrid(); renderLog(); renderReport();
+    state.projects.sort(function(a,b) { return a.name.localeCompare(b.name); });
+    schedulePush();
+    renderGrid(); renderLog(); renderReport(); renderProjectsMgr();
   }
 }
 
 function deleteProject(id) {
-  state.projects = state.projects.filter(p => p.id !== id);
-  saveState();
-  renderProjectsMgr();
-  renderGrid();
-  renderLog();
-  renderReport();
+  state.projects = state.projects.filter(function(p) { return p.id !== id; });
+  schedulePush();
+  renderProjectsMgr(); renderGrid(); renderLog(); renderReport();
 }
+
+// ---- COLOR PICKER ----
 
 function openColorPicker(id, dotEl) {
   closeColorPicker();
   const popup = document.getElementById('colorPopup');
-  popup.innerHTML = COLORS.map(c =>
-    '<div class="color-swatch" style="background:' + c + '" onclick="setColor(' + id + ',\'' + c + '\')"></div>'
-  ).join('');
+  popup.innerHTML = COLORS.map(function(c) {
+    return '<div class="color-swatch" style="background:' + c + '" onclick="setColor(' + id + ',\'' + c + '\')"></div>';
+  }).join('');
   const rect = dotEl.getBoundingClientRect();
   popup.style.left = rect.left + 'px';
   popup.style.top = (rect.bottom + 6) + 'px';
@@ -776,22 +1033,21 @@ function openColorPicker(id, dotEl) {
 }
 
 function setColor(id, color) {
-  const p = state.projects.find(p => p.id === id);
-  if (p) { p.color = color; saveState(); renderProjectsMgr(); renderGrid(); renderLog(); renderReport(); }
+  const p = state.projects.find(function(p) { return p.id === id; });
+  if (p) { p.color = color; schedulePush(); renderProjectsMgr(); renderGrid(); renderLog(); renderReport(); }
   closeColorPicker();
 }
 
-function closeColorPicker() {
-  document.getElementById('colorPopup').classList.remove('visible');
-}
+function closeColorPicker() { document.getElementById('colorPopup').classList.remove('visible'); }
 
 document.addEventListener('click', function(e) {
-  if (!e.target.classList.contains('proj-color-dot') &&
-      !e.target.classList.contains('color-swatch')) closeColorPicker();
+  if (!e.target.classList.contains('proj-color-dot') && !e.target.classList.contains('color-swatch')) closeColorPicker();
 });
 
+// ---- HELPERS ----
+
 function getProject(id) {
-  return state.projects.find(p => p.id === id) || { name: 'Deleted', color: '#444' };
+  return state.projects.find(function(p) { return p.id === id; }) || { name: 'Deleted', color: '#444' };
 }
 
 function formatDuration(s) {
@@ -816,7 +1072,21 @@ function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-function resumeIfRunning() {
+// ---- INIT ----
+
+function initApp() {
+  if (state.projects.length === 0) {
+    DEFAULTS.forEach(function(name, i) {
+      state.projects.push({ id: Date.now() + i, name: name, color: COLORS[i % COLORS.length] });
+    });
+    schedulePush();
+  }
+  renderGrid();
+  renderLog();
+  renderReport();
+  renderProjectsMgr();
+  updateControlBtn();
+  updateIndicator();
   if (state.timerRunning && state.timerStart) {
     updateControlBtn();
     updateIndicator();
@@ -825,24 +1095,27 @@ function resumeIfRunning() {
   }
 }
 
-loadState();
-if (state.projects.length === 0) {
-  const defaults = [
-    'VIO1208','VIO1254','VIO1406','VIO1508','VIO5404',
-    'VX1152','VX1161.02','VX1161.22','VX1161.33','VX1161.52'
-  ];
-  defaults.forEach(function(name, i) {
-    state.projects.push({ id: Date.now() + i, name: name, color: COLORS[i % COLORS.length] });
-  });
-  saveState();
+async function init() {
+  loadCredentials();
+  if (gistToken && gistId) {
+    document.getElementById('setupScreen').classList.add('hidden');
+    document.getElementById('appScreen').classList.remove('hidden');
+    setSyncStatus('syncing', 'Loading...');
+    try {
+      await pullFromGist();
+      setSyncStatus('synced', 'Synced');
+      setTimeout(function() { setSyncStatus('', 'Ready'); }, 2000);
+    } catch(e) {
+      setSyncStatus('error', 'Sync failed — using local cache');
+    }
+    initApp();
+  } else {
+    document.getElementById('inputToken').value = gistToken;
+    document.getElementById('inputGistId').value = gistId;
+  }
 }
-renderGrid();
-renderLog();
-renderReport();
-renderProjectsMgr();
-updateControlBtn();
-updateIndicator();
-resumeIfRunning();
+
+init();
 </script>
 
 </body>
