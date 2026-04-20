@@ -277,7 +277,7 @@ main { padding: 20px 16px 40px; }
 <body>
 
 <header>
-  <span class="logo">Cal</span><span style="font-size:10px;color:#444;margin-left:6px;letter-spacing:0.05em">v1.0</span>
+  <span class="logo">Cal</span><span style="font-size:10px;color:#444;margin-left:6px;letter-spacing:0.05em">v1.1</span>
   <div class="ctrl-group">
     <span>From</span>
     <select id="startMonth">
@@ -355,6 +355,7 @@ main { padding: 20px 16px 40px; }
       <select id="projDurUnit" class="form-select">
         <option value="weeks" selected>weeks</option>
         <option value="months">months</option>
+        <option value="workdays">working days</option>
       </select>
     </div>
     <div class="form-field">
@@ -399,7 +400,26 @@ document.getElementById('projStartMode').addEventListener('change', function() {
   if(mode === 'after') updateAfterRefDropdown();
 });
 
-function addProject() {
+function addWorkingDays(startDate, days) {
+  var holidays = getHolidays(startDate.getFullYear(), state.countries);
+  var nextYearHolidays = getHolidays(startDate.getFullYear() + 1, state.countries);
+  Object.keys(nextYearHolidays).forEach(function(k) {
+    if(!holidays[k]) holidays[k] = nextYearHolidays[k];
+  });
+  var d = new Date(startDate);
+  var counted = 0;
+  while(counted < days) {
+    d.setDate(d.getDate() + 1);
+    var dow = d.getDay();
+    if(dow === 0 || dow === 6) continue;
+    var key = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    if(holidays[key]) continue;
+    counted += 1;
+  }
+  return d;
+}
+
+
   var name = document.getElementById('projName').value.trim();
   if(!name) { document.getElementById('projName').focus(); return; }
 
@@ -428,9 +448,11 @@ function addProject() {
   var endDate = new Date(startDate);
   if(durUnit === 'weeks') {
     endDate.setDate(endDate.getDate() + durVal * 7 - 1);
-  } else {
+  } else if(durUnit === 'months') {
     endDate.setMonth(endDate.getMonth() + durVal);
     endDate.setDate(endDate.getDate() - 1);
+  } else {
+    endDate = addWorkingDays(startDate, durVal);
   }
 
   var proj = { id: Date.now(), name: name, startDate: startDate, endDate: endDate, color: nextColor() };
@@ -546,58 +568,58 @@ function getHolidays(year, countries) {
     add(b.getMonth(),b.getDate(),name);
   }
   if(countries.has('DE')){
-    add(0,1,'Neujahr');add(0,6,'Heilige Drei Koenige');add(4,1,'Tag der Arbeit');
-    add(7,15,'Mariae Himmelfahrt');add(9,3,'Tag der Deutschen Einheit');
-    add(10,1,'Allerheiligen');add(11,25,'Weihnachten');add(11,26,'2. Weihnachtstag');
-    eOff(-2,'Karfreitag');eOff(0,'Ostersonntag');eOff(1,'Ostermontag');
-    eOff(39,'Christi Himmelfahrt');eOff(49,'Pfingstsonntag');eOff(50,'Pfingstmontag');
-    eOff(60,'Fronleichnam');
+    add(0,1,'New Year');add(0,6,'Epiphany');add(4,1,'Labour Day');
+    add(7,15,'Assumption');add(9,3,'German Unity Day');
+    add(10,1,'All Saints');add(11,25,'Christmas');add(11,26,'Boxing Day');
+    eOff(-2,'Good Friday');eOff(0,'Easter Sunday');eOff(1,'Easter Monday');
+    eOff(39,'Ascension');eOff(49,'Whit Sunday');eOff(50,'Whit Monday');
+    eOff(60,'Corpus Christi');
   }
   if(countries.has('AT')){
-    add(0,1,'Neujahr');add(0,6,'Heilige Drei Koenige');add(4,1,'Tag der Arbeit');
-    add(7,15,'Mariä Himmelfahrt');add(9,26,'Nationalfeiertag');add(10,1,'Allerheiligen');
-    add(11,8,'Mariä Empfaengnis');add(11,25,'Weihnachten');add(11,26,'Stephanstag');
-    eOff(-2,'Karfreitag');eOff(0,'Ostersonntag');eOff(1,'Ostermontag');
-    eOff(39,'Christi Himmelfahrt');eOff(49,'Pfingstsonntag');eOff(50,'Pfingstmontag');eOff(60,'Fronleichnam');
+    add(0,1,'New Year');add(0,6,'Epiphany');add(4,1,'Labour Day');
+    add(7,15,'Assumption');add(9,26,'National Day');add(10,1,'All Saints');
+    add(11,8,'Immaculate Conception');add(11,25,'Christmas');add(11,26,'St. Stephen');
+    eOff(-2,'Good Friday');eOff(0,'Easter Sunday');eOff(1,'Easter Monday');
+    eOff(39,'Ascension');eOff(49,'Whit Sunday');eOff(50,'Whit Monday');eOff(60,'Corpus Christi');
   }
   if(countries.has('US')){
-    add(0,1,'Neujahr');add(0,nthWd(year,0,1,3),'MLK-Tag');
-    add(1,nthWd(year,1,1,3),'Praesidemtentag');add(4,lastWd(year,4,1),'Gefallenengedenktag');
-    add(5,19,'Juneteenth');add(6,4,'Unabhaengigkeitstag');
-    add(8,nthWd(year,8,1,1),'Tag der Arbeit');add(10,nthWd(year,10,4,4),'Erntedankfest');
-    add(11,25,'Weihnachten');
+    add(0,1,'New Year');add(0,nthWd(year,0,1,3),'MLK Day');
+    add(1,nthWd(year,1,1,3),'Presidents Day');add(4,lastWd(year,4,1),'Memorial Day');
+    add(5,19,'Juneteenth');add(6,4,'Independence Day');
+    add(8,nthWd(year,8,1,1),'Labour Day');add(10,nthWd(year,10,4,4),'Thanksgiving');
+    add(11,25,'Christmas');
   }
   if(countries.has('GB')){
-    add(0,1,'Neujahr');add(11,25,'Weihnachten');add(11,26,'2. Weihnachtstag');
-    eOff(-2,'Karfreitag');eOff(1,'Ostermontag');
-    add(4,nthWd(year,4,1,1),'Fruehjahrsfeiertag');add(4,lastWd(year,4,1),'Fruehlingsbank');
-    add(7,lastWd(year,7,1),'Sommerbank');
+    add(0,1,'New Year');add(11,25,'Christmas');add(11,26,'Boxing Day');
+    eOff(-2,'Good Friday');eOff(1,'Easter Monday');
+    add(4,nthWd(year,4,1,1),'Early May Bank Holiday');add(4,lastWd(year,4,1),'Spring Bank Holiday');
+    add(7,lastWd(year,7,1),'Summer Bank Holiday');
   }
   if(countries.has('FR')){
-    add(0,1,'Neujahr');add(4,1,'Tag der Arbeit');add(4,8,'Kriegsende 1945');
-    add(6,14,'Bastilletag');add(7,15,'Mariä Himmelfahrt');add(10,1,'Allerheiligen');
-    add(10,11,'Waffenstillstand');add(11,25,'Weihnachten');
-    eOff(1,'Ostermontag');eOff(39,'Christi Himmelfahrt');eOff(50,'Pfingstmontag');
+    add(0,1,'New Year');add(4,1,'Labour Day');add(4,8,'Victory in Europe');
+    add(6,14,'Bastille Day');add(7,15,'Assumption');add(10,1,'All Saints');
+    add(10,11,'Armistice Day');add(11,25,'Christmas');
+    eOff(1,'Easter Monday');eOff(39,'Ascension');eOff(50,'Whit Monday');
   }
   if(countries.has('CN')){
-    add(0,1,'Neujahr');add(4,1,'Tag der Arbeit');
-    add(9,1,'Nationalfeiertag');add(9,2,'Nationalfeiertag');add(9,3,'Nationalfeiertag');
+    add(0,1,'New Year');add(4,1,'Labour Day');
+    add(9,1,'National Day');add(9,2,'National Day');add(9,3,'National Day');
     var cny={2024:[1,10],2025:[1,29],2026:[2,17],2027:[2,6],2028:[1,26]};
     if(cny[year]){
       var cm=cny[year][0],cd=cny[year][1];
-      for(var i=0;i<7;i+=1){var dt=new Date(year,cm-1,cd+i);add(dt.getMonth(),dt.getDate(),'Fruehlingsfest');}
+      for(var i=0;i<7;i+=1){var dt=new Date(year,cm-1,cd+i);add(dt.getMonth(),dt.getDate(),'Spring Festival');}
     }
-    add(3,5,'Qingming-Fest');add(5,10,'Drachenbootfest');add(8,18,'Mondfest');
+    add(3,5,'Qingming Festival');add(5,10,'Dragon Boat Festival');add(8,18,'Mid-Autumn Festival');
   }
   if(countries.has('JP')){
-    add(0,1,'Neujahr');add(0,2,'Neujahr');add(0,3,'Neujahr');
-    add(0,nthWd(year,0,1,2),'Volljaerigkeitstag');
-    add(1,11,'Gruendungstag');add(2,20,'Fruehlingsbeginn');add(3,29,'Showa-Tag');
-    add(4,3,'Verfassungstag');add(4,4,'Tag des Gruens');add(4,5,'Kindertag');
-    add(6,nthWd(year,6,1,3),'Meerestag');add(7,11,'Bergtag');
-    add(8,nthWd(year,8,1,3),'Tag der Aelteren');add(8,23,'Herbstbeginn');
-    add(9,nthWd(year,9,1,2),'Sporttag');
-    add(10,3,'Kulturtag');add(10,23,'Arbeitsdankfest');add(1,23,'Kaisers Geburtstag');
+    add(0,1,'New Year');add(0,2,'New Year');add(0,3,'New Year');
+    add(0,nthWd(year,0,1,2),'Coming of Age Day');
+    add(1,11,'Foundation Day');add(2,20,'Vernal Equinox');add(3,29,'Showa Day');
+    add(4,3,'Constitution Day');add(4,4,'Greenery Day');add(4,5,'Children'''s Day');
+    add(6,nthWd(year,6,1,3),'Marine Day');add(7,11,'Mountain Day');
+    add(8,nthWd(year,8,1,3),'Respect for the Aged');add(8,23,'Autumnal Equinox');
+    add(9,nthWd(year,9,1,2),'Sports Day');
+    add(10,3,'Culture Day');add(10,23,'Labour Thanksgiving');add(1,23,'Emperor'''s Birthday');
   }
   return map;
 }
