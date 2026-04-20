@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Time Tracker</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+background: #0e0e0e;
+color: #e8e8e8;
+font-family: ‘Courier New’, Courier, monospace;
+min-height: 100vh;
+display: flex;
+flex-direction: column;
+align-items: center;
+padding: 40px 16px 80px;
+}
+
+h1 {
+font-size: 11px;
+letter-spacing: 0.25em;
+text-transform: uppercase;
+color: #555;
+margin-bottom: 48px;
+}
+
+/* TIMER SECTION */
+.timer-display {
+font-size: clamp(52px, 14vw, 96px);
+font-weight: 700;
+letter-spacing: -0.02em;
+color: #f0f0f0;
+font-variant-numeric: tabular-nums;
+line-height: 1;
+margin-bottom: 40px;
+transition: color 0.3s;
+}
+
+.timer-display.running {
+color: #7effa0;
+}
+
+.btn-start {
+width: 80px;
+height: 80px;
+border-radius: 50%;
+border: 2px solid #333;
+background: #1a1a1a;
+color: #e8e8e8;
+font-size: 11px;
+letter-spacing: 0.15em;
+text-transform: uppercase;
+cursor: pointer;
+transition: all 0.15s;
+display: flex;
+align-items: center;
+justify-content: center;
+}
+
+.btn-start:hover {
+border-color: #7effa0;
+color: #7effa0;
+}
+
+.btn-start.running {
+border-color: #ff6b6b;
+color: #ff6b6b;
+background: #1a1010;
+}
+
+.btn-start.running:hover {
+background: #200e0e;
+}
+
+/* PROJECT PICKER MODAL */
+.overlay {
+display: none;
+position: fixed;
+inset: 0;
+background: rgba(0,0,0,0.85);
+z-index: 100;
+align-items: center;
+justify-content: center;
+padding: 16px;
+}
+
+.overlay.visible {
+display: flex;
+}
+
+.modal {
+background: #141414;
+border: 1px solid #2a2a2a;
+width: 100%;
+max-width: 420px;
+max-height: 80vh;
+display: flex;
+flex-direction: column;
+overflow: hidden;
+}
+
+.modal-header {
+padding: 20px 24px 16px;
+border-bottom: 1px solid #1f1f1f;
+font-size: 10px;
+letter-spacing: 0.25em;
+text-transform: uppercase;
+color: #555;
+display: flex;
+justify-content: space-between;
+align-items: center;
+}
+
+.modal-header .duration-label {
+color: #7effa0;
+font-size: 13px;
+letter-spacing: 0.05em;
+}
+
+.project-list {
+overflow-y: auto;
+flex: 1;
+}
+
+.project-item {
+padding: 16px 24px;
+cursor: pointer;
+border-bottom: 1px solid #1a1a1a;
+display: flex;
+align-items: center;
+gap: 12px;
+transition: background 0.1s;
+}
+
+.project-item:hover {
+background: #1e1e1e;
+}
+
+.project-dot {
+width: 8px;
+height: 8px;
+border-radius: 50%;
+flex-shrink: 0;
+}
+
+.project-name {
+font-size: 15px;
+color: #ddd;
+}
+
+.modal-cancel {
+padding: 16px 24px;
+font-size: 11px;
+letter-spacing: 0.15em;
+text-transform: uppercase;
+color: #444;
+cursor: pointer;
+text-align: center;
+border-top: 1px solid #1f1f1f;
+transition: color 0.15s;
+}
+
+.modal-cancel:hover {
+color: #ff6b6b;
+}
+
+/* SECTIONS */
+.section {
+width: 100%;
+max-width: 480px;
+margin-top: 56px;
+}
+
+.section-title {
+font-size: 10px;
+letter-spacing: 0.25em;
+text-transform: uppercase;
+color: #444;
+margin-bottom: 16px;
+display: flex;
+justify-content: space-between;
+align-items: center;
+}
+
+.section-title button {
+background: none;
+border: 1px solid #2a2a2a;
+color: #555;
+font-size: 10px;
+letter-spacing: 0.15em;
+text-transform: uppercase;
+padding: 4px 10px;
+cursor: pointer;
+font-family: inherit;
+transition: all 0.15s;
+}
+
+.section-title button:hover {
+border-color: #7effa0;
+color: #7effa0;
+}
+
+/* LOG ENTRIES */
+.log-entry {
+display: flex;
+align-items: center;
+gap: 12px;
+padding: 12px 0;
+border-bottom: 1px solid #1a1a1a;
+}
+
+.log-dot {
+width: 8px;
+height: 8px;
+border-radius: 50%;
+flex-shrink: 0;
+}
+
+.log-info {
+flex: 1;
+}
+
+.log-project {
+font-size: 14px;
+color: #ccc;
+}
+
+.log-meta {
+font-size: 11px;
+color: #444;
+margin-top: 2px;
+}
+
+.log-duration {
+font-size: 13px;
+color: #777;
+font-variant-numeric: tabular-nums;
+}
+
+.log-delete {
+background: none;
+border: none;
+color: #333;
+cursor: pointer;
+font-size: 16px;
+padding: 4px 8px;
+transition: color 0.15s;
+font-family: inherit;
+}
+
+.log-delete:hover {
+color: #ff6b6b;
+}
+
+/* REPORT */
+.report-tabs {
+display: flex;
+gap: 2px;
+margin-bottom: 16px;
+}
+
+.report-tab {
+flex: 1;
+padding: 8px;
+text-align: center;
+font-size: 10px;
+letter-spacing: 0.15em;
+text-transform: uppercase;
+cursor: pointer;
+border: 1px solid #222;
+color: #444;
+background: none;
+font-family: inherit;
+transition: all 0.15s;
+}
+
+.report-tab.active {
+border-color: #7effa0;
+color: #7effa0;
+background: #0d1a10;
+}
+
+.report-row {
+display: flex;
+align-items: center;
+gap: 12px;
+padding: 10px 0;
+border-bottom: 1px solid #1a1a1a;
+}
+
+.report-bar-wrap {
+flex: 1;
+height: 3px;
+background: #1e1e1e;
+}
+
+.report-bar {
+height: 3px;
+background: #7effa0;
+transition: width 0.4s ease;
+}
+
+.report-label {
+font-size: 13px;
+color: #bbb;
+width: 120px;
+white-space: nowrap;
+overflow: hidden;
+text-overflow: ellipsis;
+}
+
+.report-time {
+font-size: 12px;
+color: #555;
+width: 48px;
+text-align: right;
+font-variant-numeric: tabular-nums;
+}
+
+.report-total {
+font-size: 11px;
+color: #444;
+letter-spacing: 0.1em;
+text-align: right;
+margin-top: 12px;
+}
+
+/* PROJECTS MANAGER */
+.proj-item {
+display: flex;
+align-items: center;
+gap: 10px;
+padding: 10px 0;
+border-bottom: 1px solid #1a1a1a;
+}
+
+.proj-color {
+width: 12px;
+height: 12px;
+border-radius: 50%;
+flex-shrink: 0;
+cursor: pointer;
+border: 2px solid transparent;
+transition: border-color 0.15s;
+}
+
+.proj-color:hover {
+border-color: #555;
+}
+
+.proj-name-input {
+flex: 1;
+background: none;
+border: none;
+color: #ddd;
+font-size: 14px;
+font-family: inherit;
+outline: none;
+border-bottom: 1px solid transparent;
+padding: 2px 0;
+transition: border-color 0.15s;
+}
+
+.proj-name-input:focus {
+border-bottom-color: #7effa0;
+}
+
+.proj-delete {
+background: none;
+border: none;
+color: #2a2a2a;
+cursor: pointer;
+font-size: 16px;
+padding: 2px 6px;
+transition: color 0.15s;
+font-family: inherit;
+}
+
+.proj-delete:hover {
+color: #ff6b6b;
+}
+
+.add-project-row {
+display: flex;
+gap: 8px;
+margin-top: 14px;
+}
+
+.add-project-input {
+flex: 1;
+background: #141414;
+border: 1px solid #222;
+color: #ddd;
+font-size: 13px;
+font-family: inherit;
+padding: 8px 12px;
+outline: none;
+transition: border-color 0.15s;
+}
+
+.add-project-input:focus {
+border-color: #7effa0;
+}
+
+.add-project-btn {
+background: #141414;
+border: 1px solid #2a2a2a;
+color: #7effa0;
+font-size: 18px;
+padding: 8px 16px;
+cursor: pointer;
+transition: all 0.15s;
+font-family: inherit;
+}
+
+.add-project-btn:hover {
+background: #0d1a10;
+border-color: #7effa0;
+}
+
+/* COLOR PICKER POPUP */
+.color-popup {
+display: none;
+position: fixed;
+background: #1a1a1a;
+border: 1px solid #333;
+padding: 10px;
+gap: 8px;
+flex-wrap: wrap;
+width: 130px;
+z-index: 200;
+}
+
+.color-popup.visible {
+display: flex;
+}
+
+.color-swatch {
+width: 22px;
+height: 22px;
+border-radius: 50%;
+cursor: pointer;
+border: 2px solid transparent;
+transition: border-color 0.1s, transform 0.1s;
+}
+
+.color-swatch:hover {
+transform: scale(1.2);
+border-color: #fff;
+}
+
+.empty-state {
+font-size: 12px;
+color: #333;
+text-align: center;
+padding: 24px 0;
+letter-spacing: 0.05em;
+}
+</style>
+
+</head>
+<body>
+
+<h1>Time Tracker</h1>
+
+<div class="timer-display" id="timerDisplay">00:00:00</div>
+<button class="btn-start" id="btnStart" onclick="toggleTimer()">START</button>
+
+<!-- Project picker overlay -->
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <span>Select Project</span>
+      <span class="duration-label" id="modalDuration"></span>
+    </div>
+    <div class="project-list" id="modalProjectList"></div>
+    <div class="modal-cancel" onclick="cancelStop()">Cancel — keep running</div>
+  </div>
+</div>
+
+<!-- Color picker popup -->
+
+<div class="color-popup" id="colorPopup"></div>
+
+<!-- TODAY'S LOG -->
+
+<div class="section">
+  <div class="section-title">
+    <span>Today's Log</span>
+  </div>
+  <div id="logList"></div>
+</div>
+
+<!-- REPORT -->
+
+<div class="section">
+  <div class="section-title"><span>Report</span></div>
+  <div class="report-tabs">
+    <button class="report-tab active" onclick="setReport('week')">This Week</button>
+    <button class="report-tab" onclick="setReport('month')">This Month</button>
+    <button class="report-tab" onclick="setReport('all')">All Time</button>
+  </div>
+  <div id="reportContent"></div>
+</div>
+
+<!-- PROJECTS -->
+
+<div class="section">
+  <div class="section-title">
+    <span>Projects</span>
+  </div>
+  <div id="projectsList"></div>
+  <div class="add-project-row">
+    <input class="add-project-input" id="newProjectName" placeholder="New project name..." onkeydown="if(event.key==='Enter')addProject()">
+    <button class="add-project-btn" onclick="addProject()">+</button>
+  </div>
+</div>
+
+<script>
+const COLORS = [
+  '#7effa0','#ff6b6b','#6bb5ff','#ffd56b','#d06bff',
+  '#ff9f6b','#6bfff0','#ff6bd6','#b5ff6b','#6b7fff'
+];
+
+// State
+let state = {
+  projects: [],
+  entries: [],
+  timerStart: null,
+  reportMode: 'week'
+};
+
+function loadState() {
+  try {
+    const s = localStorage.getItem('tt_state');
+    if (s) state = JSON.parse(s);
+  } catch(e) {}
+  if (!state.projects) state.projects = [];
+  if (!state.entries) state.entries = [];
+  if (!state.timerStart) state.timerStart = null;
+  if (!state.reportMode) state.reportMode = 'week';
+}
+
+function saveState() {
+  localStorage.setItem('tt_state', JSON.stringify(state));
+}
+
+// Timer
+let timerInterval = null;
+
+function toggleTimer() {
+  if (state.timerStart) {
+    stopTimer();
+  } else {
+    startTimer();
+  }
+}
+
+function startTimer() {
+  state.timerStart = Date.now();
+  saveState();
+  document.getElementById('btnStart').textContent = 'STOP';
+  document.getElementById('btnStart').classList.add('running');
+  document.getElementById('timerDisplay').classList.add('running');
+  timerInterval = setInterval(updateDisplay, 1000);
+  updateDisplay();
+}
+
+function stopTimer() {
+  clearInterval(timerInterval);
+  const elapsed = Math.floor((Date.now() - state.timerStart) / 1000);
+  if (elapsed < 2) {
+    // too short, just cancel
+    state.timerStart = null;
+    saveState();
+    resetTimerUI();
+    return;
+  }
+  // Show modal
+  document.getElementById('modalDuration').textContent = formatDuration(elapsed);
+  renderModalProjects();
+  document.getElementById('overlay').classList.add('visible');
+}
+
+function cancelStop() {
+  document.getElementById('overlay').classList.remove('visible');
+  // Keep timer running
+  if (!timerInterval) {
+    timerInterval = setInterval(updateDisplay, 1000);
+    updateDisplay();
+  }
+}
+
+function selectProject(projectId) {
+  const elapsed = Math.floor((Date.now() - state.timerStart) / 1000);
+  state.entries.push({
+    id: Date.now(),
+    projectId: projectId,
+    start: state.timerStart,
+    duration: elapsed
+  });
+  state.timerStart = null;
+  saveState();
+  document.getElementById('overlay').classList.remove('visible');
+  resetTimerUI();
+  renderLog();
+  renderReport();
+}
+
+function resetTimerUI() {
+  clearInterval(timerInterval);
+  timerInterval = null;
+  document.getElementById('timerDisplay').textContent = '00:00:00';
+  document.getElementById('timerDisplay').classList.remove('running');
+  document.getElementById('btnStart').textContent = 'START';
+  document.getElementById('btnStart').classList.remove('running');
+}
+
+function updateDisplay() {
+  if (!state.timerStart) return;
+  const elapsed = Math.floor((Date.now() - state.timerStart) / 1000);
+  document.getElementById('timerDisplay').textContent = formatDuration(elapsed);
+}
+
+// Format
+function formatDuration(seconds) {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  return pad(h) + ':' + pad(m) + ':' + pad(s);
+}
+
+function formatDurationShort(seconds) {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (h > 0) return h + 'h ' + pad(m) + 'm';
+  return m + 'm';
+}
+
+function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+function formatTime(ts) {
+  const d = new Date(ts);
+  return pad(d.getHours()) + ':' + pad(d.getMinutes());
+}
+
+function formatDate(ts) {
+  const d = new Date(ts);
+  return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+}
+
+function getProject(id) {
+  return state.projects.find(p => p.id === id) || { name: 'Unknown', color: '#555' };
+}
+
+// Modal
+function renderModalProjects() {
+  const list = document.getElementById('modalProjectList');
+  if (state.projects.length === 0) {
+    list.innerHTML = '<div class="empty-state">No projects yet.<br>Add one below first.</div>';
+    return;
+  }
+  list.innerHTML = state.projects.map(p => `
+    <div class="project-item" onclick="selectProject(${p.id})">
+      <div class="project-dot" style="background:${p.color}"></div>
+      <div class="project-name">${escHtml(p.name)}</div>
+    </div>
+  `).join('');
+}
+
+// Log
+function isToday(ts) {
+  const d = new Date(ts);
+  const now = new Date();
+  return d.getFullYear() === now.getFullYear() &&
+         d.getMonth() === now.getMonth() &&
+         d.getDate() === now.getDate();
+}
+
+function renderLog() {
+  const list = document.getElementById('logList');
+  const todayEntries = state.entries
+    .filter(e => isToday(e.start))
+    .slice().reverse();
+
+  if (todayEntries.length === 0) {
+    list.innerHTML = '<div class="empty-state">No entries today yet.</div>';
+    return;
+  }
+
+  list.innerHTML = todayEntries.map(e => {
+    const p = getProject(e.projectId);
+    return `
+      <div class="log-entry">
+        <div class="log-dot" style="background:${p.color}"></div>
+        <div class="log-info">
+          <div class="log-project">${escHtml(p.name)}</div>
+          <div class="log-meta">${formatTime(e.start)}</div>
+        </div>
+        <div class="log-duration">${formatDurationShort(e.duration)}</div>
+        <button class="log-delete" onclick="deleteEntry(${e.id})">×</button>
+      </div>
+    `;
+  }).join('');
+}
+
+function deleteEntry(id) {
+  state.entries = state.entries.filter(e => e.id !== id);
+  saveState();
+  renderLog();
+  renderReport();
+}
+
+// Report
+function setReport(mode) {
+  state.reportMode = mode;
+  saveState();
+  document.querySelectorAll('.report-tab').forEach((t, i) => {
+    t.classList.toggle('active', ['week','month','all'][i] === mode);
+  });
+  renderReport();
+}
+
+function getReportStart() {
+  const now = new Date();
+  if (state.reportMode === 'week') {
+    const d = new Date(now);
+    const day = d.getDay() || 7;
+    d.setDate(d.getDate() - day + 1);
+    d.setHours(0,0,0,0);
+    return d.getTime();
+  }
+  if (state.reportMode === 'month') {
+    return new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  }
+  return 0;
+}
+
+function renderReport() {
+  const start = getReportStart();
+  const filtered = state.entries.filter(e => e.start >= start);
+  const content = document.getElementById('reportContent');
+
+  if (filtered.length === 0) {
+    content.innerHTML = '<div class="empty-state">No entries in this period.</div>';
+    return;
+  }
+
+  // Aggregate by project
+  const totals = {};
+  let grand = 0;
+  filtered.forEach(e => {
+    totals[e.projectId] = (totals[e.projectId] || 0) + e.duration;
+    grand += e.duration;
+  });
+
+  const sorted = Object.entries(totals).sort((a, b) => b[1] - a[1]);
+  const max = sorted[0][1];
+
+  content.innerHTML = sorted.map(([pid, dur]) => {
+    const p = getProject(parseInt(pid));
+    const pct = Math.round((dur / max) * 100);
+    return `
+      <div class="report-row">
+        <div class="report-label">${escHtml(p.name)}</div>
+        <div class="report-bar-wrap">
+          <div class="report-bar" style="width:${pct}%;background:${p.color}"></div>
+        </div>
+        <div class="report-time">${formatDurationShort(dur)}</div>
+      </div>
+    `;
+  }).join('') + `<div class="report-total">Total: ${formatDurationShort(grand)}</div>`;
+}
+
+// Projects manager
+function renderProjects() {
+  const list = document.getElementById('projectsList');
+  if (state.projects.length === 0) {
+    list.innerHTML = '<div class="empty-state">No projects yet. Add one below.</div>';
+    return;
+  }
+  list.innerHTML = state.projects.map(p => `
+    <div class="proj-item">
+      <div class="proj-color" style="background:${p.color}" onclick="openColorPicker(${p.id}, this)"></div>
+      <input class="proj-name-input" value="${escHtml(p.name)}"
+        onblur="renameProject(${p.id}, this.value)"
+        onkeydown="if(event.key==='Enter')this.blur()">
+      <button class="proj-delete" onclick="deleteProject(${p.id})">×</button>
+    </div>
+  `).join('');
+}
+
+function addProject() {
+  const input = document.getElementById('newProjectName');
+  const name = input.value.trim();
+  if (!name) return;
+  const colorIdx = state.projects.length % COLORS.length;
+  state.projects.push({
+    id: Date.now(),
+    name: name,
+    color: COLORS[colorIdx]
+  });
+  input.value = '';
+  saveState();
+  renderProjects();
+}
+
+function renameProject(id, newName) {
+  const p = state.projects.find(p => p.id === id);
+  if (p && newName.trim()) {
+    p.name = newName.trim();
+    saveState();
+    renderLog();
+    renderReport();
+  }
+}
+
+function deleteProject(id) {
+  state.projects = state.projects.filter(p => p.id !== id);
+  saveState();
+  renderProjects();
+  renderLog();
+  renderReport();
+}
+
+// Color picker
+let colorPickerTarget = null;
+
+function openColorPicker(projectId, dotEl) {
+  closeColorPicker();
+  colorPickerTarget = projectId;
+  const popup = document.getElementById('colorPopup');
+  popup.innerHTML = COLORS.map(c => `
+    <div class="color-swatch" style="background:${c}" onclick="setProjectColor(${projectId},'${c}')"></div>
+  `).join('');
+  const rect = dotEl.getBoundingClientRect();
+  popup.style.left = rect.left + 'px';
+  popup.style.top = (rect.bottom + 6) + 'px';
+  popup.classList.add('visible');
+}
+
+function setProjectColor(id, color) {
+  const p = state.projects.find(p => p.id === id);
+  if (p) {
+    p.color = color;
+    saveState();
+    renderProjects();
+    renderLog();
+    renderReport();
+  }
+  closeColorPicker();
+}
+
+function closeColorPicker() {
+  document.getElementById('colorPopup').classList.remove('visible');
+  colorPickerTarget = null;
+}
+
+document.addEventListener('click', function(e) {
+  if (!e.target.classList.contains('proj-color') &&
+      !e.target.classList.contains('color-swatch')) {
+    closeColorPicker();
+  }
+});
+
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
+// Resume timer if page reloaded mid-session
+function resumeIfRunning() {
+  if (state.timerStart) {
+    document.getElementById('btnStart').textContent = 'STOP';
+    document.getElementById('btnStart').classList.add('running');
+    document.getElementById('timerDisplay').classList.add('running');
+    timerInterval = setInterval(updateDisplay, 1000);
+    updateDisplay();
+  }
+}
+
+// Init
+loadState();
+renderLog();
+renderReport();
+renderProjects();
+resumeIfRunning();
+</script>
+
+</body>
+</html>
