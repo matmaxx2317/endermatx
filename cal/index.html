@@ -11,7 +11,7 @@
 body {
 background: #2a2a2a;
 color: #c8c8c8;
-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+font-family: -apple-system, BlinkMacSystemFont, ‘Segoe UI’, Helvetica, Arial, sans-serif;
 font-size: 13px;
 min-height: 100vh;
 }
@@ -214,7 +214,7 @@ z-index: 2;
 
 .day.holiday { color: #5bb8f5; }
 .day.holiday::after {
-content: '';
+content: ‘’;
 position: absolute;
 bottom: 1px;
 left: 50%;
@@ -497,6 +497,7 @@ function renderProjectList() {
   list.querySelectorAll('.project-remove').forEach(function(btn) {
     btn.addEventListener('click', function() { removeProject(parseInt(btn.getAttribute('data-id'))); });
   });
+  updateAfterRefDropdown();
 }
 
 function dateKey(d) {
