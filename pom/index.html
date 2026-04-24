@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>pom</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+background: #0d0d0d;
+color: #e0e0e0;
+font-family: ‘Courier New’, Courier, monospace;
+min-height: 100vh;
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+padding: 20px;
+}
+
+#top-bar {
+position: fixed;
+top: 0;
+left: 0;
+right: 0;
+display: flex;
+justify-content: space-between;
+align-items: center;
+padding: 10px 20px;
+font-size: 11px;
+color: #444;
+border-bottom: 1px solid #1a1a1a;
+background: #0d0d0d;
+}
+
+#sync-status { color: #444; }
+#sync-status.syncing { color: #666; }
+#sync-status.ok { color: #3a7a3a; }
+#sync-status.err { color: #7a3a3a; }
+
+#main {
+display: flex;
+flex-direction: column;
+align-items: center;
+gap: 32px;
+width: 100%;
+max-width: 480px;
+}
+
+#mode-label {
+font-size: 11px;
+letter-spacing: 0.2em;
+color: #444;
+text-transform: uppercase;
+}
+
+#timer {
+font-size: clamp(64px, 18vw, 120px);
+font-weight: normal;
+letter-spacing: -0.02em;
+color: #e0e0e0;
+line-height: 1;
+transition: color 0.5s;
+}
+
+#timer.break-mode { color: #4a7a4a; }
+
+#message {
+font-size: 13px;
+color: #555;
+text-align: center;
+min-height: 20px;
+max-width: 320px;
+line-height: 1.5;
+transition: opacity 0.3s;
+font-style: italic;
+}
+
+#controls {
+display: flex;
+gap: 16px;
+}
+
+button {
+background: none;
+border: 1px solid #2a2a2a;
+color: #888;
+font-family: ‘Courier New’, Courier, monospace;
+font-size: 12px;
+letter-spacing: 0.1em;
+padding: 10px 24px;
+cursor: pointer;
+text-transform: uppercase;
+transition: border-color 0.2s, color 0.2s;
+}
+
+button:hover { border-color: #555; color: #ccc; }
+button:active { border-color: #888; }
+
+button.primary {
+border-color: #3a3a3a;
+color: #ccc;
+}
+
+button.primary:hover { border-color: #888; color: #fff; }
+
+#stats {
+width: 100%;
+border-top: 1px solid #1a1a1a;
+padding-top: 24px;
+display: grid;
+grid-template-columns: 1fr 1fr 1fr;
+gap: 8px;
+text-align: center;
+}
+
+.stat-block { display: flex; flex-direction: column; gap: 4px; }
+
+.stat-value {
+font-size: 28px;
+color: #ccc;
+line-height: 1;
+}
+
+.stat-label {
+font-size: 10px;
+color: #3a3a3a;
+letter-spacing: 0.15em;
+text-transform: uppercase;
+}
+
+#setup {
+display: none;
+flex-direction: column;
+align-items: center;
+gap: 16px;
+width: 100%;
+max-width: 400px;
+text-align: center;
+}
+
+#setup h2 {
+font-size: 14px;
+font-weight: normal;
+color: #888;
+letter-spacing: 0.1em;
+}
+
+#setup p {
+font-size: 11px;
+color: #444;
+line-height: 1.6;
+max-width: 320px;
+}
+
+#setup input {
+background: #111;
+border: 1px solid #2a2a2a;
+color: #ccc;
+font-family: ‘Courier New’, Courier, monospace;
+font-size: 12px;
+padding: 10px 14px;
+width: 100%;
+outline: none;
+}
+
+#setup input:focus { border-color: #555; }
+#setup input::placeholder { color: #333; }
+
+#setup-error {
+font-size: 11px;
+color: #7a3a3a;
+min-height: 16px;
+}
+
+#progress-bar {
+width: 100%;
+height: 2px;
+background: #1a1a1a;
+position: relative;
+overflow: hidden;
+}
+
+#progress-fill {
+height: 100%;
+background: #3a3a3a;
+transition: width 1s linear, background 0.5s;
+width: 0%;
+}
+
+#progress-fill.break-mode { background: #3a5a3a; }
+</style>
+
+</head>
+<body>
+
+<div id="top-bar">
+  <span>pom</span>
+  <span id="sync-status">—</span>
+</div>
+
+<div id="main">
+  <div id="mode-label">work</div>
+  <div id="timer">25:00</div>
+  <div id="progress-bar"><div id="progress-fill"></div></div>
+  <div id="message">whenever you're ready. no rush. it's fine.</div>
+  <div id="controls">
+    <button class="primary" id="btn-start">start</button>
+    <button id="btn-reset">reset</button>
+  </div>
+  <div id="stats">
+    <div class="stat-block">
+      <div class="stat-value" id="stat-today">0</div>
+      <div class="stat-label">today</div>
+    </div>
+    <div class="stat-block">
+      <div class="stat-value" id="stat-streak">0</div>
+      <div class="stat-label">streak</div>
+    </div>
+    <div class="stat-block">
+      <div class="stat-value" id="stat-total">0</div>
+      <div class="stat-label">total hrs</div>
+    </div>
+  </div>
+</div>
+
+<div id="setup">
+  <h2>gist sync setup</h2>
+  <p>enter a github personal access token (gists scope) to sync your stats across devices.</p>
+  <input type="password" id="input-token" placeholder="ghp_..." autocomplete="off">
+  <input type="text" id="input-gist" placeholder="gist id (leave blank to create new)">
+  <div id="setup-error"></div>
+  <div style="display:flex;gap:12px;">
+    <button id="btn-connect">connect</button>
+    <button id="btn-skip">skip</button>
+  </div>
+</div>
+
+<script>
+const WORK_SECS = 25 * 60;
+const BREAK_SECS = 5 * 60;
+
+const MESSAGES = {
+  idle: [
+    "whenever you're ready. no rush. it's fine.",
+    "the timer is just sitting here. patiently.",
+    "take your time. it's not going anywhere.",
+    "ready when you are. which, apparently, is not now.",
+  ],
+  work_start: [
+    "oh, we're actually doing this today.",
+    "fine. 25 minutes. try not to check your phone.",
+    "okay. let's see how long this lasts.",
+    "starting now. you're welcome.",
+    "alright. eyes on the work, please.",
+  ],
+  work_mid: [
+    "still going. honestly surprised.",
+    "halfway. don't celebrate yet.",
+    "you're doing it. mediocrely, but you're doing it.",
+    "no, you cannot check instagram. keep going.",
+  ],
+  work_paused: [
+    "sure. take a break. the work will wait. it always does.",
+    "paused. very on-brand.",
+    "of course. this is fine.",
+    "amazing. we were so close.",
+  ],
+  work_done: [
+    "fine. that was acceptable.",
+    "session complete. you may feel slightly proud.",
+    "done. see? you're capable of things.",
+    "25 minutes of work. noted. reluctantly impressed.",
+    "alright, that counted. well done, i suppose.",
+  ],
+  break_start: [
+    "don't get too comfortable.",
+    "5 minutes. that's it.",
+    "rest. but not too much.",
+    "okay, fine. you've earned 5 minutes.",
+  ],
+  break_done: [
+    "break's over. back to it.",
+    "hope that was refreshing. time to work.",
+    "5 minutes are up. no more stalling.",
+    "ready? doesn't matter. let's go.",
+  ],
+  streak: [
+    "you've been doing this for {n} days. suspicious.",
+    "{n} day streak. trying to impress someone?",
+    "day {n}. alright, fine. commitment.",
+  ],
+};
+
+function pick(arr, vars = {}) {
+  let s = arr[Math.floor(Math.random() * arr.length)];
+  for (const [k, v] of Object.entries(vars)) s = s.replace(`{${k}}`, v);
+  return s;
+}
+
+// State
+let state = 'idle'; // idle | work | paused | break
+let secsLeft = WORK_SECS;
+let totalSecs = WORK_SECS;
+let interval = null;
+let lastMidMsg = 0;
+
+// Stats
+let stats = { sessions: {}, totalMins: 0, gistId: null };
+
+// DOM
+const timerEl = document.getElementById('timer');
+const modeEl = document.getElementById('mode-label');
+const msgEl = document.getElementById('message');
+const btnStart = document.getElementById('btn-start');
+const btnReset = document.getElementById('btn-reset');
+const progressFill = document.getElementById('progress-fill');
+const syncEl = document.getElementById('sync-status');
+const statToday = document.getElementById('stat-today');
+const statStreak = document.getElementById('stat-streak');
+const statTotal = document.getElementById('stat-total');
+const setupEl = document.getElementById('setup');
+const mainEl = document.getElementById('main');
+
+// Token / Gist
+let token = localStorage.getItem('pom_token') || '';
+let gistId = localStorage.getItem('pom_gist_id') || '';
+let syncDebounce = null;
+
+function formatTime(s) {
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+}
+
+function setMessage(msg) {
+  msgEl.style.opacity = '0';
+  setTimeout(() => { msgEl.textContent = msg; msgEl.style.opacity = '1'; }, 150);
+}
+
+function updateDisplay() {
+  timerEl.textContent = formatTime(secsLeft);
+  const pct = ((totalSecs - secsLeft) / totalSecs) * 100;
+  progressFill.style.width = pct + '%';
+  const isBreak = state === 'break';
+  timerEl.className = isBreak ? 'break-mode' : '';
+  progressFill.className = isBreak ? 'break-mode' : '';
+}
+
+function updateStats() {
+  const today = todayKey();
+  const todayCount = stats.sessions[today] || 0;
+  statToday.textContent = todayCount;
+  statStreak.textContent = calcStreak();
+  statTotal.textContent = (stats.totalMins / 60).toFixed(1);
+}
+
+function todayKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function calcStreak() {
+  let streak = 0;
+  const d = new Date();
+  while (true) {
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    if (stats.sessions[key]) { streak++; d.setDate(d.getDate() - 1); }
+    else break;
+  }
+  return streak;
+}
+
+function recordSession() {
+  const key = todayKey();
+  stats.sessions[key] = (stats.sessions[key] || 0) + 1;
+  stats.totalMins = (stats.totalMins || 0) + 25;
+  updateStats();
+  schedulSync();
+}
+
+// Gist sync
+async function loadFromGist() {
+  if (!token || !gistId) return;
+  syncEl.textContent = 'syncing...';
+  syncEl.className = 'syncing';
+  try {
+    const res = await fetch(`https://api.github.com/gists/${gistId}`, {
+      headers: { Authorization: `token ${token}` }
+    });
+    if (!res.ok) throw new Error('fetch failed');
+    const data = await res.json();
+    const content = data.files['pom_data.json']?.content;
+    if (content) {
+      const parsed = JSON.parse(content);
+      stats.sessions = parsed.sessions || {};
+      stats.totalMins = parsed.totalMins || 0;
+    }
+    syncEl.textContent = 'synced';
+    syncEl.className = 'ok';
+    updateStats();
+  } catch (e) {
+    syncEl.textContent = 'sync err';
+    syncEl.className = 'err';
+  }
+}
+
+async function saveToGist() {
+  if (!token) return;
+  syncEl.textContent = 'saving...';
+  syncEl.className = 'syncing';
+  const body = JSON.stringify({ sessions: stats.sessions, totalMins: stats.totalMins });
+  try {
+    let url, method;
+    if (gistId) {
+      url = `https://api.github.com/gists/${gistId}`;
+      method = 'PATCH';
+    } else {
+      url = 'https://api.github.com/gists';
+      method = 'POST';
+    }
+    const res = await fetch(url, {
+      method,
+      headers: { Authorization: `token ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description: 'pom data', public: false, files: { 'pom_data.json': { content: body } } })
+    });
+    if (!res.ok) throw new Error('save failed');
+    const data = await res.json();
+    if (!gistId) {
+      gistId = data.id;
+      localStorage.setItem('pom_gist_id', gistId);
+      stats.gistId = gistId;
+    }
+    syncEl.textContent = 'synced';
+    syncEl.className = 'ok';
+  } catch (e) {
+    syncEl.textContent = 'sync err';
+    syncEl.className = 'err';
+  }
+}
+
+function schedulSync() {
+  clearTimeout(syncDebounce);
+  syncDebounce = setTimeout(saveToGist, 1500);
+}
+
+// Controls
+function startWork() {
+  state = 'work';
+  secsLeft = WORK_SECS;
+  totalSecs = WORK_SECS;
+  lastMidMsg = 0;
+  modeEl.textContent = 'work';
+  btnStart.textContent = 'pause';
+  setMessage(pick(MESSAGES.work_start));
+  updateDisplay();
+  startTick();
+}
+
+function startBreak() {
+  state = 'break';
+  secsLeft = BREAK_SECS;
+  totalSecs = BREAK_SECS;
+  modeEl.textContent = 'break';
+  btnStart.textContent = 'skip break';
+  setMessage(pick(MESSAGES.break_start));
+  updateDisplay();
+  startTick();
+}
+
+function startTick() {
+  clearInterval(interval);
+  interval = setInterval(tick, 1000);
+}
+
+function tick() {
+  secsLeft--;
+  updateDisplay();
+
+  // mid-session message
+  if (state === 'work' && secsLeft === Math.floor(WORK_SECS / 2) && lastMidMsg !== secsLeft) {
+    lastMidMsg = secsLeft;
+    setMessage(pick(MESSAGES.work_mid));
+  }
+
+  if (secsLeft <= 0) {
+    clearInterval(interval);
+    if (state === 'work') {
+      recordSession();
+      const streak = calcStreak();
+      if (streak > 1) {
+        setMessage(pick(MESSAGES.streak, { n: streak }));
+        setTimeout(() => setMessage(pick(MESSAGES.work_done)), 2500);
+      } else {
+        setMessage(pick(MESSAGES.work_done));
+      }
+      setTimeout(() => startBreak(), 3000);
+    } else {
+      setMessage(pick(MESSAGES.break_done));
+      state = 'idle';
+      secsLeft = WORK_SECS;
+      totalSecs = WORK_SECS;
+      modeEl.textContent = 'work';
+      btnStart.textContent = 'start';
+      updateDisplay();
+    }
+  }
+}
+
+btnStart.addEventListener('click', () => {
+  if (state === 'idle') {
+    startWork();
+  } else if (state === 'work') {
+    clearInterval(interval);
+    state = 'paused';
+    btnStart.textContent = 'resume';
+    setMessage(pick(MESSAGES.work_paused));
+  } else if (state === 'paused') {
+    state = 'work';
+    btnStart.textContent = 'pause';
+    setMessage(pick(MESSAGES.work_mid));
+    startTick();
+  } else if (state === 'break') {
+    clearInterval(interval);
+    setMessage(pick(MESSAGES.break_done));
+    state = 'idle';
+    secsLeft = WORK_SECS;
+    totalSecs = WORK_SECS;
+    modeEl.textContent = 'work';
+    btnStart.textContent = 'start';
+    updateDisplay();
+  }
+});
+
+btnReset.addEventListener('click', () => {
+  clearInterval(interval);
+  state = 'idle';
+  secsLeft = WORK_SECS;
+  totalSecs = WORK_SECS;
+  modeEl.textContent = 'work';
+  btnStart.textContent = 'start';
+  progressFill.style.width = '0%';
+  timerEl.className = '';
+  progressFill.className = '';
+  setMessage(pick(MESSAGES.idle));
+  updateDisplay();
+});
+
+// Setup flow
+function showSetup() {
+  mainEl.style.display = 'none';
+  setupEl.style.display = 'flex';
+}
+
+function showMain() {
+  setupEl.style.display = 'none';
+  mainEl.style.display = 'flex';
+}
+
+document.getElementById('btn-skip').addEventListener('click', () => {
+  showMain();
+  syncEl.textContent = 'no sync';
+});
+
+document.getElementById('btn-connect').addEventListener('click', async () => {
+  const t = document.getElementById('input-token').value.trim();
+  const g = document.getElementById('input-gist').value.trim();
+  const errEl = document.getElementById('setup-error');
+  if (!t) { errEl.textContent = 'token required'; return; }
+  errEl.textContent = '';
+  token = t;
+  gistId = g;
+  localStorage.setItem('pom_token', token);
+  if (gistId) localStorage.setItem('pom_gist_id', gistId);
+  showMain();
+  await loadFromGist();
+});
+
+// Init
+if (!token) {
+  showSetup();
+} else {
+  showMain();
+  loadFromGist();
+}
+
+updateStats();
+updateDisplay();
+setMessage(pick(MESSAGES.idle));
+</script>
+
+</body>
+</html>
