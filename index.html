@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>endermatx</title>
+<style>
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+body {
+background: #0d0d0d;
+color: #e0e0e0;
+font-family: ‘Courier New’, Courier, monospace;
+min-height: 100vh;
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+padding: 40px 20px;
+}
+
+header {
+text-align: center;
+margin-bottom: 60px;
+}
+
+header h1 {
+font-size: 2rem;
+font-weight: normal;
+letter-spacing: 0.15em;
+color: #ffffff;
+text-transform: lowercase;
+}
+
+header p {
+margin-top: 8px;
+font-size: 0.75rem;
+color: #555;
+letter-spacing: 0.2em;
+text-transform: uppercase;
+}
+
+.grid {
+display: flex;
+gap: 24px;
+flex-wrap: wrap;
+justify-content: center;
+}
+
+a.card {
+display: flex;
+flex-direction: column;
+align-items: center;
+text-align: center;
+text-decoration: none;
+width: 220px;
+padding: 32px 24px;
+border: 1px solid #2a2a2a;
+border-top: 2px solid #6b1010;
+background: #131313;
+color: #e0e0e0;
+transition: border-color 0.15s, background 0.15s;
+}
+
+a.card:hover {
+border-color: #555;
+border-top-color: #9b1a1a;
+background: #1a1a1a;
+}
+
+a.card:active {
+background: #1f1f1f;
+}
+
+.card-label {
+font-size: 0.65rem;
+letter-spacing: 0.25em;
+text-transform: uppercase;
+color: #444;
+margin-bottom: 12px;
+}
+
+.card-name {
+font-size: 1.4rem;
+font-weight: normal;
+letter-spacing: 0.05em;
+color: #ffffff;
+}
+
+.card-arrow {
+margin-top: 24px;
+font-size: 0.75rem;
+color: #444;
+letter-spacing: 0.1em;
+}
+
+a.card:hover .card-arrow {
+color: #888;
+}
+
+footer {
+margin-top: 60px;
+font-size: 0.65rem;
+color: #333;
+letter-spacing: 0.2em;
+text-align: center;
+}
+</style>
+
+</head>
+<body>
+
+<header>
+  <h1>endermatx</h1>
+  <p>tools</p>
+</header>
+
+<nav class="grid">
+
+  <a class="card" href="./tts/">
+    <div class="card-label">01</div>
+    <div class="card-name">tts</div>
+    <div class="card-arrow">time tracker &rarr;</div>
+  </a>
+
+  <a class="card" href="./cal/">
+    <div class="card-label">02</div>
+    <div class="card-name">cal</div>
+    <div class="card-arrow">calendar &rarr;</div>
+  </a>
+
+</nav>
+
+<footer>matmaxx2317 &middot; github pages</footer>
+
+</body>
+</html>
