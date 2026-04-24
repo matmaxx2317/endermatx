@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>String Tracker</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+background: #0e0e0e;
+color: #e8e8e8;
+font-family: ‘Courier New’, Courier, monospace;
+min-height: 100vh;
+display: flex;
+flex-direction: column;
+align-items: center;
+padding: 32px 16px 80px;
+}
+
+h1 {
+font-size: 10px;
+letter-spacing: 0.3em;
+text-transform: uppercase;
+color: #444;
+margin-bottom: 32px;
+}
+
+/* SETUP */
+.setup-screen {
+width: 100%;
+max-width: 440px;
+margin-top: 20px;
+}
+
+.setup-title {
+font-size: 13px;
+color: #aaa;
+margin-bottom: 8px;
+letter-spacing: 0.05em;
+}
+
+.setup-desc {
+font-size: 11px;
+color: #444;
+margin-bottom: 24px;
+line-height: 1.7;
+}
+
+.setup-field { margin-bottom: 14px; }
+
+.setup-label {
+font-size: 10px;
+letter-spacing: 0.2em;
+text-transform: uppercase;
+color: #555;
+margin-bottom: 6px;
+display: block;
+}
+
+.setup-input {
+width: 100%;
+background: #141414;
+border: 1px solid #2a2a2a;
+color: #f0f0f0;
+font-size: 13px;
+font-family: inherit;
+padding: 10px 12px;
+outline: none;
+transition: border-color 0.15s;
+}
+
+.setup-input:focus { border-color: #c8a26b; }
+
+.setup-btn {
+width: 100%;
+padding: 12px;
+margin-top: 8px;
+background: #1a1510;
+border: 1px solid #c8a26b;
+color: #c8a26b;
+font-size: 11px;
+letter-spacing: 0.2em;
+text-transform: uppercase;
+cursor: pointer;
+font-family: inherit;
+transition: all 0.15s;
+}
+
+.setup-btn:hover { background: #221c10; }
+
+.setup-hint {
+font-size: 10px;
+color: #333;
+margin-top: 16px;
+line-height: 1.6;
+}
+
+/* SYNC BAR */
+.sync-bar {
+width: 100%;
+max-width: 560px;
+display: flex;
+justify-content: space-between;
+align-items: center;
+margin-bottom: 28px;
+min-height: 18px;
+}
+
+.sync-status {
+font-size: 10px;
+letter-spacing: 0.1em;
+color: #333;
+transition: color 0.3s;
+}
+
+.sync-status.syncing { color: #ffd56b; }
+.sync-status.synced { color: #c8a26b; }
+.sync-status.error { color: #ff6b6b; }
+
+.sync-dot {
+display: inline-block;
+width: 5px;
+height: 5px;
+border-radius: 50%;
+margin-right: 5px;
+vertical-align: middle;
+background: currentColor;
+}
+
+.btn-settings {
+background: none;
+border: none;
+color: #333;
+font-size: 10px;
+letter-spacing: 0.15em;
+cursor: pointer;
+font-family: inherit;
+transition: color 0.15s;
+text-transform: uppercase;
+}
+
+.btn-settings:hover { color: #666; }
+
+/* APP */
+.app { width: 100%; display: flex; flex-direction: column; align-items: center; }
+
+/* GUITAR CARDS */
+.guitars-list {
+width: 100%;
+max-width: 560px;
+display: flex;
+flex-direction: column;
+gap: 12px;
+margin-bottom: 40px;
+}
+
+.guitar-card {
+border: 1px solid #222;
+border-left: 3px solid #c8a26b;
+background: #131313;
+padding: 18px 20px;
+display: flex;
+align-items: center;
+gap: 16px;
+transition: border-color 0.15s, background 0.15s;
+}
+
+.guitar-card:hover { background: #171717; }
+
+.guitar-card.warn-yellow { border-left-color: #ffd56b; }
+.guitar-card.warn-red { border-left-color: #ff6b6b; }
+
+.guitar-info { flex: 1; min-width: 0; }
+
+.guitar-name {
+font-size: 15px;
+color: #f0f0f0;
+letter-spacing: 0.03em;
+margin-bottom: 4px;
+white-space: nowrap;
+overflow: hidden;
+text-overflow: ellipsis;
+}
+
+.guitar-days {
+font-size: 11px;
+color: #555;
+letter-spacing: 0.05em;
+}
+
+.guitar-days .days-num {
+font-size: 22px;
+color: #888;
+font-variant-numeric: tabular-nums;
+vertical-align: middle;
+margin-right: 4px;
+line-height: 1;
+}
+
+.guitar-card.warn-yellow .days-num { color: #ffd56b; }
+.guitar-card.warn-red .days-num { color: #ff6b6b; }
+
+.guitar-card.fresh .days-num { color: #c8a26b; }
+
+.guitar-card-actions {
+display: flex;
+flex-direction: column;
+gap: 6px;
+flex-shrink: 0;
+}
+
+.btn-changed {
+padding: 8px 14px;
+background: #1a1510;
+border: 1px solid #c8a26b;
+color: #c8a26b;
+font-size: 9px;
+letter-spacing: 0.2em;
+text-transform: uppercase;
+cursor: pointer;
+font-family: inherit;
+transition: all 0.15s;
+white-space: nowrap;
+}
+
+.btn-changed:hover { background: #221c10; }
+
+.btn-history {
+padding: 6px 14px;
+background: none;
+border: 1px solid #252525;
+color: #444;
+font-size: 9px;
+letter-spacing: 0.2em;
+text-transform: uppercase;
+cursor: pointer;
+font-family: inherit;
+transition: all 0.15s;
+}
+
+.btn-history:hover { border-color: #3a3a3a; color: #666; }
+
+/* SECTION */
+.section {
+width: 100%;
+max-width: 560px;
+margin-top: 8px;
+margin-bottom: 40px;
+}
+
+.section-title {
+font-size: 10px;
+letter-spacing: 0.25em;
+text-transform: uppercase;
+color: #3a3a3a;
+margin-bottom: 14px;
+}
+
+/* HISTORY PANEL */
+.history-panel {
+display: none;
+background: #111;
+border: 1px solid #1e1e1e;
+margin-top: -12px;
+margin-bottom: 12px;
+padding: 14px 18px;
+}
+
+.history-panel.open { display: block; }
+
+.history-header {
+font-size: 10px;
+letter-spacing: 0.2em;
+text-transform: uppercase;
+color: #444;
+margin-bottom: 10px;
+}
+
+.history-entry {
+display: flex;
+justify-content: space-between;
+align-items: center;
+padding: 7px 0;
+border-bottom: 1px solid #181818;
+}
+
+.history-date { font-size: 12px; color: #c8c8c8; }
+.history-ago { font-size: 11px; color: #444; }
+
+.history-delete {
+background: none;
+border: none;
+color: #2a2a2a;
+cursor: pointer;
+font-size: 16px;
+padding: 2px 6px;
+transition: color 0.15s;
+font-family: inherit;
+}
+
+.history-delete:hover { color: #ff6b6b; }
+
+.history-empty {
+font-size: 11px;
+color: #2e2e2e;
+text-align: center;
+padding: 10px 0;
+}
+
+/* GUITARS MANAGER */
+.guitar-item {
+display: flex;
+align-items: center;
+gap: 10px;
+padding: 9px 0;
+border-bottom: 1px solid #181818;
+}
+
+.guitar-name-input {
+flex: 1;
+background: none;
+border: none;
+color: #f0f0f0;
+font-size: 13px;
+font-family: inherit;
+outline: none;
+border-bottom: 1px solid transparent;
+padding: 2px 0;
+transition: border-color 0.15s;
+}
+
+.guitar-name-input:focus { border-bottom-color: #c8a26b; }
+
+.threshold-label {
+font-size: 10px;
+color: #444;
+letter-spacing: 0.1em;
+white-space: nowrap;
+}
+
+.threshold-input {
+width: 48px;
+background: #141414;
+border: 1px solid #222;
+color: #c8a26b;
+font-size: 12px;
+font-family: inherit;
+padding: 4px 6px;
+outline: none;
+text-align: center;
+transition: border-color 0.15s;
+}
+
+.threshold-input:focus { border-color: #c8a26b; }
+
+.guitar-delete {
+background: none;
+border: none;
+color: #2a2a2a;
+cursor: pointer;
+font-size: 16px;
+padding: 2px 6px;
+transition: color 0.15s;
+font-family: inherit;
+}
+
+.guitar-delete:hover { color: #ff6b6b; }
+
+.add-row { display: flex; gap: 8px; margin-top: 12px; }
+
+.add-input {
+flex: 1;
+background: #141414;
+border: 1px solid #1e1e1e;
+color: #f0f0f0;
+font-size: 13px;
+font-family: inherit;
+padding: 8px 12px;
+outline: none;
+transition: border-color 0.15s;
+}
+
+.add-input:focus { border-color: #c8a26b; }
+
+.add-btn {
+background: #141414;
+border: 1px solid #2a2a2a;
+color: #c8a26b;
+font-size: 18px;
+padding: 8px 16px;
+cursor: pointer;
+transition: all 0.15s;
+font-family: inherit;
+}
+
+.add-btn:hover { background: #1a1510; border-color: #c8a26b; }
+
+.empty-state {
+font-size: 12px;
+color: #2e2e2e;
+text-align: center;
+padding: 20px 0;
+letter-spacing: 0.05em;
+}
+
+.hidden { display: none !important; }
+</style>
+
+</head>
+<body>
+
+<h1>String Tracker</h1>
+
+<!-- SETUP SCREEN -->
+
+<div class="setup-screen" id="setupScreen">
+  <div class="setup-title">Connect to GitHub Gist</div>
+  <div class="setup-desc">
+    Your data syncs across all devices via a private GitHub Gist.<br>
+    One-time setup per device. Credentials stay on this device only.
+  </div>
+
+  <div class="setup-field">
+    <label class="setup-label" for="inputToken">Personal Access Token</label>
+    <input class="setup-input" id="inputToken" type="password" placeholder="github_pat_...">
+  </div>
+
+  <div class="setup-field">
+    <label class="setup-label" for="inputGistId">Gist ID</label>
+    <input class="setup-input" id="inputGistId" type="text" placeholder="Leave blank to create a new Gist">
+  </div>
+
+<button class="setup-btn" onclick="setupConnect()">Connect</button>
+
+  <div class="setup-hint">
+    Create a token at github.com/settings/tokens (classic)<br>
+    Required scope: <strong style="color:#c8a26b">gist</strong><br><br>
+    Leave Gist ID blank on your first device — a new Gist will be created.<br>
+    Copy the Gist ID shown after setup and enter it on your other devices.
+  </div>
+</div>
+
+<!-- MAIN APP -->
+
+<div class="app hidden" id="appScreen">
+
+  <div class="sync-bar">
+    <div class="sync-status" id="syncStatus"><span class="sync-dot"></span>Ready</div>
+    <button class="btn-settings" onclick="showSettings()">Settings</button>
+  </div>
+
+  <div class="guitars-list" id="guitarsList"></div>
+
+  <div class="section">
+    <div class="section-title">Guitars</div>
+    <div id="guitarsMgr"></div>
+    <div class="add-row">
+      <input class="add-input" id="newGuitarName" placeholder="Guitar name..."
+        onkeydown="if(event.key==='Enter')addGuitar()">
+      <button class="add-btn" onclick="addGuitar()">+</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+var state = {
+  guitars: []
+};
+
+var gistToken = '';
+var gistId = '';
+var syncTimeout = null;
+
+// ---- SETUP ----
+
+function loadCredentials() {
+  gistToken = localStorage.getItem('str_token') || '';
+  gistId = localStorage.getItem('str_gist_id') || '';
+}
+
+function saveCredentials() {
+  localStorage.setItem('str_token', gistToken);
+  localStorage.setItem('str_gist_id', gistId);
+}
+
+async function setupConnect() {
+  var token = document.getElementById('inputToken').value.trim();
+  var gid = document.getElementById('inputGistId').value.trim();
+  if (!token) { alert('Please enter a Personal Access Token.'); return; }
+  gistToken = token;
+
+  if (!gid) {
+    setSyncStatus('syncing', 'Creating Gist...');
+    try {
+      var res = await fetch('https://api.github.com/gists', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: 'String Tracker Data',
+          public: false,
+          files: { 'str_data.json': { content: JSON.stringify(state) } }
+        })
+      });
+      if (!res.ok) throw new Error('GitHub API error: ' + res.status);
+      var data = await res.json();
+      gistId = data.id;
+      saveCredentials();
+      alert('Gist created! Your Gist ID is:\n\n' + gistId + '\n\nCopy this and enter it on your other devices.');
+      showApp();
+    } catch(e) {
+      setSyncStatus('error', 'Error: ' + e.message);
+    }
+  } else {
+    gistId = gid;
+    setSyncStatus('syncing', 'Loading...');
+    try {
+      await pullFromGist();
+      saveCredentials();
+      showApp();
+    } catch(e) {
+      setSyncStatus('error', 'Could not load Gist. Check ID and token.');
+    }
+  }
+}
+
+function showApp() {
+  document.getElementById('setupScreen').classList.add('hidden');
+  document.getElementById('appScreen').classList.remove('hidden');
+  initApp();
+}
+
+function showSettings() {
+  var msg = 'Gist ID: ' + gistId + '\n\nTo use on another device, enter this ID during setup.\n\nClear credentials on this device?';
+  if (confirm(msg)) {
+    localStorage.removeItem('str_token');
+    localStorage.removeItem('str_gist_id');
+    location.reload();
+  }
+}
+
+// ---- GIST SYNC ----
+
+async function pullFromGist() {
+  var res = await fetch('https://api.github.com/gists/' + gistId, {
+    headers: { 'Authorization': 'Bearer ' + gistToken }
+  });
+  if (!res.ok) throw new Error('Pull failed: ' + res.status);
+  var data = await res.json();
+  var content = data.files['str_data.json'] && data.files['str_data.json'].content;
+  if (content) {
+    var remote = JSON.parse(content);
+    state = Object.assign({ guitars: [] }, remote);
+  }
+}
+
+async function pushToGist() {
+  if (!gistToken || !gistId) return;
+  setSyncStatus('syncing', 'Syncing...');
+  try {
+    var res = await fetch('https://api.github.com/gists/' + gistId, {
+      method: 'PATCH',
+      headers: { 'Authorization': 'Bearer ' + gistToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ files: { 'str_data.json': { content: JSON.stringify(state) } } })
+    });
+    if (!res.ok) throw new Error('Push failed: ' + res.status);
+    setSyncStatus('synced', 'Synced');
+    setTimeout(function() { setSyncStatus('', 'Ready'); }, 2000);
+  } catch(e) {
+    setSyncStatus('error', 'Sync failed');
+  }
+}
+
+function schedulePush() {
+  clearTimeout(syncTimeout);
+  syncTimeout = setTimeout(pushToGist, 1500);
+}
+
+function setSyncStatus(type, text) {
+  var el = document.getElementById('syncStatus');
+  if (!el) return;
+  el.className = 'sync-status' + (type ? ' ' + type : '');
+  el.innerHTML = '<span class="sync-dot"></span>' + text;
+}
+
+// ---- HELPERS ----
+
+function today() {
+  var d = new Date();
+  return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
+}
+
+function daysBetween(dateStr) {
+  if (!dateStr) return null;
+  var then = new Date(dateStr + 'T00:00:00');
+  var now = new Date();
+  now.setHours(0,0,0,0);
+  return Math.floor((now - then) / 86400000);
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return 'never';
+  var d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function relativeDate(dateStr) {
+  var days = daysBetween(dateStr);
+  if (days === null) return '';
+  if (days === 0) return 'today';
+  if (days === 1) return 'yesterday';
+  return days + ' days ago';
+}
+
+function pad(n) { return n < 10 ? '0'+n : ''+n; }
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function getStatusClass(guitar) {
+  var days = daysBetween(guitar.lastChanged);
+  if (days === null) return 'warn-red';
+  var threshold = guitar.threshold || 30;
+  if (days >= threshold) return 'warn-red';
+  if (days >= Math.floor(threshold * 0.75)) return 'warn-yellow';
+  if (days < 3) return 'fresh';
+  return '';
+}
+
+// ---- RENDER CARDS ----
+
+function renderCards() {
+  var list = document.getElementById('guitarsList');
+  if (!list) return;
+
+  if (state.guitars.length === 0) {
+    list.innerHTML = '<div class="empty-state">Add a guitar below to get started.</div>';
+    return;
+  }
+
+  list.innerHTML = state.guitars.map(function(g) {
+    var days = daysBetween(g.lastChanged);
+    var statusClass = getStatusClass(g);
+    var daysDisplay = days === null ? '?' : days;
+    var daysLabel = days === 1 ? 'day since last change' : 'days since last change';
+    if (days === null) daysLabel = 'never changed';
+
+    return '<div class="guitar-card ' + statusClass + '" id="card_' + g.id + '">' +
+      '<div class="guitar-info">' +
+        '<div class="guitar-name">' + escHtml(g.name) + '</div>' +
+        '<div class="guitar-days"><span class="days-num">' + daysDisplay + '</span>' + daysLabel + '</div>' +
+      '</div>' +
+      '<div class="guitar-card-actions">' +
+        '<button class="btn-changed" onclick="logChange(' + g.id + ')">Changed today</button>' +
+        '<button class="btn-history" onclick="toggleHistory(' + g.id + ')">History</button>' +
+      '</div>' +
+    '</div>' +
+    '<div class="history-panel" id="hist_' + g.id + '">' +
+      renderHistoryInner(g) +
+    '</div>';
+  }).join('');
+}
+
+function renderHistoryInner(g) {
+  var entries = (g.history || []).slice().reverse();
+  var header = '<div class="history-header">Change history &mdash; threshold: ' + (g.threshold || 30) + ' days</div>';
+  if (entries.length === 0) return header + '<div class="history-empty">No changes logged yet.</div>';
+  return header + entries.map(function(dateStr, i) {
+    var realIdx = entries.length - 1 - i;
+    return '<div class="history-entry">' +
+      '<span class="history-date">' + formatDate(dateStr) + '</span>' +
+      '<span class="history-ago">' + relativeDate(dateStr) + '</span>' +
+      '<button class="history-delete" onclick="deleteChange(' + g.id + ',' + realIdx + ')">&#215;</button>' +
+    '</div>';
+  }).join('');
+}
+
+function refreshCard(id) {
+  var g = state.guitars.find(function(x) { return x.id === id; });
+  if (!g) return;
+  var days = daysBetween(g.lastChanged);
+  var statusClass = getStatusClass(g);
+  var daysDisplay = days === null ? '?' : days;
+  var daysLabel = days === 1 ? 'day since last change' : 'days since last change';
+  if (days === null) daysLabel = 'never changed';
+
+  var card = document.getElementById('card_' + id);
+  if (card) {
+    card.className = 'guitar-card ' + statusClass;
+    card.querySelector('.guitar-name').textContent = g.name;
+    card.querySelector('.days-num').textContent = daysDisplay;
+    card.querySelector('.guitar-days').childNodes[1].textContent = daysLabel;
+  }
+
+  var hist = document.getElementById('hist_' + id);
+  if (hist) hist.innerHTML = renderHistoryInner(g);
+}
+
+// ---- ACTIONS ----
+
+function logChange(id) {
+  var g = state.guitars.find(function(x) { return x.id === id; });
+  if (!g) return;
+  if (!g.history) g.history = [];
+  var t = today();
+  if (g.history[g.history.length - 1] === t) {
+    if (!confirm('Already logged a change today. Log again?')) return;
+  }
+  g.history.push(t);
+  g.lastChanged = t;
+  schedulePush();
+  refreshCard(id);
+}
+
+function deleteChange(guitarId, histIdx) {
+  var g = state.guitars.find(function(x) { return x.id === guitarId; });
+  if (!g || !g.history) return;
+  g.history.splice(histIdx, 1);
+  g.lastChanged = g.history.length > 0 ? g.history[g.history.length - 1] : null;
+  schedulePush();
+  refreshCard(guitarId);
+}
+
+function toggleHistory(id) {
+  var panel = document.getElementById('hist_' + id);
+  if (!panel) return;
+  panel.classList.toggle('open');
+}
+
+// ---- GUITARS MANAGER ----
+
+function renderGuitarsMgr() {
+  var mgr = document.getElementById('guitarsMgr');
+  if (!mgr) return;
+  if (state.guitars.length === 0) {
+    mgr.innerHTML = '<div class="empty-state">No guitars yet.</div>';
+    return;
+  }
+  mgr.innerHTML = state.guitars.map(function(g) {
+    return '<div class="guitar-item">' +
+      '<input class="guitar-name-input" value="' + escHtml(g.name) + '" ' +
+        'onblur="renameGuitar(' + g.id + ',this.value)" ' +
+        'onkeydown="if(event.key===\'Enter\')this.blur()">' +
+      '<span class="threshold-label">warn after</span>' +
+      '<input class="threshold-input" type="number" min="1" max="365" value="' + (g.threshold || 30) + '" ' +
+        'onblur="setThreshold(' + g.id + ',this.value)" ' +
+        'onkeydown="if(event.key===\'Enter\')this.blur()">' +
+      '<span class="threshold-label">days</span>' +
+      '<button class="guitar-delete" onclick="deleteGuitar(' + g.id + ')">&#215;</button>' +
+    '</div>';
+  }).join('');
+}
+
+function addGuitar() {
+  var input = document.getElementById('newGuitarName');
+  var name = input.value.trim();
+  if (!name) return;
+  state.guitars.push({ id: Date.now(), name: name, threshold: 30, history: [], lastChanged: null });
+  input.value = '';
+  schedulePush();
+  renderCards();
+  renderGuitarsMgr();
+}
+
+function renameGuitar(id, name) {
+  var g = state.guitars.find(function(x) { return x.id === id; });
+  if (g && name.trim()) {
+    g.name = name.trim();
+    schedulePush();
+    renderCards();
+    renderGuitarsMgr();
+  }
+}
+
+function setThreshold(id, val) {
+  var g = state.guitars.find(function(x) { return x.id === id; });
+  var n = parseInt(val);
+  if (g && !isNaN(n) && n > 0) {
+    g.threshold = n;
+    schedulePush();
+    renderCards();
+  }
+}
+
+function deleteGuitar(id) {
+  if (!confirm('Delete this guitar and all its history?')) return;
+  state.guitars = state.guitars.filter(function(x) { return x.id !== id; });
+  schedulePush();
+  renderCards();
+  renderGuitarsMgr();
+}
+
+// ---- INIT ----
+
+function initApp() {
+  renderCards();
+  renderGuitarsMgr();
+}
+
+async function init() {
+  loadCredentials();
+  if (gistToken && gistId) {
+    document.getElementById('setupScreen').classList.add('hidden');
+    document.getElementById('appScreen').classList.remove('hidden');
+    setSyncStatus('syncing', 'Loading...');
+    try {
+      await pullFromGist();
+      setSyncStatus('synced', 'Synced');
+      setTimeout(function() { setSyncStatus('', 'Ready'); }, 2000);
+    } catch(e) {
+      setSyncStatus('error', 'Sync failed — using local cache');
+    }
+    initApp();
+  } else {
+    document.getElementById('inputToken').value = gistToken;
+    document.getElementById('inputGistId').value = gistId;
+  }
+}
+
+init();
+</script>
+
+</body>
+</html>
