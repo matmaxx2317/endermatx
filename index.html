@@ -216,11 +216,11 @@ transform-origin: top center;
 
 @keyframes ender-bg-flash {
   0%   { background: #2a2a2a; }
-  10%  { background: #3b1550; }
-  25%  { background: #2a2a2a; }
-  42%  { background: #331248; }
-  60%  { background: #2a2a2a; }
-  78%  { background: #2d1040; }
+  8%   { background: #5a1880; }
+  20%  { background: #2a2a2a; }
+  35%  { background: #4a1268; }
+  55%  { background: #2a2a2a; }
+  75%  { background: #3a0e50; }
   100% { background: #2a2a2a; }
 }
 
@@ -351,17 +351,21 @@ animation: ender-bg-flash 1.5s ease-out forwards;
 })();
 
 (function() {
-  var ENDER_W  = 14;
-  var ENDER_H  = 70;
-  var SPEED    = 46; // px per second
+  var ENDER_W = 14;
+  var ENDER_H = 70;
+  var SPEED   = 52; // px per second
 
   var enderman = document.getElementById('enderman');
   var flip     = document.getElementById('enderFlip');
 
-  var x           = 20;
-  var dir         = 1;
-  var teleporting = false;
-  var last        = null;
+  var x              = 20;
+  var dir            = 1;
+  var teleporting    = false;
+  var last           = null;
+  var sinceLastTport = 0;
+  var nextTport      = randomInterval();
+
+  function randomInterval() { return 2800 + Math.random() * 2400; }
 
   function positionV() {
     var rect = document.querySelector('header').getBoundingClientRect();
@@ -380,26 +384,29 @@ animation: ender-bg-flash 1.5s ease-out forwards;
     flash();
     enderman.style.opacity = '0';
     setTimeout(function() {
-      dir = -dir;
-      x   = dir === 1 ? 0 : window.innerWidth - ENDER_W;
+      var maxX = window.innerWidth - ENDER_W;
+      x   = Math.random() * maxX;
+      dir = Math.random() > 0.5 ? 1 : -1;
       enderman.style.transform = 'translateX(' + x + 'px)';
       flip.style.transform     = dir === -1 ? 'scaleX(-1)' : 'scaleX(1)';
       enderman.style.opacity   = '1';
-      teleporting = false;
-    }, 220);
+      teleporting    = false;
+      sinceLastTport = 0;
+      nextTport      = randomInterval();
+    }, 200);
   }
 
   function step(dt) {
     if (teleporting) return;
+    sinceLastTport += dt;
+
     x += dir * SPEED * (dt / 1000);
     var maxX = window.innerWidth - ENDER_W;
-    if (x >= maxX || x <= 0) {
-      x = Math.min(Math.max(x, 0), maxX);
-      enderman.style.transform = 'translateX(' + x + 'px)';
-      teleport();
-      return;
-    }
+    if (x >= maxX) { x = maxX; dir = -1; flip.style.transform = 'scaleX(-1)'; }
+    if (x <= 0)    { x = 0;    dir =  1; flip.style.transform = 'scaleX(1)';  }
     enderman.style.transform = 'translateX(' + x + 'px)';
+
+    if (sinceLastTport >= nextTport) teleport();
   }
 
   function loop(ts) {
