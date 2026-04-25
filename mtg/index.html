@@ -301,6 +301,8 @@ padding: 10px 12px; border-radius: 2px;
     <input type="password" id="setupToken" placeholder="ghp_...">
     <label>Gist ID <span style="color:#444">(leave blank to create new)</span></label>
     <input type="text" id="setupGistId" placeholder="optional">
+    <label>Anthropic API Key <span style="color:#444">(for AI summary)</span></label>
+    <input type="password" id="setupAnthropicKey" placeholder="sk-ant-...">
     <div class="modal-btns">
       <button class="btn btn-primary" id="setupSaveBtn">Save</button>
       <button class="btn btn-ghost" id="setupCancelBtn">Cancel</button>
@@ -460,14 +462,17 @@ function schedulePush() {
 document.getElementById('setupBtn').onclick = () => {
   document.getElementById('setupToken').value = getToken();
   document.getElementById('setupGistId').value = getGistId();
+  document.getElementById('setupAnthropicKey').value = localStorage.getItem('mtg_ak') || '';
   document.getElementById('setupModal').classList.add('active');
 };
 document.getElementById('setupCancelBtn').onclick = () => document.getElementById('setupModal').classList.remove('active');
 document.getElementById('setupSaveBtn').onclick = async () => {
   const t = document.getElementById('setupToken').value.trim();
   const g = document.getElementById('setupGistId').value.trim();
+  const ak = document.getElementById('setupAnthropicKey').value.trim();
   if (t) localStorage.setItem(LS_TOKEN, t);
   if (g) localStorage.setItem(LS_GIST, g);
+  if (ak) localStorage.setItem('mtg_ak', ak);
   document.getElementById('setupModal').classList.remove('active');
   await pullFromGist();
 };
@@ -673,10 +678,23 @@ Write a structured summary with these sections:
 
 Be concise and use plain text, no markdown symbols.`;
 
+  const ak = localStorage.getItem('mtg_ak') || '';
+  if (!ak) {
+    sp.textContent = 'No Anthropic API key set. Add it in Setup.';
+    sp.classList.remove('loading');
+    document.getElementById('summarizeBtn').disabled = false;
+    return;
+  }
+
   try {
     const r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': ak,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1000,
