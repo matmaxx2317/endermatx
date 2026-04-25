@@ -67,7 +67,7 @@ outline: none;
 transition: border-color 0.15s;
 }
 
-.field input:focus { border-color: #444; }
+.field input:focus { border-color: #999; }
 
 .field input.full { grid-column: 1 / -1; }
 
@@ -87,7 +87,7 @@ outline: none;
 transition: border-color 0.15s;
 }
 
-.commit-row input:focus { border-color: #444; }
+.commit-row input:focus { border-color: #999; }
 
 .files-header {
 display: flex;
@@ -115,7 +115,7 @@ letter-spacing: 0.08em;
 transition: border-color 0.15s, color 0.15s;
 }
 
-.btn-add:hover { border-color: #777; color: #fff; }
+.btn-add:hover { border-color: #aaa; color: #fff; }
 
 .file-card {
 background: #0e0e0e;
@@ -124,7 +124,7 @@ margin-bottom: 10px;
 transition: border-color 0.15s;
 }
 
-.file-card:focus-within { border-color: #333; }
+.file-card:focus-within { border-color: #888; }
 
 .file-card-header {
 display: flex;
@@ -145,12 +145,12 @@ font-size: 12px;
 outline: none;
 }
 
-.file-card-header input::placeholder { color: #666; }
+.file-card-header input::placeholder { color: #aaa; }
 
 .btn-remove {
 background: none;
 border: none;
-color: #777;
+color: #aaa;
 font-size: 16px;
 cursor: pointer;
 line-height: 1;
@@ -175,19 +175,19 @@ outline: none;
 display: block;
 }
 
-.file-card textarea::placeholder { color: #555; }
+.file-card textarea::placeholder { color: #999; }
 
 .file-footer {
 padding: 5px 10px;
 background: #0e0e0e;
 border-top: 1px solid #1a1a1a;
 font-size: 10px;
-color: #777;
+color: #aaa;
 display: flex;
 justify-content: space-between;
 }
 
-.file-footer .warn { color: #8a5a00; }
+.file-footer .warn { color: #c8a000; }
 
 .actions {
 margin-top: 20px;
@@ -211,7 +211,7 @@ transition: background 0.15s;
 }
 
 .btn-push:hover { background: #fff; }
-.btn-push:disabled { background: #2a2a2a; color: #555; cursor: not-allowed; }
+.btn-push:disabled { background: #2a2a2a; color: #999; cursor: not-allowed; }
 
 .status {
 font-size: 11px;
@@ -220,8 +220,8 @@ flex: 1;
 }
 
 .status.ok { color: #4a8a4a; }
-.status.err { color: #8a4a4a; }
-.status.busy { color: #8a7a4a; }
+.status.err { color: #c47070; }
+.status.busy { color: #c4b070; }
 
 .log {
 margin-top: 20px;
@@ -239,8 +239,8 @@ display: none;
 
 .log-line { color: #999; }
 .log-line.ok { color: #4a8a4a; }
-.log-line.err { color: #8a4a4a; }
-.log-line.info { color: #8a7a4a; }
+.log-line.err { color: #c47070; }
+.log-line.info { color: #c4b070; }
 
 .pat-row {
 display: flex;
@@ -261,7 +261,7 @@ outline: none;
 transition: border-color 0.15s;
 }
 
-.pat-row input:focus { border-color: #444; }
+.pat-row input:focus { border-color: #999; }
 
 .btn-save-pat {
 background: none;
@@ -276,11 +276,11 @@ white-space: nowrap;
 transition: border-color 0.15s, color 0.15s;
 }
 
-.btn-save-pat:hover { border-color: #777; color: #fff; }
+.btn-save-pat:hover { border-color: #aaa; color: #fff; }
 
 .hint {
 font-size: 10px;
-color: #777;
+color: #aaa;
 margin-bottom: 20px;
 }
 
