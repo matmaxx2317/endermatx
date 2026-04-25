@@ -365,7 +365,20 @@ animation: ender-bg-flash 1.5s ease-out forwards;
   var sinceLastTport = 0;
   var nextTport      = randomInterval();
 
+  var currentSpeed   = 30;
+  var targetSpeed    = 30;
+  var sinceSpeedChange = 0;
+  var nextSpeedChange  = randomSpeedInterval();
+
   function randomInterval() { return 2800 + Math.random() * 2400; }
+  function randomSpeedInterval() { return 600 + Math.random() * 1400; }
+  function randomTargetSpeed() {
+    var r = Math.random();
+    if (r < 0.2) return 0;           // pause
+    if (r < 0.5) return 18 + Math.random() * 14;  // slow creep
+    if (r < 0.85) return 45 + Math.random() * 25; // normal
+    return 90 + Math.random() * 40;  // brief fast lurch
+  }
 
   function positionV() {
     var rect = document.querySelector('header').getBoundingClientRect();
@@ -398,13 +411,27 @@ animation: ender-bg-flash 1.5s ease-out forwards;
 
   function step(dt) {
     if (teleporting) return;
-    sinceLastTport += dt;
+    sinceLastTport   += dt;
+    sinceSpeedChange += dt;
 
-    x += dir * SPEED * (dt / 1000);
+    if (sinceSpeedChange >= nextSpeedChange) {
+      targetSpeed      = randomTargetSpeed();
+      nextSpeedChange  = randomSpeedInterval();
+      sinceSpeedChange = 0;
+    }
+
+    currentSpeed += (targetSpeed - currentSpeed) * Math.min(1, dt / 180);
+
+    x += dir * currentSpeed * (dt / 1000);
     var maxX = window.innerWidth - ENDER_W;
     if (x >= maxX) { x = maxX; dir = -1; flip.style.transform = 'scaleX(-1)'; }
     if (x <= 0)    { x = 0;    dir =  1; flip.style.transform = 'scaleX(1)';  }
     enderman.style.transform = 'translateX(' + x + 'px)';
+
+    var walkDur = currentSpeed < 5 ? '9999s' : (1.4 - Math.min(currentSpeed, 130) / 130 * 0.9) + 's';
+    enderman.querySelectorAll('.ender-arm, .ender-leg, .ender-figure').forEach(function(el) {
+      el.style.animationDuration = walkDur;
+    });
 
     if (sinceLastTport >= nextTport) teleport();
   }
