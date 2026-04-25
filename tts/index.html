@@ -360,14 +360,15 @@ font-family: inherit;
 
 .log-delete:hover { color: #ff6b6b; }
 
-.report-tabs { display: flex; gap: 2px; margin-bottom: 14px; }
+.report-tabs { display: flex; gap: 2px; margin-bottom: 14px; flex-wrap: wrap; }
 
 .report-tab {
 flex: 1;
-padding: 8px;
+min-width: 0;
+padding: 8px 4px;
 text-align: center;
 font-size: 10px;
-letter-spacing: 0.12em;
+letter-spacing: 0.08em;
 text-transform: uppercase;
 cursor: pointer;
 border: 1px solid #1e1e1e;
@@ -375,6 +376,7 @@ color: #444;
 background: none;
 font-family: inherit;
 transition: all 0.15s;
+white-space: nowrap;
 }
 
 .report-tab.active { border-color: #7effa0; color: #7effa0; background: #0d1a10; }
@@ -411,6 +413,132 @@ flex-shrink: 0;
 
 .report-total { font-size: 11px; color: #333; letter-spacing: 0.1em; text-align: right; margin-top: 10px; }
 
+/* HEATMAP */
+.heatmap-wrap { overflow-x: auto; }
+
+.heatmap-table {
+width: 100%;
+border-collapse: collapse;
+font-size: 10px;
+}
+
+.heatmap-table th {
+color: #333;
+letter-spacing: 0.1em;
+font-weight: normal;
+padding: 4px 6px;
+text-align: center;
+white-space: nowrap;
+}
+
+.heatmap-table th.row-label {
+text-align: right;
+color: #2e2e2e;
+padding-right: 8px;
+max-width: 90px;
+overflow: hidden;
+text-overflow: ellipsis;
+white-space: nowrap;
+font-size: 10px;
+}
+
+.heatmap-cell {
+width: 36px;
+height: 28px;
+text-align: center;
+vertical-align: middle;
+font-size: 9px;
+font-variant-numeric: tabular-nums;
+color: #222;
+transition: opacity 0.2s;
+cursor: default;
+border: 1px solid #111;
+}
+
+.heatmap-cell.has-data { color: #0e0e0e; }
+.heatmap-cell:hover { opacity: 0.75; }
+
+.heatmap-legend {
+display: flex;
+align-items: center;
+gap: 6px;
+margin-top: 12px;
+font-size: 10px;
+color: #333;
+}
+
+.heatmap-legend-bar {
+display: flex;
+gap: 2px;
+}
+
+.heatmap-legend-swatch {
+width: 18px;
+height: 8px;
+}
+
+/* SWITCHES */
+.switches-row {
+display: flex;
+align-items: flex-end;
+gap: 10px;
+padding: 9px 0;
+border-bottom: 1px solid #181818;
+}
+
+.switches-date {
+font-size: 11px;
+color: #444;
+width: 64px;
+flex-shrink: 0;
+}
+
+.switches-bar-wrap { flex: 1; height: 16px; background: #1a1a1a; position: relative; }
+
+.switches-bar {
+height: 100%;
+background: #6bb5ff;
+transition: width 0.4s ease;
+}
+
+.switches-count {
+font-size: 11px;
+color: #555;
+width: 30px;
+text-align: right;
+flex-shrink: 0;
+font-variant-numeric: tabular-nums;
+}
+
+.switches-label {
+font-size: 10px;
+color: #2a2a2a;
+letter-spacing: 0.08em;
+margin-top: 10px;
+text-align: right;
+}
+
+.switches-avg {
+font-size: 11px;
+color: #333;
+letter-spacing: 0.1em;
+text-align: right;
+margin-top: 6px;
+}
+
+.switches-insight {
+font-size: 11px;
+color: #3a3a3a;
+letter-spacing: 0.05em;
+margin-top: 14px;
+line-height: 1.7;
+border-top: 1px solid #181818;
+padding-top: 12px;
+}
+
+.switches-insight span { color: #6bb5ff; }
+
+/* PROJECTS MANAGER */
 .proj-item {
 display: flex;
 align-items: center;
@@ -576,9 +704,11 @@ letter-spacing: 0.05em;
 <div class="section">
   <div class="section-title">Report</div>
   <div class="report-tabs">
-    <button class="report-tab active" onclick="setReport('week')">This Week</button>
-    <button class="report-tab" onclick="setReport('month')">This Month</button>
-    <button class="report-tab" onclick="setReport('all')">All Time</button>
+    <button class="report-tab active" onclick="setReport('week')">Week</button>
+    <button class="report-tab" onclick="setReport('month')">Month</button>
+    <button class="report-tab" onclick="setReport('all')">All</button>
+    <button class="report-tab" onclick="setReport('heatmap')">Heatmap</button>
+    <button class="report-tab" onclick="setReport('switches')">Switches</button>
   </div>
   <div id="reportContent"></div>
 </div>
@@ -603,6 +733,8 @@ const DEFAULTS = [
   'VIO1208','VIO1254','VIO1406','VIO1508','VIO5404',
   'VX1152','VX1161.02','VX1161.22','VX1161.33','VX1161.52'
 ];
+
+const DAY_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
 let state = {
   projects: [],
@@ -929,7 +1061,7 @@ function deleteEntry(id) {
 function setReport(mode) {
   state.reportMode = mode;
   document.querySelectorAll('.report-tab').forEach(function(t, i) {
-    t.classList.toggle('active', ['week','month','all'][i] === mode);
+    t.classList.toggle('active', ['week','month','all','heatmap','switches'][i] === mode);
   });
   renderReport();
 }
@@ -950,6 +1082,10 @@ function getReportStart() {
 function renderReport() {
   const content = document.getElementById('reportContent');
   if (!content) return;
+
+  if (state.reportMode === 'heatmap') { renderHeatmap(content); return; }
+  if (state.reportMode === 'switches') { renderSwitches(content); return; }
+
   const start = getReportStart();
   const filtered = state.entries.filter(function(e) { return e.start >= start; });
   if (filtered.length === 0) { content.innerHTML = '<div class="empty-state">No entries in this period.</div>'; return; }
@@ -967,6 +1103,207 @@ function renderReport() {
       '<div class="report-time">' + formatDurationShort(entry[1]) + '</div>' +
       '</div>';
   }).join('') + '<div class="report-total">Total: ' + formatDurationShort(grand) + '</div>';
+}
+
+// ---- HEATMAP ----
+// Rows = projects, Columns = Mon-Sun
+// Cell value = hours spent on that project on that day of week (averaged across all matching days in history)
+
+function renderHeatmap(content) {
+  if (state.entries.length === 0) {
+    content.innerHTML = '<div class="empty-state">No data yet.</div>';
+    return;
+  }
+
+  // Build totals: projectId -> dayOfWeek(0=Mon..6=Sun) -> seconds
+  // Also count distinct days per weekday for averaging
+  var proj = {};
+  var dayCounts = [0,0,0,0,0,0,0]; // how many distinct Mon/Tue/.../Sun exist in data
+  var daySet = {}; // 'YYYY-MM-DD' -> dayIndex
+
+  state.entries.forEach(function(e) {
+    var d = new Date(e.start);
+    var dow = (d.getDay() + 6) % 7; // Mon=0..Sun=6
+    var dateKey = d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate();
+    var weekDayKey = dateKey + '_' + dow;
+    if (!daySet[weekDayKey]) {
+      daySet[weekDayKey] = true;
+      dayCounts[dow]++;
+    }
+    if (!proj[e.projectId]) proj[e.projectId] = [0,0,0,0,0,0,0];
+    proj[e.projectId][dow] += e.duration;
+  });
+
+  var projectIds = Object.keys(proj);
+  if (projectIds.length === 0) {
+    content.innerHTML = '<div class="empty-state">No data yet.</div>';
+    return;
+  }
+
+  // Find max average value for color scaling
+  var maxAvg = 0;
+  projectIds.forEach(function(pid) {
+    for (var d = 0; d < 7; d++) {
+      var cnt = dayCounts[d] || 1;
+      var avg = proj[pid][d] / cnt;
+      if (avg > maxAvg) maxAvg = avg;
+    }
+  });
+
+  // Color intensity: green tones matching tts palette
+  function cellColor(seconds, dayIdx) {
+    var cnt = dayCounts[dayIdx] || 1;
+    var avg = seconds / cnt;
+    if (avg === 0) return '#141414';
+    var ratio = avg / maxAvg;
+    // interpolate from #1a2e1a to #7effa0
+    var r = Math.round(26 + ratio * (126 - 26));
+    var g = Math.round(46 + ratio * (255 - 46));
+    var b = Math.round(26 + ratio * (160 - 26));
+    return 'rgb(' + r + ',' + g + ',' + b + ')';
+  }
+
+  function cellText(seconds, dayIdx) {
+    var cnt = dayCounts[dayIdx] || 1;
+    var avg = seconds / cnt;
+    if (avg === 0) return '';
+    var h = Math.floor(avg / 3600);
+    var m = Math.floor((avg % 3600) / 60);
+    if (h > 0) return h + 'h';
+    if (m > 0) return m + 'm';
+    return '<1m';
+  }
+
+  var sorted = projectIds.slice().sort(function(a, b) {
+    var totA = proj[a].reduce(function(s,v){return s+v;},0);
+    var totB = proj[b].reduce(function(s,v){return s+v;},0);
+    return totB - totA;
+  });
+
+  var html = '<div class="heatmap-wrap"><table class="heatmap-table"><thead><tr>';
+  html += '<th class="row-label"></th>';
+  DAY_LABELS.forEach(function(d) { html += '<th>' + d + '</th>'; });
+  html += '</tr></thead><tbody>';
+
+  sorted.forEach(function(pid) {
+    var p = getProject(parseInt(pid));
+    html += '<tr>';
+    html += '<th class="row-label" title="' + escHtml(p.name) + '">' + escHtml(p.name) + '</th>';
+    for (var d = 0; d < 7; d++) {
+      var sec = proj[pid][d];
+      var bg = cellColor(sec, d);
+      var txt = cellText(sec, d);
+      var hasData = sec > 0 ? ' has-data' : '';
+      html += '<td class="heatmap-cell' + hasData + '" style="background:' + bg + '" title="' + escHtml(p.name) + ' / ' + DAY_LABELS[d] + ': avg ' + txt + '">' + txt + '</td>';
+    }
+    html += '</tr>';
+  });
+
+  html += '</tbody></table></div>';
+
+  // Legend
+  html += '<div class="heatmap-legend"><span>less</span><div class="heatmap-legend-bar">';
+  var steps = 6;
+  for (var i = 0; i <= steps; i++) {
+    var ratio = i / steps;
+    var maxSec = maxAvg;
+    var r2 = Math.round(26 + ratio * (126 - 26));
+    var g2 = Math.round(46 + ratio * (255 - 46));
+    var b2 = Math.round(26 + ratio * (160 - 26));
+    var bg2 = i === 0 ? '#141414' : 'rgb(' + r2 + ',' + g2 + ',' + b2 + ')';
+    html += '<div class="heatmap-legend-swatch" style="background:' + bg2 + '"></div>';
+  }
+  html += '</div><span>more</span></div>';
+
+  if (dayCounts.some(function(c){return c > 1;})) {
+    html += '<div class="switches-label" style="margin-top:8px">values averaged across all matching weekdays</div>';
+  }
+
+  content.innerHTML = html;
+}
+
+// ---- SWITCHES ----
+// Context switches = number of times activeProjectId changed within a day
+// We reconstruct per-day switch counts from the entries array sorted by start time
+
+function renderSwitches(content) {
+  if (state.entries.length === 0) {
+    content.innerHTML = '<div class="empty-state">No data yet.</div>';
+    return;
+  }
+
+  // Group entries by calendar date, sort by start within each day
+  var byDay = {};
+  state.entries.forEach(function(e) {
+    var d = new Date(e.start);
+    var key = d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
+    if (!byDay[key]) byDay[key] = [];
+    byDay[key].push(e);
+  });
+
+  var days = Object.keys(byDay).sort();
+  var results = days.map(function(key) {
+    var entries = byDay[key].slice().sort(function(a,b){return a.start - b.start;});
+    var switches = 0;
+    var lastPid = null;
+    entries.forEach(function(e) {
+      if (lastPid !== null && e.projectId !== lastPid) switches++;
+      lastPid = e.projectId;
+    });
+    return { date: key, switches: switches, count: entries.length };
+  });
+
+  // Show last 30 days max
+  var recent = results.slice(-30);
+  var maxSw = Math.max.apply(null, recent.map(function(r){return r.switches;}));
+  if (maxSw === 0) maxSw = 1;
+
+  var totalSw = recent.reduce(function(s,r){return s + r.switches;}, 0);
+  var avgSw = (totalSw / recent.length).toFixed(1);
+
+  // Find day-of-week with highest avg switches
+  var dowSw = [0,0,0,0,0,0,0];
+  var dowCnt = [0,0,0,0,0,0,0];
+  recent.forEach(function(r) {
+    var d = new Date(r.date);
+    var dow = (d.getDay() + 6) % 7;
+    dowSw[dow] += r.switches;
+    dowCnt[dow]++;
+  });
+  var dowAvg = dowSw.map(function(s,i){ return dowCnt[i] ? s/dowCnt[i] : 0; });
+  var maxDow = dowAvg.indexOf(Math.max.apply(null, dowAvg));
+  var minDow = dowAvg.indexOf(Math.min.apply(null, dowAvg.filter(function(v){return v>0;})));
+  // recompute minDow properly
+  var minVal = Infinity, minIdx = -1;
+  dowAvg.forEach(function(v,i){ if(dowCnt[i] > 0 && v < minVal){ minVal = v; minIdx = i; }});
+
+  var html = recent.map(function(r) {
+    var pct = maxSw > 0 ? Math.round((r.switches / maxSw) * 100) : 0;
+    var dateLabel = r.date.slice(5); // MM-DD
+    return '<div class="switches-row">' +
+      '<div class="switches-date">' + dateLabel + '</div>' +
+      '<div class="switches-bar-wrap"><div class="switches-bar" style="width:' + pct + '%"></div></div>' +
+      '<div class="switches-count">' + r.switches + '</div>' +
+      '</div>';
+  }).join('');
+
+  html += '<div class="switches-avg">avg ' + avgSw + ' switches/day &middot; ' + recent.length + ' days</div>';
+
+  // Insight line
+  if (recent.length >= 5) {
+    var insightParts = [];
+    if (maxDow >= 0 && dowCnt[maxDow] > 0) {
+      insightParts.push('<span>' + DAY_LABELS[maxDow] + 's</span> have the most context switches');
+    }
+    if (minIdx >= 0) {
+      insightParts.push('<span>' + DAY_LABELS[minIdx] + 's</span> are your most focused days');
+    }
+    if (insightParts.length > 0) {
+      html += '<div class="switches-insight">' + insightParts.join(' &middot; ') + '</div>';
+    }
+  }
+
+  content.innerHTML = html;
 }
 
 // ---- PROJECTS MANAGER ----
