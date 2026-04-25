@@ -198,7 +198,7 @@ width: 0%;
 
 <div id="top-bar">
   <span>pom</span>
-  <span id="sync-status">—</span>
+  <span id="sync-status">-</span>
 </div>
 
 <div id="main">
@@ -228,7 +228,7 @@ width: 0%;
 
 <div id="setup">
   <h2>gist sync setup</h2>
-  <p>enter a github personal access token (gists scope) to sync your stats across devices.</p>
+  <p>enter a github personal access token (gists scope) to sync stats and timer state across devices.</p>
   <input type="password" id="input-token" placeholder="ghp_..." autocomplete="off">
   <input type="text" id="input-gist" placeholder="gist id (leave blank to create new)">
   <div id="setup-error"></div>
@@ -239,235 +239,348 @@ width: 0%;
 </div>
 
 <script>
-const WORK_SECS = 25 * 60;
-const BREAK_SECS = 5 * 60;
+var WORK_SECS = 25 * 60;
+var BREAK_SECS = 5 * 60;
+var TIMER_SAVE_EVERY = 60;
 
-const MESSAGES = {
+var MESSAGES = {
   idle: [
     "whenever you're ready. no rush. it's fine.",
     "the timer is just sitting here. patiently.",
     "take your time. it's not going anywhere.",
-    "ready when you are. which, apparently, is not now.",
+    "ready when you are. which, apparently, is not now."
   ],
   work_start: [
     "oh, we're actually doing this today.",
     "fine. 25 minutes. try not to check your phone.",
     "okay. let's see how long this lasts.",
     "starting now. you're welcome.",
-    "alright. eyes on the work, please.",
+    "alright. eyes on the work, please."
   ],
   work_mid: [
     "still going. honestly surprised.",
     "halfway. don't celebrate yet.",
     "you're doing it. mediocrely, but you're doing it.",
-    "no, you cannot check instagram. keep going.",
+    "no, you cannot check instagram. keep going."
+  ],
+  work_resume: [
+    "back again. fine.",
+    "resuming. sure.",
+    "oh, you remembered. interesting."
   ],
   work_paused: [
     "sure. take a break. the work will wait. it always does.",
     "paused. very on-brand.",
     "of course. this is fine.",
-    "amazing. we were so close.",
+    "amazing. we were so close."
   ],
   work_done: [
     "fine. that was acceptable.",
     "session complete. you may feel slightly proud.",
     "done. see? you're capable of things.",
     "25 minutes of work. noted. reluctantly impressed.",
-    "alright, that counted. well done, i suppose.",
+    "alright, that counted. well done, i suppose."
   ],
   break_start: [
     "don't get too comfortable.",
     "5 minutes. that's it.",
     "rest. but not too much.",
-    "okay, fine. you've earned 5 minutes.",
+    "okay, fine. you've earned 5 minutes."
   ],
   break_done: [
     "break's over. back to it.",
     "hope that was refreshing. time to work.",
     "5 minutes are up. no more stalling.",
-    "ready? doesn't matter. let's go.",
+    "ready? doesn't matter. let's go."
+  ],
+  restored_work: [
+    "oh, you're back. the timer waited.",
+    "welcome back. it kept going without you.",
+    "picked up where you left off. you're welcome."
+  ],
+  restored_break: [
+    "still on your break, apparently.",
+    "break's still running. don't milk it."
   ],
   streak: [
     "you've been doing this for {n} days. suspicious.",
     "{n} day streak. trying to impress someone?",
-    "day {n}. alright, fine. commitment.",
-  ],
+    "day {n}. alright, fine. commitment."
+  ]
 };
 
-function pick(arr, vars = {}) {
-  let s = arr[Math.floor(Math.random() * arr.length)];
-  for (const [k, v] of Object.entries(vars)) s = s.replace(`{${k}}`, v);
+function pick(arr, vars) {
+  var s = arr[Math.floor(Math.random() * arr.length)];
+  if (vars) {
+    var keys = Object.keys(vars);
+    for (var i = 0; i < keys.length; i++) {
+      s = s.replace('{' + keys[i] + '}', vars[keys[i]]);
+    }
+  }
   return s;
 }
 
 // State
-let state = 'idle'; // idle | work | paused | break
-let secsLeft = WORK_SECS;
-let totalSecs = WORK_SECS;
-let interval = null;
-let lastMidMsg = 0;
+var state = 'idle';
+var secsLeft = WORK_SECS;
+var totalSecs = WORK_SECS;
+var interval = null;
+var lastMidMsg = 0;
+var ticksSinceTimerSave = 0;
 
-// Stats
-let stats = { sessions: {}, totalMins: 0, gistId: null };
+// All persisted data in one object
+var data = { sessions: {}, totalMins: 0, timer: null };
 
 // DOM
-const timerEl = document.getElementById('timer');
-const modeEl = document.getElementById('mode-label');
-const msgEl = document.getElementById('message');
-const btnStart = document.getElementById('btn-start');
-const btnReset = document.getElementById('btn-reset');
-const progressFill = document.getElementById('progress-fill');
-const syncEl = document.getElementById('sync-status');
-const statToday = document.getElementById('stat-today');
-const statStreak = document.getElementById('stat-streak');
-const statTotal = document.getElementById('stat-total');
-const setupEl = document.getElementById('setup');
-const mainEl = document.getElementById('main');
+var timerEl = document.getElementById('timer');
+var modeEl = document.getElementById('mode-label');
+var msgEl = document.getElementById('message');
+var btnStart = document.getElementById('btn-start');
+var btnReset = document.getElementById('btn-reset');
+var progressFill = document.getElementById('progress-fill');
+var syncEl = document.getElementById('sync-status');
+var statToday = document.getElementById('stat-today');
+var statStreak = document.getElementById('stat-streak');
+var statTotal = document.getElementById('stat-total');
+var setupEl = document.getElementById('setup');
+var mainEl = document.getElementById('main');
 
-// Token / Gist
-let token = localStorage.getItem('pom_token') || '';
-let gistId = localStorage.getItem('pom_gist_id') || '';
-let syncDebounce = null;
+// Credentials in localStorage only
+var token = localStorage.getItem('pom_token') || '';
+var gistId = localStorage.getItem('pom_gist_id') || '';
+var isSaving = false;
+var pendingSave = false;
+
+// ---- Display ----
 
 function formatTime(s) {
-  const m = Math.floor(s / 60);
-  const sec = s % 60;
-  return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+  if (s < 0) s = 0;
+  var m = Math.floor(s / 60);
+  var sec = s % 60;
+  return String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
 }
 
 function setMessage(msg) {
   msgEl.style.opacity = '0';
-  setTimeout(() => { msgEl.textContent = msg; msgEl.style.opacity = '1'; }, 150);
+  setTimeout(function() { msgEl.textContent = msg; msgEl.style.opacity = '1'; }, 150);
 }
 
 function updateDisplay() {
   timerEl.textContent = formatTime(secsLeft);
-  const pct = ((totalSecs - secsLeft) / totalSecs) * 100;
+  var pct = ((totalSecs - secsLeft) / totalSecs) * 100;
   progressFill.style.width = pct + '%';
-  const isBreak = state === 'break';
+  var isBreak = state === 'break';
   timerEl.className = isBreak ? 'break-mode' : '';
   progressFill.className = isBreak ? 'break-mode' : '';
 }
 
 function updateStats() {
-  const today = todayKey();
-  const todayCount = stats.sessions[today] || 0;
-  statToday.textContent = todayCount;
+  var today = todayKey();
+  statToday.textContent = data.sessions[today] || 0;
   statStreak.textContent = calcStreak();
-  statTotal.textContent = (stats.totalMins / 60).toFixed(1);
+  statTotal.textContent = ((data.totalMins || 0) / 60).toFixed(1);
 }
 
 function todayKey() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  var d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
 
 function calcStreak() {
-  let streak = 0;
-  const d = new Date();
+  var streak = 0;
+  var d = new Date();
   while (true) {
-    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    if (stats.sessions[key]) { streak++; d.setDate(d.getDate() - 1); }
+    var key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    if (data.sessions[key]) { streak++; d.setDate(d.getDate() - 1); }
     else break;
   }
   return streak;
 }
 
-function recordSession() {
-  const key = todayKey();
-  stats.sessions[key] = (stats.sessions[key] || 0) + 1;
-  stats.totalMins = (stats.totalMins || 0) + 25;
-  updateStats();
-  schedulSync();
+// ---- Gist sync ----
+
+async function saveToGist() {
+  if (!token || !gistId) return;
+  if (isSaving) { pendingSave = true; return; }
+  isSaving = true;
+  syncEl.textContent = 'saving...';
+  syncEl.className = 'syncing';
+  try {
+    var payload = JSON.stringify({ sessions: data.sessions, totalMins: data.totalMins, timer: data.timer });
+    var res = await fetch('https://api.github.com/gists/' + gistId, {
+      method: 'PATCH',
+      headers: { Authorization: 'token ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ files: { 'pom_data.json': { content: payload } } })
+    });
+    if (!res.ok) throw new Error('save failed');
+    syncEl.textContent = 'synced';
+    syncEl.className = 'ok';
+  } catch (e) {
+    syncEl.textContent = 'sync err';
+    syncEl.className = 'err';
+  }
+  isSaving = false;
+  if (pendingSave) { pendingSave = false; saveToGist(); }
 }
 
-// Gist sync
+async function createGist() {
+  syncEl.textContent = 'creating...';
+  syncEl.className = 'syncing';
+  var payload = JSON.stringify({ sessions: {}, totalMins: 0, timer: null });
+  var res = await fetch('https://api.github.com/gists', {
+    method: 'POST',
+    headers: { Authorization: 'token ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ description: 'pom data', public: false, files: { 'pom_data.json': { content: payload } } })
+  });
+  if (!res.ok) throw new Error('create failed');
+  var d = await res.json();
+  gistId = d.id;
+  localStorage.setItem('pom_gist_id', gistId);
+  syncEl.textContent = 'synced';
+  syncEl.className = 'ok';
+}
+
 async function loadFromGist() {
   if (!token || !gistId) return;
   syncEl.textContent = 'syncing...';
   syncEl.className = 'syncing';
   try {
-    const res = await fetch(`https://api.github.com/gists/${gistId}`, {
-      headers: { Authorization: `token ${token}` }
+    var res = await fetch('https://api.github.com/gists/' + gistId, {
+      headers: { Authorization: 'token ' + token }
     });
     if (!res.ok) throw new Error('fetch failed');
-    const data = await res.json();
-    const content = data.files['pom_data.json']?.content;
-    if (content) {
-      const parsed = JSON.parse(content);
-      stats.sessions = parsed.sessions || {};
-      stats.totalMins = parsed.totalMins || 0;
+    var json = await res.json();
+    var file = json.files['pom_data.json'];
+    if (file && file.content) {
+      var parsed = JSON.parse(file.content);
+      data.sessions = parsed.sessions || {};
+      data.totalMins = parsed.totalMins || 0;
+      data.timer = parsed.timer || null;
     }
     syncEl.textContent = 'synced';
     syncEl.className = 'ok';
     updateStats();
+    restoreTimer();
   } catch (e) {
     syncEl.textContent = 'sync err';
     syncEl.className = 'err';
   }
 }
 
-async function saveToGist() {
-  if (!token) return;
-  syncEl.textContent = 'saving...';
-  syncEl.className = 'syncing';
-  const body = JSON.stringify({ sessions: stats.sessions, totalMins: stats.totalMins });
-  try {
-    let url, method;
-    if (gistId) {
-      url = `https://api.github.com/gists/${gistId}`;
-      method = 'PATCH';
-    } else {
-      url = 'https://api.github.com/gists';
-      method = 'POST';
-    }
-    const res = await fetch(url, {
-      method,
-      headers: { Authorization: `token ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ description: 'pom data', public: false, files: { 'pom_data.json': { content: body } } })
-    });
-    if (!res.ok) throw new Error('save failed');
-    const data = await res.json();
-    if (!gistId) {
-      gistId = data.id;
-      localStorage.setItem('pom_gist_id', gistId);
-      stats.gistId = gistId;
-    }
-    syncEl.textContent = 'synced';
-    syncEl.className = 'ok';
-  } catch (e) {
-    syncEl.textContent = 'sync err';
-    syncEl.className = 'err';
+// ---- Timer persistence ----
+
+function saveTimerState() {
+  if (!token || !gistId) return;
+  data.timer = {
+    state: state,
+    secsLeft: secsLeft,
+    totalSecs: totalSecs,
+    lastMidMsg: lastMidMsg,
+    savedAt: Date.now()
+  };
+  saveToGist();
+}
+
+function clearTimerState() {
+  data.timer = null;
+  saveToGist();
+}
+
+function restoreTimer() {
+  var t = data.timer;
+  if (!t || !t.state || t.state === 'idle') return;
+
+  var restored = t.secsLeft;
+
+  // Account for time elapsed while away (only for running states)
+  if (t.state === 'work' || t.state === 'break') {
+    var elapsed = Math.floor((Date.now() - t.savedAt) / 1000);
+    restored = t.secsLeft - elapsed;
   }
+
+  // Work finished while away: count it and go to break
+  if (t.state === 'work' && restored <= 0) {
+    recordSession();
+    setMessage(pick(MESSAGES.work_done));
+    setTimeout(function() { startBreak(); }, 1500);
+    return;
+  }
+
+  // Break finished while away: go idle
+  if (t.state === 'break' && restored <= 0) {
+    setMessage(pick(MESSAGES.break_done));
+    return;
+  }
+
+  // Restore state
+  state = t.state;
+  secsLeft = restored;
+  totalSecs = t.totalSecs;
+  lastMidMsg = t.lastMidMsg || 0;
+
+  if (state === 'work' || state === 'paused') {
+    modeEl.textContent = 'work';
+    btnStart.textContent = state === 'paused' ? 'resume' : 'pause';
+    setMessage(state === 'paused' ? pick(MESSAGES.work_paused) : pick(MESSAGES.restored_work));
+    if (state === 'work') startTick();
+  } else if (state === 'break') {
+    modeEl.textContent = 'break';
+    btnStart.textContent = 'skip break';
+    setMessage(pick(MESSAGES.restored_break));
+    startTick();
+  }
+
+  updateDisplay();
 }
 
-function schedulSync() {
-  clearTimeout(syncDebounce);
-  syncDebounce = setTimeout(saveToGist, 1500);
+// ---- Session ----
+
+function recordSession() {
+  var key = todayKey();
+  data.sessions[key] = (data.sessions[key] || 0) + 1;
+  data.totalMins = (data.totalMins || 0) + 25;
+  updateStats();
 }
 
-// Controls
+// ---- Timer controls ----
+
 function startWork() {
   state = 'work';
   secsLeft = WORK_SECS;
   totalSecs = WORK_SECS;
   lastMidMsg = 0;
+  ticksSinceTimerSave = 0;
   modeEl.textContent = 'work';
   btnStart.textContent = 'pause';
   setMessage(pick(MESSAGES.work_start));
   updateDisplay();
   startTick();
+  saveTimerState();
 }
 
 function startBreak() {
   state = 'break';
   secsLeft = BREAK_SECS;
   totalSecs = BREAK_SECS;
+  ticksSinceTimerSave = 0;
   modeEl.textContent = 'break';
   btnStart.textContent = 'skip break';
   setMessage(pick(MESSAGES.break_start));
   updateDisplay();
   startTick();
+  saveTimerState();
+}
+
+function goIdle() {
+  state = 'idle';
+  secsLeft = WORK_SECS;
+  totalSecs = WORK_SECS;
+  modeEl.textContent = 'work';
+  btnStart.textContent = 'start';
+  progressFill.style.width = '0%';
+  timerEl.className = '';
+  progressFill.className = '';
+  updateDisplay();
 }
 
 function startTick() {
@@ -477,39 +590,43 @@ function startTick() {
 
 function tick() {
   secsLeft--;
+  ticksSinceTimerSave++;
   updateDisplay();
 
-  // mid-session message
   if (state === 'work' && secsLeft === Math.floor(WORK_SECS / 2) && lastMidMsg !== secsLeft) {
     lastMidMsg = secsLeft;
     setMessage(pick(MESSAGES.work_mid));
+  }
+
+  if (ticksSinceTimerSave >= TIMER_SAVE_EVERY) {
+    ticksSinceTimerSave = 0;
+    saveTimerState();
   }
 
   if (secsLeft <= 0) {
     clearInterval(interval);
     if (state === 'work') {
       recordSession();
-      const streak = calcStreak();
+      clearTimerState();
+      var streak = calcStreak();
       if (streak > 1) {
         setMessage(pick(MESSAGES.streak, { n: streak }));
-        setTimeout(() => setMessage(pick(MESSAGES.work_done)), 2500);
+        setTimeout(function() { setMessage(pick(MESSAGES.work_done)); }, 2500);
       } else {
         setMessage(pick(MESSAGES.work_done));
       }
-      setTimeout(() => startBreak(), 3000);
+      setTimeout(function() { startBreak(); }, 3000);
     } else {
+      clearTimerState();
       setMessage(pick(MESSAGES.break_done));
-      state = 'idle';
-      secsLeft = WORK_SECS;
-      totalSecs = WORK_SECS;
-      modeEl.textContent = 'work';
-      btnStart.textContent = 'start';
-      updateDisplay();
+      goIdle();
     }
   }
 }
 
-btnStart.addEventListener('click', () => {
+// ---- Buttons ----
+
+btnStart.addEventListener('click', function() {
   if (state === 'idle') {
     startWork();
   } else if (state === 'work') {
@@ -517,38 +634,31 @@ btnStart.addEventListener('click', () => {
     state = 'paused';
     btnStart.textContent = 'resume';
     setMessage(pick(MESSAGES.work_paused));
+    saveTimerState();
   } else if (state === 'paused') {
     state = 'work';
+    ticksSinceTimerSave = 0;
     btnStart.textContent = 'pause';
-    setMessage(pick(MESSAGES.work_mid));
+    setMessage(pick(MESSAGES.work_resume));
     startTick();
+    saveTimerState();
   } else if (state === 'break') {
     clearInterval(interval);
+    clearTimerState();
     setMessage(pick(MESSAGES.break_done));
-    state = 'idle';
-    secsLeft = WORK_SECS;
-    totalSecs = WORK_SECS;
-    modeEl.textContent = 'work';
-    btnStart.textContent = 'start';
-    updateDisplay();
+    goIdle();
   }
 });
 
-btnReset.addEventListener('click', () => {
+btnReset.addEventListener('click', function() {
   clearInterval(interval);
-  state = 'idle';
-  secsLeft = WORK_SECS;
-  totalSecs = WORK_SECS;
-  modeEl.textContent = 'work';
-  btnStart.textContent = 'start';
-  progressFill.style.width = '0%';
-  timerEl.className = '';
-  progressFill.className = '';
+  clearTimerState();
   setMessage(pick(MESSAGES.idle));
-  updateDisplay();
+  goIdle();
 });
 
-// Setup flow
+// ---- Setup ----
+
 function showSetup() {
   mainEl.style.display = 'none';
   setupEl.style.display = 'flex';
@@ -559,36 +669,46 @@ function showMain() {
   mainEl.style.display = 'flex';
 }
 
-document.getElementById('btn-skip').addEventListener('click', () => {
+document.getElementById('btn-skip').addEventListener('click', function() {
   showMain();
   syncEl.textContent = 'no sync';
 });
 
-document.getElementById('btn-connect').addEventListener('click', async () => {
-  const t = document.getElementById('input-token').value.trim();
-  const g = document.getElementById('input-gist').value.trim();
-  const errEl = document.getElementById('setup-error');
+document.getElementById('btn-connect').addEventListener('click', async function() {
+  var t = document.getElementById('input-token').value.trim();
+  var g = document.getElementById('input-gist').value.trim();
+  var errEl = document.getElementById('setup-error');
   if (!t) { errEl.textContent = 'token required'; return; }
   errEl.textContent = '';
   token = t;
-  gistId = g;
   localStorage.setItem('pom_token', token);
-  if (gistId) localStorage.setItem('pom_gist_id', gistId);
   showMain();
-  await loadFromGist();
+  try {
+    if (g) {
+      gistId = g;
+      localStorage.setItem('pom_gist_id', gistId);
+      await loadFromGist();
+    } else {
+      await createGist();
+    }
+  } catch (e) {
+    syncEl.textContent = 'sync err';
+    syncEl.className = 'err';
+  }
 });
 
-// Init
+// ---- Init ----
+
+updateStats();
+updateDisplay();
+setMessage(pick(MESSAGES.idle));
+
 if (!token) {
   showSetup();
 } else {
   showMain();
   loadFromGist();
 }
-
-updateStats();
-updateDisplay();
-setMessage(pick(MESSAGES.idle));
 </script>
 
 </body>
