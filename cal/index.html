@@ -23,34 +23,40 @@ top: 0; left: 0; right: 0;
 display: flex;
 justify-content: space-between;
 align-items: center;
-padding: 6px 16px;
-background: #222;
-border-bottom: 1px solid #333;
-font-size: 10px;
-letter-spacing: 0.1em;
+padding: 6px 12px;
+background: #111;
+border-bottom: 1px solid #222;
+font-size: 11px;
+color: #555;
 z-index: 20;
 height: 32px;
 }
 
 #syncBar span { color: #555; }
-#syncStatus { color: #555; }
-#syncStatus.syncing { color: #ffd56b; }
-#syncStatus.synced { color: #4e9af1; }
-#syncStatus.error { color: #f87171; }
+#syncStatus { display: flex; align-items: center; }
+#syncBar .dot {
+width: 7px; height: 7px;
+border-radius: 50%;
+display: inline-block;
+margin-right: 5px;
+background: #555;
+}
+#syncBar .dot.synced { background: #4caf50; }
+#syncBar .dot.syncing { background: #ff9800; }
+#syncBar .dot.error { background: #f44336; }
 
 #setupBtn {
 background: none;
-border: 1px solid #3a3a3a;
+border: 1px solid #333;
 color: #555;
-font-size: 10px;
-letter-spacing: 0.12em;
+font-size: 11px;
 padding: 2px 8px;
 cursor: pointer;
 font-family: inherit;
-transition: all 0.15s;
+border-radius: 2px;
 }
 
-#setupBtn:hover { border-color: #666; color: #aaa; }
+#setupBtn:hover { border-color: #555; color: #aaa; }
 
 /* SETUP MODAL */
 .modal-overlay {
@@ -421,7 +427,7 @@ main { padding: 20px 16px 40px; }
 
 <div id="syncBar">
   <span>cal</span>
-  <span id="syncStatus">not connected</span>
+  <div id="syncStatus"><span class="dot" id="syncDot"></span><span id="syncText">not connected</span></div>
   <button id="setupBtn" onclick="openSetup()">setup</button>
 </div>
 
@@ -579,10 +585,11 @@ function saveCredentials() {
 }
 
 function setSyncStatus(type, text) {
-  var el = document.getElementById('syncStatus');
-  if (!el) return;
-  el.className = type || '';
-  el.textContent = text;
+  var dot = document.getElementById('syncDot');
+  var txt = document.getElementById('syncText');
+  if (!dot || !txt) return;
+  dot.className = 'dot' + (type ? ' ' + type : '');
+  txt.textContent = text;
 }
 
 function serializeState() {
