@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>pom</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
 background: #0d0d0d;
@@ -22,24 +22,74 @@ padding: 20px;
 
 #top-bar {
 position: fixed;
-top: 0;
-left: 0;
-right: 0;
+top: 0; left: 0; right: 0;
 display: flex;
 justify-content: space-between;
 align-items: center;
-padding: 10px 20px;
+padding: 6px 12px;
+background: #111;
+border-bottom: 1px solid #222;
 font-size: 11px;
-color: #444;
-border-bottom: 1px solid #1a1a1a;
-background: #0d0d0d;
+color: #555;
 }
 
-#sync-status { color: #444; }
-#sync-status.syncing { color: #666; }
-#sync-status.ok { color: #3a7a3a; }
-#sync-status.err { color: #7a3a3a; }
+#syncDot {
+width: 7px; height: 7px;
+border-radius: 50%;
+display: inline-block;
+margin-right: 5px;
+background: #555;
+}
+#syncDot.synced { background: #4caf50; }
+#syncDot.syncing { background: #ff9800; }
+#syncDot.error { background: #f44336; }
+#sync-status { display: flex; align-items: center; }
 
+#setupBtn {
+background: none; border: 1px solid #333;
+color: #555; cursor: pointer; padding: 2px 8px;
+font-family: ‘Courier New’, monospace; font-size: 11px;
+border-radius: 2px;
+}
+#setupBtn:hover { color: #aaa; border-color: #555; }
+
+/* SETUP MODAL */
+.modal-overlay {
+display: none;
+position: fixed; inset: 0;
+background: rgba(0,0,0,0.85);
+z-index: 100;
+align-items: center; justify-content: center;
+}
+.modal-overlay.active { display: flex; }
+.modal {
+background: #111;
+border: 1px solid #333;
+padding: 24px;
+width: 90%; max-width: 420px;
+border-radius: 4px;
+}
+.modal h2 { font-size: 14px; color: #aaa; margin-bottom: 16px; letter-spacing: 2px; text-transform: uppercase; }
+.modal label { display: block; color: #555; font-size: 11px; margin-bottom: 4px; margin-top: 12px; }
+.modal input {
+width: 100%; background: #0d0d0d;
+border: 1px solid #333; color: #e0e0e0;
+padding: 8px; font-family: ‘Courier New’, monospace; font-size: 13px;
+border-radius: 2px;
+}
+.modal input:focus { outline: none; border-color: #666; }
+.modal-btns { display: flex; gap: 8px; margin-top: 20px; }
+.mbtn {
+padding: 8px 16px; cursor: pointer;
+font-family: ‘Courier New’, monospace; font-size: 13px;
+border-radius: 2px; border: 1px solid #444;
+}
+.mbtn-primary { background: #e0e0e0; color: #0d0d0d; border-color: #e0e0e0; }
+.mbtn-primary:hover { background: #fff; }
+.mbtn-ghost { background: none; color: #666; }
+.mbtn-ghost:hover { color: #aaa; }
+
+/* MAIN */
 #main {
 display: flex;
 flex-direction: column;
@@ -131,50 +181,6 @@ letter-spacing: 0.15em;
 text-transform: uppercase;
 }
 
-#setup {
-display: none;
-flex-direction: column;
-align-items: center;
-gap: 16px;
-width: 100%;
-max-width: 400px;
-text-align: center;
-}
-
-#setup h2 {
-font-size: 14px;
-font-weight: normal;
-color: #888;
-letter-spacing: 0.1em;
-}
-
-#setup p {
-font-size: 11px;
-color: #444;
-line-height: 1.6;
-max-width: 320px;
-}
-
-#setup input {
-background: #111;
-border: 1px solid #2a2a2a;
-color: #ccc;
-font-family: ‘Courier New’, Courier, monospace;
-font-size: 12px;
-padding: 10px 14px;
-width: 100%;
-outline: none;
-}
-
-#setup input:focus { border-color: #555; }
-#setup input::placeholder { color: #333; }
-
-#setup-error {
-font-size: 11px;
-color: #7a3a3a;
-min-height: 16px;
-}
-
 #progress-bar {
 width: 100%;
 height: 2px;
@@ -196,10 +202,30 @@ width: 0%;
 </head>
 <body>
 
+<!-- TOP BAR -->
+
 <div id="top-bar">
-  <span>pom</span>
-  <span id="sync-status">-</span>
+  <div id="sync-status"><span class="dot" id="syncDot"></span><span id="syncText">not connected</span></div>
+  <button id="setupBtn">setup</button>
 </div>
+
+<!-- SETUP MODAL -->
+
+<div class="modal-overlay" id="setupModal">
+  <div class="modal">
+    <h2>Sync Setup</h2>
+    <label>GitHub Personal Access Token</label>
+    <input type="password" id="input-token" placeholder="ghp_..." autocomplete="off">
+    <label>Gist ID <span style="color:#444">(leave blank to create new)</span></label>
+    <input type="text" id="input-gist" placeholder="optional">
+    <div class="modal-btns">
+      <button class="mbtn mbtn-primary" id="btn-connect">Save</button>
+      <button class="mbtn mbtn-ghost" id="btn-cancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN -->
 
 <div id="main">
   <div id="mode-label">work</div>
@@ -223,18 +249,6 @@ width: 0%;
       <div class="stat-value" id="stat-total">0</div>
       <div class="stat-label">total hrs</div>
     </div>
-  </div>
-</div>
-
-<div id="setup">
-  <h2>gist sync setup</h2>
-  <p>enter a github personal access token (gists scope) to sync stats and timer state across devices.</p>
-  <input type="password" id="input-token" placeholder="ghp_..." autocomplete="off">
-  <input type="text" id="input-gist" placeholder="gist id (leave blank to create new)">
-  <div id="setup-error"></div>
-  <div style="display:flex;gap:12px;">
-    <button id="btn-connect">connect</button>
-    <button id="btn-skip">skip</button>
   </div>
 </div>
 
@@ -338,18 +352,51 @@ var msgEl = document.getElementById('message');
 var btnStart = document.getElementById('btn-start');
 var btnReset = document.getElementById('btn-reset');
 var progressFill = document.getElementById('progress-fill');
-var syncEl = document.getElementById('sync-status');
+var syncDot = document.getElementById('syncDot');
+var syncText = document.getElementById('syncText');
 var statToday = document.getElementById('stat-today');
 var statStreak = document.getElementById('stat-streak');
 var statTotal = document.getElementById('stat-total');
-var setupEl = document.getElementById('setup');
-var mainEl = document.getElementById('main');
 
 // Credentials in localStorage only
 var token = localStorage.getItem('pom_token') || '';
 var gistId = localStorage.getItem('pom_gist_id') || '';
 var isSaving = false;
 var pendingSave = false;
+
+// ---- Sync status ----
+
+function setSyncState(s, msg) {
+  syncDot.className = 'dot ' + (s === 'synced' ? 'synced' : s === 'syncing' ? 'syncing' : s === 'error' ? 'error' : '');
+  syncText.textContent = msg || s;
+}
+
+// ---- Setup modal ----
+
+document.getElementById('setupBtn').onclick = function() {
+  document.getElementById('input-token').value = token;
+  document.getElementById('input-gist').value = gistId;
+  document.getElementById('setupModal').classList.add('active');
+};
+
+document.getElementById('btn-cancel').onclick = function() {
+  document.getElementById('setupModal').classList.remove('active');
+};
+
+document.getElementById('btn-connect').onclick = async function() {
+  var t = document.getElementById('input-token').value.trim();
+  var g = document.getElementById('input-gist').value.trim();
+  if (t) { token = t; localStorage.setItem('pom_token', token); }
+  if (g) { gistId = g; localStorage.setItem('pom_gist_id', gistId); }
+  document.getElementById('setupModal').classList.remove('active');
+  if (token) {
+    if (gistId) {
+      await loadFromGist();
+    } else {
+      await createGist();
+    }
+  }
+};
 
 // ---- Display ----
 
@@ -403,8 +450,7 @@ async function saveToGist() {
   if (!token || !gistId) return;
   if (isSaving) { pendingSave = true; return; }
   isSaving = true;
-  syncEl.textContent = 'saving...';
-  syncEl.className = 'syncing';
+  setSyncState('syncing', 'saving...');
   try {
     var payload = JSON.stringify({ sessions: data.sessions, totalMins: data.totalMins, timer: data.timer });
     var res = await fetch('https://api.github.com/gists/' + gistId, {
@@ -413,19 +459,16 @@ async function saveToGist() {
       body: JSON.stringify({ files: { 'pom_data.json': { content: payload } } })
     });
     if (!res.ok) throw new Error('save failed');
-    syncEl.textContent = 'synced';
-    syncEl.className = 'ok';
+    setSyncState('synced', 'synced');
   } catch (e) {
-    syncEl.textContent = 'sync err';
-    syncEl.className = 'err';
+    setSyncState('error', 'sync error');
   }
   isSaving = false;
   if (pendingSave) { pendingSave = false; saveToGist(); }
 }
 
 async function createGist() {
-  syncEl.textContent = 'creating...';
-  syncEl.className = 'syncing';
+  setSyncState('syncing', 'creating...');
   var payload = JSON.stringify({ sessions: {}, totalMins: 0, timer: null });
   var res = await fetch('https://api.github.com/gists', {
     method: 'POST',
@@ -436,14 +479,12 @@ async function createGist() {
   var d = await res.json();
   gistId = d.id;
   localStorage.setItem('pom_gist_id', gistId);
-  syncEl.textContent = 'synced';
-  syncEl.className = 'ok';
+  setSyncState('synced', 'synced');
 }
 
 async function loadFromGist() {
   if (!token || !gistId) return;
-  syncEl.textContent = 'syncing...';
-  syncEl.className = 'syncing';
+  setSyncState('syncing', 'syncing...');
   try {
     var res = await fetch('https://api.github.com/gists/' + gistId, {
       headers: { Authorization: 'token ' + token }
@@ -457,13 +498,11 @@ async function loadFromGist() {
       data.totalMins = parsed.totalMins || 0;
       data.timer = parsed.timer || null;
     }
-    syncEl.textContent = 'synced';
-    syncEl.className = 'ok';
+    setSyncState('synced', 'synced');
     updateStats();
     restoreTimer();
   } catch (e) {
-    syncEl.textContent = 'sync err';
-    syncEl.className = 'err';
+    setSyncState('error', 'sync error');
   }
 }
 
@@ -491,14 +530,11 @@ function restoreTimer() {
   if (!t || !t.state || t.state === 'idle') return;
 
   var restored = t.secsLeft;
-
-  // Account for time elapsed while away (only for running states)
   if (t.state === 'work' || t.state === 'break') {
     var elapsed = Math.floor((Date.now() - t.savedAt) / 1000);
     restored = t.secsLeft - elapsed;
   }
 
-  // Work finished while away: count it and go to break
   if (t.state === 'work' && restored <= 0) {
     recordSession();
     setMessage(pick(MESSAGES.work_done));
@@ -506,13 +542,11 @@ function restoreTimer() {
     return;
   }
 
-  // Break finished while away: go idle
   if (t.state === 'break' && restored <= 0) {
     setMessage(pick(MESSAGES.break_done));
     return;
   }
 
-  // Restore state
   state = t.state;
   secsLeft = restored;
   totalSecs = t.totalSecs;
@@ -657,57 +691,16 @@ btnReset.addEventListener('click', function() {
   goIdle();
 });
 
-// ---- Setup ----
-
-function showSetup() {
-  mainEl.style.display = 'none';
-  setupEl.style.display = 'flex';
-}
-
-function showMain() {
-  setupEl.style.display = 'none';
-  mainEl.style.display = 'flex';
-}
-
-document.getElementById('btn-skip').addEventListener('click', function() {
-  showMain();
-  syncEl.textContent = 'no sync';
-});
-
-document.getElementById('btn-connect').addEventListener('click', async function() {
-  var t = document.getElementById('input-token').value.trim();
-  var g = document.getElementById('input-gist').value.trim();
-  var errEl = document.getElementById('setup-error');
-  if (!t) { errEl.textContent = 'token required'; return; }
-  errEl.textContent = '';
-  token = t;
-  localStorage.setItem('pom_token', token);
-  showMain();
-  try {
-    if (g) {
-      gistId = g;
-      localStorage.setItem('pom_gist_id', gistId);
-      await loadFromGist();
-    } else {
-      await createGist();
-    }
-  } catch (e) {
-    syncEl.textContent = 'sync err';
-    syncEl.className = 'err';
-  }
-});
-
 // ---- Init ----
 
 updateStats();
 updateDisplay();
 setMessage(pick(MESSAGES.idle));
 
-if (!token) {
-  showSetup();
-} else {
-  showMain();
+if (token && gistId) {
   loadFromGist();
+} else {
+  setSyncState('idle', 'not connected');
 }
 </script>
 
