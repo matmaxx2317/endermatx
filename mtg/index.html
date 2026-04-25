@@ -301,8 +301,6 @@ padding: 10px 12px; border-radius: 2px;
     <input type="password" id="setupToken" placeholder="ghp_...">
     <label>Gist ID <span style="color:#444">(leave blank to create new)</span></label>
     <input type="text" id="setupGistId" placeholder="optional">
-    <label>Anthropic API Key <span style="color:#444">(for AI summary)</span></label>
-    <input type="password" id="setupAnthropicKey" placeholder="sk-ant-...">
     <div class="modal-btns">
       <button class="btn btn-primary" id="setupSaveBtn">Save</button>
       <button class="btn btn-ghost" id="setupCancelBtn">Cancel</button>
@@ -462,17 +460,14 @@ function schedulePush() {
 document.getElementById('setupBtn').onclick = () => {
   document.getElementById('setupToken').value = getToken();
   document.getElementById('setupGistId').value = getGistId();
-  document.getElementById('setupAnthropicKey').value = localStorage.getItem('mtg_ak') || '';
   document.getElementById('setupModal').classList.add('active');
 };
 document.getElementById('setupCancelBtn').onclick = () => document.getElementById('setupModal').classList.remove('active');
 document.getElementById('setupSaveBtn').onclick = async () => {
   const t = document.getElementById('setupToken').value.trim();
   const g = document.getElementById('setupGistId').value.trim();
-  const ak = document.getElementById('setupAnthropicKey').value.trim();
   if (t) localStorage.setItem(LS_TOKEN, t);
   if (g) localStorage.setItem(LS_GIST, g);
-  if (ak) localStorage.setItem('mtg_ak', ak);
   document.getElementById('setupModal').classList.remove('active');
   await pullFromGist();
 };
@@ -643,78 +638,62 @@ function deleteMeeting() {
   goBack();
 }
 
-// ── AI SUMMARY ─────────────────────────────────────────────────────────────
-async function generateSummary() {
+// ── SUMMARY ──────────────────────────────────────────────────────────────────────────
+function generateSummary() {
   const title = document.getElementById('edTitle').value.trim() || 'Untitled';
   const date = document.getElementById('edDate').value;
   const notes = document.getElementById('edNotes').value.trim();
   const actions = currentActions;
   const attendees = currentAttendees;
 
+  const open = actions.filter(a => !a.done);
+  const done = actions.filter(a => a.done);
+
+  let lines = [];
+
+  lines.push('MEETING');
+  lines.push(title + '  |  ' + (date || 'no date'));
+  if (attendees.length) lines.push('Attendees: ' + attendees.join(', '));
+  lines.push('');
+
+  if (notes) {
+    lines.push('NOTES');
+    lines.push(notes);
+    lines.push('');
+  }
+
+  if (open.length) {
+    lines.push('OPEN ACTIONS (' + open.length + ')');
+    open.forEach(a => {
+      lines.push('[ ] ' + a.text + (a.owner ? '  @' + a.owner : ''));
+    });
+    lines.push('');
+  }
+
+  if (done.length) {
+    lines.push('COMPLETED (' + done.length + ')');
+    done.forEach(a => {
+      lines.push('[x] ' + a.text + (a.owner ? '  @' + a.owner : ''));
+    });
+    lines.push('');
+  }
+
+  if (!notes && !actions.length) {
+    lines.push('No notes or action items recorded.');
+  }
+
+  const text = lines.join('\n');
+
   const sg = document.getElementById('summaryGroup');
   const sp = document.getElementById('summaryPanel');
   sg.style.display = '';
-  sp.classList.add('loading');
-  sp.textContent = 'generating summary...';
-  document.getElementById('summarizeBtn').disabled = true;
+  sp.classList.remove('loading');
+  sp.textContent = text;
 
-  const prompt = `You are a meeting notes assistant. Given the following meeting information, produce a concise structured summary.
-
-Meeting: ${title}
-Date: ${date}
-Attendees: ${attendees.join(', ') || 'not specified'}
-
-Raw Notes:
-${notes || '(none)'}
-
-Action Items:
-${actions.length ? actions.map(a => `- [${a.done ? 'x' : ' '}] ${a.text}${a.owner ? ' (@' + a.owner + ')' : ''}`).join('\n') : '(none)'}
-
-Write a structured summary with these sections:
-1. OVERVIEW (2-3 sentences)
-2. KEY DECISIONS
-3. ACTION ITEMS (with owners)
-4. OPEN QUESTIONS / NEXT STEPS
-
-Be concise and use plain text, no markdown symbols.`;
-
-  const ak = localStorage.getItem('mtg_ak') || '';
-  if (!ak) {
-    sp.textContent = 'No Anthropic API key set. Add it in Setup.';
-    sp.classList.remove('loading');
-    document.getElementById('summarizeBtn').disabled = false;
-    return;
+  if (currentMtgId) {
+    const m = data.meetings.find(x => x.id === currentMtgId);
+    if (m) { m.summary = text; schedulePush(); }
   }
-
-  try {
-    const r = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ak,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        messages: [{ role: 'user', content: prompt }]
-      })
-    });
-    const d = await r.json();
-    const text = d.content?.map(c => c.text || '').join('') || 'No summary generated.';
-    sp.textContent = text;
-    sp.classList.remove('loading');
-    // persist to current meeting if saved
-    if (currentMtgId) {
-      const m = data.meetings.find(x => x.id === currentMtgId);
-      if (m) { m.summary = text; schedulePush(); }
-    }
-  } catch (e) {
-    sp.textContent = 'Error generating summary. Check console.';
-    sp.classList.remove('loading');
-  }
-  document.getElementById('summarizeBtn').disabled = false;
 }
 
 // ── ACTIONS VIEW ───────────────────────────────────────────────────────────
