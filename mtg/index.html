@@ -368,7 +368,7 @@ padding: 10px 12px; border-radius: 2px;
         </div>
       </div>
       <div class="field-group" id="summaryGroup" style="display:none">
-        <div class="field-label">AI Summary</div>
+        <div class="field-label" style="display:flex;align-items:center;justify-content:space-between">Summary<button id="copySummaryBtn" onclick="copySummary()" style="background:none;border:1px solid #333;color:#666;cursor:pointer;padding:2px 10px;font-family:'Courier New',monospace;font-size:11px;border-radius:2px;letter-spacing:1px">copy</button></div>
         <div id="summaryPanel"></div>
       </div>
     </div>
@@ -744,6 +744,18 @@ function toggleGlobalAction(mtgId, actionId, val) {
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 function todayStr() { return new Date().toISOString().slice(0, 10); }
 function esc(s) { return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function copySummary() {
+  const text = document.getElementById('summaryPanel').textContent;
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copySummaryBtn');
+    btn.textContent = 'copied!';
+    btn.style.color = '#4caf50';
+    btn.style.borderColor = '#2d4a2d';
+    setTimeout(() => { btn.textContent = 'copy'; btn.style.color = '#666'; btn.style.borderColor = '#333'; }, 1500);
+  });
+}
 
 // ── INIT ───────────────────────────────────────────────────────────────────
 (async function init() {
