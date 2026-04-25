@@ -16,6 +16,156 @@ font-size: 13px;
 min-height: 100vh;
 }
 
+/* TOP SYNC BAR */
+#syncBar {
+position: fixed;
+top: 0; left: 0; right: 0;
+display: flex;
+justify-content: space-between;
+align-items: center;
+padding: 6px 16px;
+background: #222;
+border-bottom: 1px solid #333;
+font-size: 10px;
+letter-spacing: 0.1em;
+z-index: 20;
+height: 32px;
+}
+
+#syncBar span { color: #555; }
+#syncStatus { color: #555; }
+#syncStatus.syncing { color: #ffd56b; }
+#syncStatus.synced { color: #4e9af1; }
+#syncStatus.error { color: #f87171; }
+
+#setupBtn {
+background: none;
+border: 1px solid #3a3a3a;
+color: #555;
+font-size: 10px;
+letter-spacing: 0.12em;
+padding: 2px 8px;
+cursor: pointer;
+font-family: inherit;
+transition: all 0.15s;
+}
+
+#setupBtn:hover { border-color: #666; color: #aaa; }
+
+/* SETUP MODAL */
+.modal-overlay {
+display: none;
+position: fixed;
+inset: 0;
+background: rgba(0,0,0,0.85);
+z-index: 100;
+align-items: center;
+justify-content: center;
+padding: 16px;
+}
+
+.modal-overlay.active { display: flex; }
+
+.modal {
+background: #242424;
+border: 1px solid #3d3d3d;
+width: 100%;
+max-width: 420px;
+padding: 24px;
+}
+
+.modal h2 {
+font-size: 11px;
+letter-spacing: 0.25em;
+text-transform: uppercase;
+color: #888;
+margin-bottom: 6px;
+font-weight: normal;
+}
+
+.modal p {
+font-size: 11px;
+color: #555;
+line-height: 1.7;
+margin-bottom: 20px;
+}
+
+.modal label {
+display: block;
+font-size: 10px;
+letter-spacing: 0.15em;
+text-transform: uppercase;
+color: #666;
+margin-bottom: 5px;
+margin-top: 14px;
+}
+
+.modal label:first-of-type { margin-top: 0; }
+
+.modal input {
+width: 100%;
+background: #1a1a1a;
+border: 1px solid #3a3a3a;
+color: #c8c8c8;
+font-size: 12px;
+font-family: inherit;
+padding: 8px 10px;
+outline: none;
+transition: border-color 0.15s;
+border-radius: 3px;
+}
+
+.modal input:focus { border-color: #4e9af1; }
+
+.modal-btns { display: flex; gap: 8px; margin-top: 18px; }
+
+.btn-modal-primary {
+flex: 1;
+padding: 9px;
+background: #ff6b35;
+border: none;
+color: #fff;
+font-size: 11px;
+font-weight: 600;
+letter-spacing: 0.1em;
+cursor: pointer;
+font-family: inherit;
+border-radius: 3px;
+transition: background 0.15s;
+}
+
+.btn-modal-primary:hover { background: #ff8255; }
+
+.btn-modal-ghost {
+padding: 9px 14px;
+background: none;
+border: 1px solid #3a3a3a;
+color: #666;
+font-size: 11px;
+letter-spacing: 0.1em;
+cursor: pointer;
+font-family: inherit;
+border-radius: 3px;
+transition: all 0.15s;
+}
+
+.btn-modal-ghost:hover { border-color: #666; color: #aaa; }
+
+.modal-hint {
+font-size: 10px;
+color: #444;
+margin-top: 14px;
+line-height: 1.6;
+}
+
+.modal-gist-id {
+font-size: 11px;
+color: #4e9af1;
+margin-top: 10px;
+word-break: break-all;
+min-height: 14px;
+}
+
 header {
 display: flex;
 align-items: center;
@@ -24,7 +174,7 @@ flex-wrap: wrap;
 padding: 14px 24px;
 border-bottom: 1px solid #3d3d3d;
 position: sticky;
-top: 0;
+top: 32px;
 background: #2a2a2a;
 z-index: 10;
 }
@@ -58,7 +208,6 @@ font-family: inherit;
 .flag-btn.active { color: #c8c8c8; border-color: #666; }
 .country-flags { display: flex; gap: 4px; flex-wrap: wrap; }
 
-/* PROJECT PANEL */
 .project-panel {
 background: #242424;
 border-bottom: 1px solid #3d3d3d;
@@ -128,7 +277,6 @@ white-space: nowrap;
 }
 .add-btn:hover { background: #ff8255; }
 
-/* PROJECT LIST */
 .project-list { display: flex; flex-wrap: wrap; gap: 8px; }
 
 .project-tag {
@@ -143,7 +291,6 @@ cursor: default;
 }
 
 .project-tag-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-
 .project-tag-dates { font-size: 10px; opacity: 0.7; }
 
 .project-remove {
@@ -158,7 +305,6 @@ line-height: 1;
 }
 .project-remove:hover { opacity: 1; }
 
-/* MAIN */
 main { padding: 28px 24px 60px; }
 .year-section { margin-bottom: 36px; }
 .year-label { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #777; margin-bottom: 14px; }
@@ -245,11 +391,6 @@ pointer-events: none;
 .month-tile.has-today .month-header { border-bottom-color: #ff6b35; }
 .month-tile.has-today .month-name { color: #ff6b35; }
 
-/* PROJECT DAY HIGHLIGHTS */
-.day.proj-mid { border-radius: 0; }
-.day.proj-start { border-radius: 4px 0 0 4px; }
-.day.proj-end { border-radius: 0 4px 4px 0; }
-.day.proj-solo { border-radius: 4px; }
 .proj-name-label {
 position: absolute;
 top: -13px;
@@ -267,7 +408,7 @@ z-index: 5;
 .legend-dot { width: 6px; height: 6px; border-radius: 50%; }
 
 @media (max-width: 600px) {
-header { padding: 12px 16px; }
+header { padding: 12px 16px; top: 32px; }
 .project-panel { padding: 14px 16px; }
 main { padding: 20px 16px 40px; }
 }
@@ -276,8 +417,38 @@ main { padding: 20px 16px 40px; }
 </head>
 <body>
 
+<!-- SYNC BAR -->
+
+<div id="syncBar">
+  <span>cal</span>
+  <span id="syncStatus">not connected</span>
+  <button id="setupBtn" onclick="openSetup()">setup</button>
+</div>
+
+<!-- SETUP MODAL -->
+
+<div class="modal-overlay" id="setupModal">
+  <div class="modal">
+    <h2>Gist Sync Setup</h2>
+    <p>Syncs your calendar range, tile width, countries, and all project timelines across devices via a private GitHub Gist.</p>
+    <label>Personal Access Token</label>
+    <input type="password" id="inputToken" placeholder="github_pat_...">
+    <label>Gist ID <span style="color:#444;font-size:10px">(leave blank to create new)</span></label>
+    <input type="text" id="inputGistId" placeholder="optional">
+    <div class="modal-gist-id" id="createdGistId"></div>
+    <div class="modal-btns">
+      <button class="btn-modal-primary" onclick="setupConnect()">Connect</button>
+      <button class="btn-modal-ghost" onclick="closeSetup()">Cancel</button>
+    </div>
+    <div class="modal-hint">
+      Create token at github.com/settings/tokens (classic), scope: gist<br>
+      First device: leave Gist ID blank. Copy the ID shown and enter it on other devices.
+    </div>
+  </div>
+</div>
+
 <header>
-  <span class="logo">Cal</span><span style="font-size:10px;color:#aaa;margin-left:6px;letter-spacing:0.05em">v1.2</span>
+  <span class="logo">Cal</span><span style="font-size:10px;color:#aaa;margin-left:6px;letter-spacing:0.05em">v1.3</span>
   <div class="ctrl-group">
     <span>From</span>
     <select id="startMonth">
@@ -342,8 +513,7 @@ main { padding: 20px 16px 40px; }
     <div id="afterFields" style="display:none;align-items:flex-end">
       <div class="form-field">
         <span class="form-label">&nbsp;</span>
-        <select id="projAfterRef" class="form-select" style="width:160px">
-        </select>
+        <select id="projAfterRef" class="form-select" style="width:160px"></select>
       </div>
     </div>
     <div class="form-field">
@@ -371,15 +541,201 @@ main { padding: 20px 16px 40px; }
 <script>
 var COLORS = ['#4e9af1','#a78bfa','#34d399','#fb923c','#f472b6','#facc15','#38bdf8','#f87171','#a3e635','#e879f9'];
 var colorIdx = 0;
-
-function nextColor() { var c=COLORS[colorIdx%COLORS.length]; colorIdx+=1; return c; }
+function nextColor() { var c = COLORS[colorIdx % COLORS.length]; colorIdx += 1; return c; }
 
 var projects = [];
+
+var today = new Date();
+today.setHours(0,0,0,0);
+var todayKey = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+var todayYear = today.getFullYear();
+var todayMonth = today.getMonth();
+
+var rangeStart = new Date(todayYear, todayMonth - 3, 1);
+var rangeEnd = new Date(todayYear, todayMonth + 12, 1);
+var state = {
+  startYear: rangeStart.getFullYear(), startMonth: rangeStart.getMonth(),
+  endYear: rangeEnd.getFullYear(), endMonth: rangeEnd.getMonth(),
+  tileWidth: 360, countries: new Set(['DE'])
+};
+
+var MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+var DAYS = ['Mo','Tu','We','Th','Fr','Sa','Su'];
+
+// ---- GIST SYNC ----
+
+var gistToken = '';
+var gistId = '';
+var syncTimeout = null;
+
+function loadCredentials() {
+  gistToken = localStorage.getItem('cal_token') || '';
+  gistId = localStorage.getItem('cal_gist_id') || '';
+}
+
+function saveCredentials() {
+  localStorage.setItem('cal_token', gistToken);
+  localStorage.setItem('cal_gist_id', gistId);
+}
+
+function setSyncStatus(type, text) {
+  var el = document.getElementById('syncStatus');
+  if (!el) return;
+  el.className = type || '';
+  el.textContent = text;
+}
+
+function serializeState() {
+  return {
+    startYear: state.startYear,
+    startMonth: state.startMonth,
+    endYear: state.endYear,
+    endMonth: state.endMonth,
+    tileWidth: state.tileWidth,
+    countries: Array.from(state.countries),
+    projects: projects.map(function(p) {
+      return {
+        id: p.id,
+        name: p.name,
+        color: p.color,
+        startDate: p.startDate.toISOString(),
+        endDate: p.endDate.toISOString()
+      };
+    })
+  };
+}
+
+function deserializeState(data) {
+  if (data.startYear !== undefined) state.startYear = data.startYear;
+  if (data.startMonth !== undefined) state.startMonth = data.startMonth;
+  if (data.endYear !== undefined) state.endYear = data.endYear;
+  if (data.endMonth !== undefined) state.endMonth = data.endMonth;
+  if (data.tileWidth !== undefined) state.tileWidth = data.tileWidth;
+  if (data.countries) state.countries = new Set(data.countries);
+  if (data.projects) {
+    projects = data.projects.map(function(p) {
+      return {
+        id: p.id,
+        name: p.name,
+        color: p.color,
+        startDate: new Date(p.startDate),
+        endDate: new Date(p.endDate)
+      };
+    });
+    colorIdx = projects.length % COLORS.length;
+  }
+}
+
+function applyStateToUI() {
+  document.getElementById('startMonth').value = state.startMonth;
+  document.getElementById('startYear').value = state.startYear;
+  document.getElementById('endMonth').value = state.endMonth;
+  document.getElementById('endYear').value = state.endYear;
+  document.getElementById('tileWidth').value = state.tileWidth;
+  document.querySelectorAll('.flag-btn').forEach(function(btn) {
+    btn.classList.toggle('active', state.countries.has(btn.getAttribute('data-code')));
+  });
+}
+
+async function pullFromGist() {
+  var res = await fetch('https://api.github.com/gists/' + gistId, {
+    headers: { 'Authorization': 'Bearer ' + gistToken }
+  });
+  if (!res.ok) throw new Error('Pull failed: ' + res.status);
+  var data = await res.json();
+  var content = data.files['cal_data.json'] && data.files['cal_data.json'].content;
+  if (content) {
+    deserializeState(JSON.parse(content));
+  }
+}
+
+async function pushToGist() {
+  if (!gistToken || !gistId) return;
+  setSyncStatus('syncing', 'Syncing...');
+  try {
+    var res = await fetch('https://api.github.com/gists/' + gistId, {
+      method: 'PATCH',
+      headers: { 'Authorization': 'Bearer ' + gistToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ files: { 'cal_data.json': { content: JSON.stringify(serializeState()) } } })
+    });
+    if (!res.ok) throw new Error('Push failed');
+    setSyncStatus('synced', 'Synced');
+    setTimeout(function() {
+      if (document.getElementById('syncStatus').textContent === 'Synced') setSyncStatus('', 'Ready');
+    }, 2000);
+  } catch(e) {
+    setSyncStatus('error', 'Sync failed');
+  }
+}
+
+function schedulePush() {
+  clearTimeout(syncTimeout);
+  syncTimeout = setTimeout(pushToGist, 1500);
+}
+
+// ---- SETUP MODAL ----
+
+function openSetup() {
+  document.getElementById('inputToken').value = gistToken;
+  document.getElementById('inputGistId').value = gistId;
+  document.getElementById('createdGistId').textContent = '';
+  document.getElementById('setupModal').classList.add('active');
+}
+
+function closeSetup() {
+  document.getElementById('setupModal').classList.remove('active');
+}
+
+async function setupConnect() {
+  var token = document.getElementById('inputToken').value.trim();
+  var gid = document.getElementById('inputGistId').value.trim();
+  if (!token) { alert('Please enter a Personal Access Token.'); return; }
+  gistToken = token;
+  setSyncStatus('syncing', 'Connecting...');
+
+  if (!gid) {
+    try {
+      var res = await fetch('https://api.github.com/gists', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: 'Cal data',
+          public: false,
+          files: { 'cal_data.json': { content: JSON.stringify(serializeState()) } }
+        })
+      });
+      if (!res.ok) throw new Error('GitHub API error: ' + res.status);
+      var created = await res.json();
+      gistId = created.id;
+      saveCredentials();
+      document.getElementById('createdGistId').textContent = 'Gist ID: ' + gistId;
+      setSyncStatus('synced', 'Synced');
+    } catch(e) {
+      setSyncStatus('error', 'Error: ' + e.message);
+    }
+  } else {
+    gistId = gid;
+    try {
+      await pullFromGist();
+      saveCredentials();
+      setSyncStatus('synced', 'Synced');
+      setTimeout(function() { setSyncStatus('', 'Ready'); }, 2000);
+      applyStateToUI();
+      renderProjectList();
+      render();
+      closeSetup();
+    } catch(e) {
+      setSyncStatus('error', 'Could not load Gist');
+    }
+  }
+}
+
+// ---- PROJECTS ----
 
 function updateAfterRefDropdown() {
   var sel = document.getElementById('projAfterRef');
   sel.innerHTML = '';
-  if(projects.length === 0) {
+  if (projects.length === 0) {
     var opt = document.createElement('option');
     opt.textContent = '(no projects yet)';
     sel.appendChild(opt);
@@ -397,23 +753,23 @@ document.getElementById('projStartMode').addEventListener('change', function() {
   var mode = this.value;
   document.getElementById('offsetFields').style.display = mode === 'offset' ? 'flex' : 'none';
   document.getElementById('afterFields').style.display = mode === 'after' ? 'flex' : 'none';
-  if(mode === 'after') updateAfterRefDropdown();
+  if (mode === 'after') updateAfterRefDropdown();
 });
 
 function addWorkingDays(startDate, days) {
   var holidays = getHolidays(startDate.getFullYear(), state.countries);
   var nextYearHolidays = getHolidays(startDate.getFullYear() + 1, state.countries);
   Object.keys(nextYearHolidays).forEach(function(k) {
-    if(!holidays[k]) holidays[k] = nextYearHolidays[k];
+    if (!holidays[k]) holidays[k] = nextYearHolidays[k];
   });
   var d = new Date(startDate);
   var counted = 0;
-  while(counted < days) {
+  while (counted < days) {
     d.setDate(d.getDate() + 1);
     var dow = d.getDay();
-    if(dow === 0 || dow === 6) continue;
-    var key = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-    if(holidays[key]) continue;
+    if (dow === 0 || dow === 6) continue;
+    var key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    if (holidays[key]) continue;
     counted += 1;
   }
   return d;
@@ -421,24 +777,24 @@ function addWorkingDays(startDate, days) {
 
 function addProject() {
   var name = document.getElementById('projName').value.trim();
-  if(!name) { document.getElementById('projName').focus(); return; }
+  if (!name) { document.getElementById('projName').focus(); return; }
 
   var mode = document.getElementById('projStartMode').value;
   var startDate = new Date();
   startDate.setHours(0,0,0,0);
 
-  if(mode === 'offset') {
+  if (mode === 'offset') {
     var startVal = parseInt(document.getElementById('projStartWeeks').value) || 0;
     var startUnit = document.getElementById('projStartUnit').value;
-    if(startUnit === 'weeks') {
+    if (startUnit === 'weeks') {
       startDate.setDate(startDate.getDate() + startVal * 7);
     } else {
       startDate.setMonth(startDate.getMonth() + startVal);
     }
   } else {
     var refId = parseInt(document.getElementById('projAfterRef').value);
-    var refProj = projects.find(function(p){ return p.id === refId; });
-    if(!refProj) { alert('Select a project to start after'); return; }
+    var refProj = projects.find(function(p) { return p.id === refId; });
+    if (!refProj) { alert('Select a project to start after'); return; }
     startDate = new Date(refProj.endDate);
     startDate.setDate(startDate.getDate() + 1);
   }
@@ -446,9 +802,9 @@ function addProject() {
   var durVal = parseInt(document.getElementById('projDur').value) || 1;
   var durUnit = document.getElementById('projDurUnit').value;
   var endDate = new Date(startDate);
-  if(durUnit === 'weeks') {
+  if (durUnit === 'weeks') {
     endDate.setDate(endDate.getDate() + durVal * 7 - 1);
-  } else if(durUnit === 'months') {
+  } else if (durUnit === 'months') {
     endDate.setMonth(endDate.getMonth() + durVal);
     endDate.setDate(endDate.getDate() - 1);
   } else {
@@ -459,6 +815,7 @@ function addProject() {
   projects.push(proj);
   expandRangeForProject(proj);
   document.getElementById('projName').value = '';
+  schedulePush();
   renderProjectList();
   render();
 }
@@ -468,21 +825,17 @@ function expandRangeForProject(proj) {
   var pStartM = proj.startDate.getMonth();
   var pEndY = proj.endDate.getFullYear();
   var pEndM = proj.endDate.getMonth();
-
-  // buffer: one month before start, one month after end
   var bufStart = new Date(pStartY, pStartM - 1, 1);
   var bufEnd = new Date(pEndY, pEndM + 1, 1);
-
   var calStart = new Date(state.startYear, state.startMonth, 1);
   var calEnd = new Date(state.endYear, state.endMonth, 1);
-
-  if(bufStart < calStart) {
+  if (bufStart < calStart) {
     state.startYear = bufStart.getFullYear();
     state.startMonth = bufStart.getMonth();
     document.getElementById('startMonth').value = state.startMonth;
     document.getElementById('startYear').value = state.startYear;
   }
-  if(bufEnd > calEnd) {
+  if (bufEnd > calEnd) {
     state.endYear = bufEnd.getFullYear();
     state.endMonth = bufEnd.getMonth();
     document.getElementById('endMonth').value = state.endMonth;
@@ -491,13 +844,14 @@ function expandRangeForProject(proj) {
 }
 
 function removeProject(id) {
-  projects = projects.filter(function(p){ return p.id !== id; });
+  projects = projects.filter(function(p) { return p.id !== id; });
+  schedulePush();
   renderProjectList();
   render();
 }
 
 function fmtDate(d) {
-  return d.toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'});
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 function renderProjectList() {
@@ -506,14 +860,14 @@ function renderProjectList() {
   projects.forEach(function(p) {
     var tag = document.createElement('div');
     tag.className = 'project-tag';
-    tag.style.background = p.color+'22';
-    tag.style.border = '1px solid '+p.color+'55';
+    tag.style.background = p.color + '22';
+    tag.style.border = '1px solid ' + p.color + '55';
     tag.style.color = p.color;
     tag.innerHTML =
-      '<div class="project-tag-dot" style="background:'+p.color+'"></div>'+
-      '<span>'+p.name+'</span>'+
-      '<span class="project-tag-dates">'+fmtDate(p.startDate)+' - '+fmtDate(p.endDate)+'</span>'+
-      '<button class="project-remove" data-id="'+p.id+'">x</button>';
+      '<div class="project-tag-dot" style="background:' + p.color + '"></div>' +
+      '<span>' + p.name + '</span>' +
+      '<span class="project-tag-dates">' + fmtDate(p.startDate) + ' - ' + fmtDate(p.endDate) + '</span>' +
+      '<button class="project-remove" data-id="' + p.id + '">x</button>';
     list.appendChild(tag);
   });
   list.querySelectorAll('.project-remove').forEach(function(btn) {
@@ -523,17 +877,16 @@ function renderProjectList() {
 }
 
 function dateKey(d) {
-  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
 }
 
-// Returns project bar info for a given year/month
 function getProjectBarsForMonth(year, month) {
   var daysInMonth = new Date(year, month+1, 0).getDate();
   var monthStart = new Date(year, month, 1);
   var monthEnd = new Date(year, month, daysInMonth);
   var bars = [];
   projects.forEach(function(p) {
-    if(p.endDate < monthStart || p.startDate > monthEnd) return;
+    if (p.endDate < monthStart || p.startDate > monthEnd) return;
     var startDay = p.startDate < monthStart ? 1 : p.startDate.getDate();
     var endDay = p.endDate > monthEnd ? daysInMonth : p.endDate.getDate();
     bars.push({
@@ -547,71 +900,72 @@ function getProjectBarsForMonth(year, month) {
   return bars;
 }
 
-// EASTER
+// ---- HOLIDAYS ----
+
 function easter(y) {
   var a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4;
   var f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3);
   var h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4;
   var l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451);
-  return{m:Math.floor((h+l-7*m+114)/31)-1,d:((h+l-7*m+114)%31)+1};
+  return { m: Math.floor((h+l-7*m+114)/31)-1, d: ((h+l-7*m+114)%31)+1 };
 }
 
 function getHolidays(year, countries) {
-  var map={};
-  function add(m,d,name){
-    var key=year+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
-    if(!map[key])map[key]=new Set(); map[key].add(name);
+  var map = {};
+  function add(m, d, name) {
+    var key = year + '-' + String(m+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+    if (!map[key]) map[key] = new Set();
+    map[key].add(name);
   }
-  var e=easter(year);
-  function eOff(offset,name){
-    var b=new Date(year,e.m,e.d); b.setDate(b.getDate()+offset);
-    add(b.getMonth(),b.getDate(),name);
+  var e = easter(year);
+  function eOff(offset, name) {
+    var b = new Date(year, e.m, e.d); b.setDate(b.getDate() + offset);
+    add(b.getMonth(), b.getDate(), name);
   }
-  if(countries.has('DE')){
+  if (countries.has('DE')) {
     add(0,1,'New Year');add(0,6,'Epiphany');add(4,1,'Labour Day');
     add(7,15,'Assumption');add(9,3,'German Unity Day');
     add(10,1,'All Saints');add(11,25,'Christmas');add(11,26,'Boxing Day');
     eOff(-2,'Good Friday');eOff(0,'Easter Sunday');eOff(1,'Easter Monday');
-    eOff(39,'Ascension');eOff(49,'Whit Sunday');eOff(50,'Whit Monday');
-    eOff(60,'Corpus Christi');
+    eOff(39,'Ascension');eOff(49,'Whit Sunday');eOff(50,'Whit Monday');eOff(60,'Corpus Christi');
   }
-  if(countries.has('AT')){
+  if (countries.has('AT')) {
     add(0,1,'New Year');add(0,6,'Epiphany');add(4,1,'Labour Day');
     add(7,15,'Assumption');add(9,26,'National Day');add(10,1,'All Saints');
     add(11,8,'Immaculate Conception');add(11,25,'Christmas');add(11,26,'St. Stephen');
     eOff(-2,'Good Friday');eOff(0,'Easter Sunday');eOff(1,'Easter Monday');
     eOff(39,'Ascension');eOff(49,'Whit Sunday');eOff(50,'Whit Monday');eOff(60,'Corpus Christi');
   }
-  if(countries.has('US')){
+  if (countries.has('US')) {
     add(0,1,'New Year');add(0,nthWd(year,0,1,3),'MLK Day');
     add(1,nthWd(year,1,1,3),'Presidents Day');add(4,lastWd(year,4,1),'Memorial Day');
     add(5,19,'Juneteenth');add(6,4,'Independence Day');
     add(8,nthWd(year,8,1,1),'Labour Day');add(10,nthWd(year,10,4,4),'Thanksgiving');
     add(11,25,'Christmas');
   }
-  if(countries.has('GB')){
+  if (countries.has('GB')) {
     add(0,1,'New Year');add(11,25,'Christmas');add(11,26,'Boxing Day');
     eOff(-2,'Good Friday');eOff(1,'Easter Monday');
     add(4,nthWd(year,4,1,1),'Early May Bank Holiday');add(4,lastWd(year,4,1),'Spring Bank Holiday');
     add(7,lastWd(year,7,1),'Summer Bank Holiday');
   }
-  if(countries.has('FR')){
+  if (countries.has('FR')) {
     add(0,1,'New Year');add(4,1,'Labour Day');add(4,8,'Victory in Europe');
     add(6,14,'Bastille Day');add(7,15,'Assumption');add(10,1,'All Saints');
     add(10,11,'Armistice Day');add(11,25,'Christmas');
     eOff(1,'Easter Monday');eOff(39,'Ascension');eOff(50,'Whit Monday');
   }
-  if(countries.has('CN')){
+  if (countries.has('CN')) {
     add(0,1,'New Year');add(4,1,'Labour Day');
     add(9,1,'National Day');add(9,2,'National Day');add(9,3,'National Day');
-    var cny={2024:[1,10],2025:[1,29],2026:[2,17],2027:[2,6],2028:[1,26]};
-    if(cny[year]){
-      var cm=cny[year][0],cd=cny[year][1];
-      for(var i=0;i<7;i+=1){var dt=new Date(year,cm-1,cd+i);add(dt.getMonth(),dt.getDate(),'Spring Festival');}
+    var cny = {2024:[1,10],2025:[1,29],2026:[2,17],2027:[2,6],2028:[1,26]};
+    if (cny[year]) {
+      var cm=cny[year][0], cd=cny[year][1];
+      for (var i=0; i<7; i+=1) { var dt=new Date(year,cm-1,cd+i); add(dt.getMonth(),dt.getDate(),'Spring Festival'); }
     }
     add(3,5,'Qingming Festival');add(5,10,'Dragon Boat Festival');add(8,18,'Mid-Autumn Festival');
   }
-  if(countries.has('JP')){
+  if (countries.has('JP')) {
     add(0,1,'New Year');add(0,2,'New Year');add(0,3,'New Year');
     add(0,nthWd(year,0,1,2),'Coming of Age Day');
     add(1,11,'Foundation Day');add(2,20,'Vernal Equinox');add(3,29,'Showa Day');
@@ -624,124 +978,111 @@ function getHolidays(year, countries) {
   return map;
 }
 
-function nthWd(y,m,wd,n){var d=1,c=0;while(true){if(new Date(y,m,d).getDay()===wd){c+=1;if(c===n)return d;}d+=1;}}
-function lastWd(y,m,wd){var d=new Date(y,m+1,0).getDate();while(d>=1){if(new Date(y,m,d).getDay()===wd)return d;d-=1;}}
-function isoWeek(date){
+function nthWd(y,m,wd,n) { var d=1,c=0; while(true) { if(new Date(y,m,d).getDay()===wd){c+=1;if(c===n)return d;} d+=1; } }
+function lastWd(y,m,wd) { var d=new Date(y,m+1,0).getDate(); while(d>=1){if(new Date(y,m,d).getDay()===wd)return d;d-=1;} }
+function isoWeek(date) {
   var d=new Date(Date.UTC(date.getFullYear(),date.getMonth(),date.getDate()));
   d.setUTCDate(d.getUTCDate()+4-(d.getUTCDay()||7));
   return Math.ceil((((d-new Date(Date.UTC(d.getUTCFullYear(),0,1)))/86400000)+1)/7);
 }
 
-var today=new Date();
-today.setHours(0,0,0,0);
-var todayKey=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
-var todayYear=today.getFullYear();
-var todayMonth=today.getMonth();
+// ---- RENDER ----
 
-var rangeStart = new Date(todayYear, todayMonth - 3, 1);
-var rangeEnd = new Date(todayYear, todayMonth + 12, 1);
-var state={
-  startYear:rangeStart.getFullYear(), startMonth:rangeStart.getMonth(),
-  endYear:rangeEnd.getFullYear(), endMonth:rangeEnd.getMonth(),
-  tileWidth:360, countries:new Set(['DE'])
-};
-
-var MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
-var DAYS=['Mo','Tu','We','Th','Fr','Sa','Su'];
-
-function scrollToToday(){
-  setTimeout(function(){
-    var el=document.querySelector('.month-tile.has-today');
-    if(el) el.scrollIntoView({behavior:'smooth',block:'center'});
-  },80);
+function scrollToToday() {
+  setTimeout(function() {
+    var el = document.querySelector('.month-tile.has-today');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 80);
 }
 
-function render(){
-  var root=document.getElementById('calRoot');
-  root.innerHTML='';
-  var months=[];
-  var y=state.startYear,m=state.startMonth;
-  while(y<state.endYear||(y===state.endYear&&m<=state.endMonth)){months.push({y:y,m:m});m+=1;if(m>11){m=0;y+=1;}}
-  var byYear={};
-  months.forEach(function(obj){if(!byYear[obj.y])byYear[obj.y]=[];byYear[obj.y].push(obj.m);});
-  Object.keys(byYear).forEach(function(year){
-    var y=parseInt(year);
-    var mList=byYear[year];
-    var holidays=getHolidays(y,state.countries);
-    var sec=document.createElement('div'); sec.className='year-section';
-    var yl=document.createElement('div'); yl.className='year-label'; yl.textContent=year;
+function render() {
+  var root = document.getElementById('calRoot');
+  root.innerHTML = '';
+  var months = [];
+  var y = state.startYear, m = state.startMonth;
+  while (y < state.endYear || (y === state.endYear && m <= state.endMonth)) {
+    months.push({ y: y, m: m });
+    m += 1;
+    if (m > 11) { m = 0; y += 1; }
+  }
+  var byYear = {};
+  months.forEach(function(obj) { if (!byYear[obj.y]) byYear[obj.y] = []; byYear[obj.y].push(obj.m); });
+  Object.keys(byYear).forEach(function(year) {
+    var y = parseInt(year);
+    var mList = byYear[year];
+    var holidays = getHolidays(y, state.countries);
+    var sec = document.createElement('div'); sec.className = 'year-section';
+    var yl = document.createElement('div'); yl.className = 'year-label'; yl.textContent = year;
     sec.appendChild(yl);
-    var row=document.createElement('div'); row.className='months-row';
-    mList.forEach(function(m){ row.appendChild(buildTile(y,m,holidays)); });
-    sec.appendChild(row); root.appendChild(sec);
+    var row = document.createElement('div'); row.className = 'months-row';
+    mList.forEach(function(m) { row.appendChild(buildTile(y, m, holidays)); });
+    sec.appendChild(row);
+    root.appendChild(sec);
   });
-  var leg=document.createElement('div'); leg.className='legend';
-  leg.innerHTML='<div class="legend-item"><div class="legend-dot" style="background:#ff6b35"></div>Today</div><div class="legend-item"><div class="legend-dot" style="background:#5bb8f5"></div>Holiday</div>';
+  var leg = document.createElement('div'); leg.className = 'legend';
+  leg.innerHTML = '<div class="legend-item"><div class="legend-dot" style="background:#ff6b35"></div>Today</div><div class="legend-item"><div class="legend-dot" style="background:#5bb8f5"></div>Holiday</div>';
   root.appendChild(leg);
   scrollToToday();
 }
 
-function buildTile(year,month,holidays){
-  var tile=document.createElement('div'); tile.className='month-tile';
-  tile.style.width=state.tileWidth+'px';
-  var daysInMonth=new Date(year,month+1,0).getDate();
-  var startDow=(new Date(year,month,1).getDay()+6)%7;
-  if(year===todayYear&&month===todayMonth) tile.classList.add('has-today');
+function buildTile(year, month, holidays) {
+  var tile = document.createElement('div'); tile.className = 'month-tile';
+  tile.style.width = state.tileWidth + 'px';
+  var daysInMonth = new Date(year, month+1, 0).getDate();
+  var startDow = (new Date(year, month, 1).getDay() + 6) % 7;
+  if (year === todayYear && month === todayMonth) tile.classList.add('has-today');
 
-  var hdr=document.createElement('div'); hdr.className='month-header';
-  hdr.innerHTML='<span class="month-name">'+MONTHS[month]+'</span><span class="month-num">'+String(month+1).padStart(2,'0')+'</span>';
+  var hdr = document.createElement('div'); hdr.className = 'month-header';
+  hdr.innerHTML = '<span class="month-name">' + MONTHS[month] + '</span><span class="month-num">' + String(month+1).padStart(2,'0') + '</span>';
   tile.appendChild(hdr);
 
-  var grid=document.createElement('div'); grid.className='day-grid';
-  var wkH=document.createElement('div'); wkH.className='cell hdr wk-hdr'; wkH.textContent='W'; grid.appendChild(wkH);
-  DAYS.forEach(function(d){var h=document.createElement('div');h.className='cell hdr';h.textContent=d;grid.appendChild(h);});
+  var grid = document.createElement('div'); grid.className = 'day-grid';
+  var wkH = document.createElement('div'); wkH.className = 'cell hdr wk-hdr'; wkH.textContent = 'W'; grid.appendChild(wkH);
+  DAYS.forEach(function(d) { var h = document.createElement('div'); h.className = 'cell hdr'; h.textContent = d; grid.appendChild(h); });
 
-  var dayNum=1,col=startDow;
-  while(dayNum<=daysInMonth){
-    if(col===0||dayNum===1){
-      if(dayNum===1&&col>0){
-        var wn0=document.createElement('div');wn0.className='cell week-num';wn0.textContent=isoWeek(new Date(year,month,1));grid.appendChild(wn0);
-        for(var i=0;i<col;i+=1){var emp0=document.createElement('div');emp0.className='cell';grid.appendChild(emp0);}
+  var dayNum = 1, col = startDow;
+  while (dayNum <= daysInMonth) {
+    if (col === 0 || dayNum === 1) {
+      if (dayNum === 1 && col > 0) {
+        var wn0 = document.createElement('div'); wn0.className = 'cell week-num'; wn0.textContent = isoWeek(new Date(year, month, 1)); grid.appendChild(wn0);
+        for (var i = 0; i < col; i += 1) { var emp0 = document.createElement('div'); emp0.className = 'cell'; grid.appendChild(emp0); }
       } else {
-        var wn1=document.createElement('div');wn1.className='cell week-num';wn1.textContent=isoWeek(new Date(year,month,dayNum));grid.appendChild(wn1);
+        var wn1 = document.createElement('div'); wn1.className = 'cell week-num'; wn1.textContent = isoWeek(new Date(year, month, dayNum)); grid.appendChild(wn1);
       }
     }
-    var key=year+'-'+String(month+1).padStart(2,'0')+'-'+String(dayNum).padStart(2,'0');
-    var cell=document.createElement('div'); cell.className='cell day';
-    if(col===5)cell.classList.add('sat');
-    if(col===6)cell.classList.add('sun');
-    if(key===todayKey)cell.classList.add('today');
-    var hols=holidays[key];
-    if(hols){cell.classList.add('holiday');cell.setAttribute('data-h',[...hols].join(' - '));}
-    cell.textContent=dayNum;
+    var key = year + '-' + String(month+1).padStart(2,'0') + '-' + String(dayNum).padStart(2,'0');
+    var cell = document.createElement('div'); cell.className = 'cell day';
+    if (col === 5) cell.classList.add('sat');
+    if (col === 6) cell.classList.add('sun');
+    if (key === todayKey) cell.classList.add('today');
+    var hols = holidays[key];
+    if (hols) { cell.classList.add('holiday'); cell.setAttribute('data-h', [...hols].join(' - ')); }
+    cell.textContent = dayNum;
     grid.appendChild(cell);
-    col+=1;if(col===7)col=0;dayNum+=1;
+    col += 1; if (col === 7) col = 0; dayNum += 1;
   }
-  if(col>0){for(var j=col;j<7;j+=1){var emp1=document.createElement('div');emp1.className='cell';grid.appendChild(emp1);}}
+  if (col > 0) { for (var j = col; j < 7; j += 1) { var emp1 = document.createElement('div'); emp1.className = 'cell'; grid.appendChild(emp1); } }
   tile.appendChild(grid);
 
-  // Color day cells for each project
   var bars = getProjectBarsForMonth(year, month);
-  if(bars.length > 0) {
+  if (bars.length > 0) {
     var dayCells = grid.querySelectorAll('.day');
-    bars.forEach(function(bar, barIdx) {
+    bars.forEach(function(bar) {
       var col = bar.proj.color;
-      var alpha = '33'; // subtle background tint
+      var alpha = '33';
       dayCells.forEach(function(cell) {
         var d = parseInt(cell.textContent);
-        if(d < bar.startDay || d > bar.endDay) return;
+        if (d < bar.startDay || d > bar.endDay) return;
         var isStart = (d === bar.startDay && bar.startsHere);
         var isEnd = (d === bar.endDay && bar.endsHere);
-        // Stack multiple projects: use outline + background
         cell.style.background = col + alpha;
         cell.style.outline = '1px solid ' + col + '66';
         cell.style.outlineOffset = '-1px';
-        if(isStart && isEnd) { cell.style.borderRadius = '4px'; }
-        else if(isStart) { cell.style.borderRadius = '4px 0 0 4px'; }
-        else if(isEnd) { cell.style.borderRadius = '0 4px 4px 0'; }
+        if (isStart && isEnd) { cell.style.borderRadius = '4px'; }
+        else if (isStart) { cell.style.borderRadius = '4px 0 0 4px'; }
+        else if (isEnd) { cell.style.borderRadius = '0 4px 4px 0'; }
         else { cell.style.borderRadius = '0'; }
-        // Project name label on the start day
-        if(isStart) {
+        if (isStart) {
           var lbl = document.createElement('span');
           lbl.className = 'proj-name-label';
           lbl.style.color = col;
@@ -752,45 +1093,61 @@ function buildTile(year,month,holidays){
       });
     });
   }
-
   return tile;
 }
 
-// Controls
-var COUNTRIES=[
+// ---- CONTROLS ----
+
+var COUNTRIES = [
   {code:'DE',label:'DE'},{code:'AT',label:'AT'},
   {code:'US',label:'US'},{code:'GB',label:'GB'},
-  {code:'FR',label:'FR'},{code:'CN',label:'CN'},
-  {code:'JP',label:'JP'},
+  {code:'FR',label:'FR'},{code:'CN',label:'CN'},{code:'JP',label:'JP'}
 ];
-COUNTRIES.forEach(function(c){
-  var btn=document.createElement('button');
-  btn.className='flag-btn'+(state.countries.has(c.code)?' active':'');
-  btn.textContent=c.label;
-  btn.addEventListener('click',function(){
-    state.countries.has(c.code)?state.countries.delete(c.code):state.countries.add(c.code);
-    btn.classList.toggle('active'); render();
+
+COUNTRIES.forEach(function(c) {
+  var btn = document.createElement('button');
+  btn.className = 'flag-btn' + (state.countries.has(c.code) ? ' active' : '');
+  btn.textContent = c.label;
+  btn.setAttribute('data-code', c.code);
+  btn.addEventListener('click', function() {
+    state.countries.has(c.code) ? state.countries.delete(c.code) : state.countries.add(c.code);
+    btn.classList.toggle('active');
+    schedulePush();
+    render();
   });
   document.getElementById('countryBtns').appendChild(btn);
 });
 
-var sm=document.getElementById('startMonth'); sm.value=state.startMonth; sm.addEventListener('change',function(){state.startMonth=parseInt(sm.value);render();});
-var em=document.getElementById('endMonth'); em.value=state.endMonth; em.addEventListener('change',function(){state.endMonth=parseInt(em.value);render();});
-var sy=document.getElementById('startYear'); sy.value=state.startYear; sy.addEventListener('change',function(){state.startYear=parseInt(sy.value);render();});
-var ey=document.getElementById('endYear'); ey.value=state.endYear; ey.addEventListener('change',function(){state.endYear=parseInt(ey.value);render();});
-document.getElementById('tileWidth').addEventListener('input',function(e){
-  state.tileWidth=parseInt(e.target.value);
-  document.querySelectorAll('.month-tile').forEach(function(t){t.style.width=state.tileWidth+'px';});
-  render();
+var sm = document.getElementById('startMonth');
+sm.value = state.startMonth;
+sm.addEventListener('change', function() { state.startMonth = parseInt(sm.value); schedulePush(); render(); });
+
+var em = document.getElementById('endMonth');
+em.value = state.endMonth;
+em.addEventListener('change', function() { state.endMonth = parseInt(em.value); schedulePush(); render(); });
+
+var sy = document.getElementById('startYear');
+sy.value = state.startYear;
+sy.addEventListener('change', function() { state.startYear = parseInt(sy.value); schedulePush(); render(); });
+
+var ey = document.getElementById('endYear');
+ey.value = state.endYear;
+ey.addEventListener('change', function() { state.endYear = parseInt(ey.value); schedulePush(); render(); });
+
+document.getElementById('tileWidth').addEventListener('input', function(e) {
+  state.tileWidth = parseInt(e.target.value);
+  document.querySelectorAll('.month-tile').forEach(function(t) { t.style.width = state.tileWidth + 'px'; });
+  schedulePush();
 });
+
 document.getElementById('addProjBtn').addEventListener('click', addProject);
-document.getElementById('projName').addEventListener('keydown', function(e){ if(e.key==='Enter') addProject(); });
+document.getElementById('projName').addEventListener('keydown', function(e) { if (e.key === 'Enter') addProject(); });
 
 var activeTooltip = null;
 document.addEventListener('click', function(e) {
   var cell = e.target.closest ? e.target.closest('.day[data-h]') : null;
-  if(activeTooltip) { activeTooltip.remove(); activeTooltip = null; }
-  if(cell) {
+  if (activeTooltip) { activeTooltip.remove(); activeTooltip = null; }
+  if (cell) {
     var tip = document.createElement('div');
     tip.className = 'holiday-tooltip';
     tip.textContent = cell.getAttribute('data-h');
@@ -800,7 +1157,30 @@ document.addEventListener('click', function(e) {
   }
 });
 
-render();
+// ---- INIT ----
+
+async function init() {
+  loadCredentials();
+  render();
+  renderProjectList();
+  if (gistToken && gistId) {
+    setSyncStatus('syncing', 'Loading...');
+    try {
+      await pullFromGist();
+      setSyncStatus('synced', 'Synced');
+      setTimeout(function() { setSyncStatus('', 'Ready'); }, 2000);
+      applyStateToUI();
+      renderProjectList();
+      render();
+    } catch(e) {
+      setSyncStatus('error', 'Sync failed');
+    }
+  } else {
+    setSyncStatus('', 'Not connected');
+  }
+}
+
+init();
 </script>
 
 </body>
