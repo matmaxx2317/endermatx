@@ -54,33 +54,33 @@ text-transform: uppercase;
 
 /* ENDERMAN HEAD */
 .enderman-head {
-width: 32px;
-height: 32px;
-background: #151515;
-border: 1px solid #0a0a0a;
+width: 36px;
+height: 36px;
+background: linear-gradient(145deg, #1c1c1c 0%, #0e0e0e 60%, #181818 100%);
+border-radius: 4px;
 position: relative;
-image-rendering: pixelated;
 flex-shrink: 0;
 cursor: default;
 animation: ender-idle 5s ease-in-out infinite;
-box-shadow: inset 1px 1px 0 #1e1e1e;
+box-shadow: 0 2px 8px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04);
 }
 
 .ender-eye {
 position: absolute;
-width: 4px;
-height: 8px;
-background: #dd00ff;
-top: 11px;
-box-shadow: 0 0 3px #dd00ff, 0 0 7px #aa00cc;
-transition: background 0.1s, box-shadow 0.1s;
+width: 6px;
+height: 9px;
+background: #cc00ee;
+border-radius: 2px;
+top: 12px;
+box-shadow: 0 0 5px #cc00ee, 0 0 10px #9900bb, 0 0 18px #660088;
+transition: background 0.15s, box-shadow 0.15s;
 }
-.ender-eye.left  { left: 7px; }
-.ender-eye.right { right: 7px; }
+.ender-eye.left  { left: 6px; }
+.ender-eye.right { right: 6px; }
 
 .enderman-head.staring .ender-eye {
-background: #ff44ff;
-box-shadow: 0 0 6px #ff44ff, 0 0 14px #dd00ff, 0 0 22px #aa00cc;
+background: #ee44ff;
+box-shadow: 0 0 8px #ee44ff, 0 0 18px #cc00ee, 0 0 30px #9900bb;
 }
 
 .enderman-head.twitching {
