@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Time Tracker</title>
+<title>tts</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -16,74 +16,118 @@ min-height: 100vh;
 display: flex;
 flex-direction: column;
 align-items: center;
-padding: 32px 16px 80px;
+padding: 72px 16px 80px;
 }
 
-h1 {
-font-size: 10px;
-letter-spacing: 0.3em;
-text-transform: uppercase;
-color: #444;
-margin-bottom: 32px;
-}
-
-/* SETUP SCREEN */
-.setup-screen {
-width: 100%;
-max-width: 440px;
-margin-top: 20px;
-}
-
-.setup-title {
-font-size: 13px;
-color: #aaa;
-margin-bottom: 8px;
-letter-spacing: 0.05em;
-}
-
-.setup-desc {
+/* TOP BAR */
+#topBar {
+position: fixed;
+top: 0; left: 0; right: 0;
+display: flex;
+justify-content: space-between;
+align-items: center;
+padding: 10px 16px;
+background: #0e0e0e;
+border-bottom: 1px solid #1a1a1a;
 font-size: 11px;
 color: #444;
-margin-bottom: 24px;
+z-index: 50;
+}
+
+#topBar span { letter-spacing: 0.15em; }
+
+#syncStatus { color: #444; }
+#syncStatus.syncing { color: #ffd56b; }
+#syncStatus.synced { color: #7effa0; }
+#syncStatus.error { color: #ff6b6b; }
+
+#setupBtn {
+background: none;
+border: 1px solid #2a2a2a;
+color: #444;
+font-size: 10px;
+letter-spacing: 0.15em;
+text-transform: uppercase;
+padding: 3px 10px;
+cursor: pointer;
+font-family: inherit;
+transition: all 0.15s;
+}
+
+#setupBtn:hover { border-color: #555; color: #aaa; }
+
+/* SETUP MODAL */
+.modal-overlay {
+display: none;
+position: fixed;
+inset: 0;
+background: rgba(0,0,0,0.85);
+z-index: 100;
+align-items: center;
+justify-content: center;
+padding: 16px;
+}
+
+.modal-overlay.active { display: flex; }
+
+.modal {
+background: #141414;
+border: 1px solid #2a2a2a;
+width: 100%;
+max-width: 420px;
+padding: 24px;
+}
+
+.modal h2 {
+font-size: 11px;
+letter-spacing: 0.25em;
+text-transform: uppercase;
+color: #888;
+margin-bottom: 6px;
+}
+
+.modal p {
+font-size: 11px;
+color: #444;
 line-height: 1.7;
+margin-bottom: 20px;
 }
 
-.setup-desc a {
-color: #7effa0;
-text-decoration: none;
-}
-
-.setup-field {
-margin-bottom: 14px;
-}
-
-.setup-label {
+.modal label {
+display: block;
 font-size: 10px;
 letter-spacing: 0.2em;
 text-transform: uppercase;
 color: #555;
-margin-bottom: 6px;
-display: block;
+margin-bottom: 5px;
+margin-top: 14px;
 }
 
-.setup-input {
+.modal label:first-of-type { margin-top: 0; }
+
+.modal input {
 width: 100%;
-background: #141414;
+background: #0e0e0e;
 border: 1px solid #2a2a2a;
 color: #f0f0f0;
 font-size: 13px;
 font-family: inherit;
-padding: 10px 12px;
+padding: 9px 12px;
 outline: none;
 transition: border-color 0.15s;
 }
 
-.setup-input:focus { border-color: #7effa0; }
+.modal input:focus { border-color: #7effa0; }
 
-.setup-btn {
-width: 100%;
-padding: 12px;
-margin-top: 8px;
+.modal-btns {
+display: flex;
+gap: 8px;
+margin-top: 20px;
+}
+
+.btn-primary {
+flex: 1;
+padding: 10px;
 background: #0d1a10;
 border: 1px solid #7effa0;
 color: #7effa0;
@@ -92,66 +136,49 @@ letter-spacing: 0.2em;
 text-transform: uppercase;
 cursor: pointer;
 font-family: inherit;
+transition: background 0.15s;
+}
+
+.btn-primary:hover { background: #122018; }
+
+.btn-ghost {
+padding: 10px 16px;
+background: none;
+border: 1px solid #2a2a2a;
+color: #555;
+font-size: 11px;
+letter-spacing: 0.15em;
+text-transform: uppercase;
+cursor: pointer;
+font-family: inherit;
 transition: all 0.15s;
 }
 
-.setup-btn:hover { background: #122018; }
+.btn-ghost:hover { border-color: #555; color: #888; }
 
-.setup-hint {
+.modal-hint {
 font-size: 10px;
 color: #333;
-margin-top: 16px;
+margin-top: 14px;
 line-height: 1.6;
 }
 
-/* SYNC STATUS BAR */
-.sync-bar {
-width: 100%;
-max-width: 560px;
-display: flex;
-justify-content: space-between;
-align-items: center;
-margin-bottom: 24px;
-min-height: 18px;
+.modal-gist-id {
+font-size: 11px;
+color: #7effa0;
+margin-top: 10px;
+word-break: break-all;
+min-height: 14px;
 }
 
-.sync-status {
+/* MAIN */
+h1 {
 font-size: 10px;
-letter-spacing: 0.1em;
-color: #333;
-transition: color 0.3s;
-}
-
-.sync-status.syncing { color: #ffd56b; }
-.sync-status.synced { color: #7effa0; }
-.sync-status.error { color: #ff6b6b; }
-
-.sync-dot {
-display: inline-block;
-width: 5px;
-height: 5px;
-border-radius: 50%;
-margin-right: 5px;
-vertical-align: middle;
-background: currentColor;
-}
-
-.btn-settings {
-background: none;
-border: none;
-color: #333;
-font-size: 10px;
-letter-spacing: 0.15em;
-cursor: pointer;
-font-family: inherit;
-transition: color 0.15s;
+letter-spacing: 0.3em;
 text-transform: uppercase;
+color: #444;
+margin-bottom: 32px;
 }
-
-.btn-settings:hover { color: #666; }
-
-/* MAIN APP */
-.app { width: 100%; display: flex; flex-direction: column; align-items: center; }
 
 .top-bar {
 display: flex;
@@ -252,25 +279,14 @@ justify-content: space-between;
 overflow: hidden;
 }
 
-.proj-btn:hover:not(.inactive) {
-border-color: #3a3a3a;
-background: #1a1a1a;
-}
-
+.proj-btn:hover:not(.inactive) { border-color: #3a3a3a; background: #1a1a1a; }
 .proj-btn.inactive { cursor: default; opacity: 0.35; }
 
-.proj-btn-bar {
-position: absolute;
-top: 0;
-left: 0;
-width: 3px;
-height: 100%;
-}
+.proj-btn-bar { position: absolute; top: 0; left: 0; width: 3px; height: 100%; }
 
 .proj-btn-now {
 position: absolute;
-top: 6px;
-right: 8px;
+top: 6px; right: 8px;
 font-size: 9px;
 letter-spacing: 0.15em;
 color: #7effa0;
@@ -301,11 +317,7 @@ min-height: 14px;
 
 .proj-btn.active-project .proj-btn-time { color: #7effa0; }
 
-.section {
-width: 100%;
-max-width: 560px;
-margin-top: 40px;
-}
+.section { width: 100%; max-width: 560px; margin-top: 40px; }
 
 .section-title {
 font-size: 10px;
@@ -365,11 +377,7 @@ font-family: inherit;
 transition: all 0.15s;
 }
 
-.report-tab.active {
-border-color: #7effa0;
-color: #7effa0;
-background: #0d1a10;
-}
+.report-tab.active { border-color: #7effa0; color: #7effa0; background: #0d1a10; }
 
 .report-row {
 display: flex;
@@ -401,13 +409,7 @@ font-variant-numeric: tabular-nums;
 flex-shrink: 0;
 }
 
-.report-total {
-font-size: 11px;
-color: #333;
-letter-spacing: 0.1em;
-text-align: right;
-margin-top: 10px;
-}
+.report-total { font-size: 11px; color: #333; letter-spacing: 0.1em; text-align: right; margin-top: 10px; }
 
 .proj-item {
 display: flex;
@@ -418,8 +420,7 @@ border-bottom: 1px solid #181818;
 }
 
 .proj-color-dot {
-width: 12px;
-height: 12px;
+width: 12px; height: 12px;
 border-radius: 50%;
 flex-shrink: 0;
 cursor: pointer;
@@ -501,8 +502,7 @@ z-index: 200;
 .color-popup.visible { display: flex; }
 
 .color-swatch {
-width: 22px;
-height: 22px;
+width: 22px; height: 22px;
 border-radius: 50%;
 cursor: pointer;
 border: 2px solid transparent;
@@ -518,89 +518,79 @@ text-align: center;
 padding: 20px 0;
 letter-spacing: 0.05em;
 }
-
-.hidden { display: none !important; }
 </style>
 
 </head>
 <body>
 
-<h1>Time Tracker</h1>
+<!-- TOP BAR -->
 
-<!-- SETUP SCREEN -->
+<div id="topBar">
+  <span>tts</span>
+  <span id="syncStatus">not connected</span>
+  <button id="setupBtn" onclick="openSetup()">setup</button>
+</div>
 
-<div class="setup-screen" id="setupScreen">
-  <div class="setup-title">Connect to GitHub Gist</div>
-  <div class="setup-desc">
-    Your data syncs across all devices via a private GitHub Gist.<br>
-    One-time setup per device. Credentials stay on this device only.
-  </div>
+<!-- SETUP MODAL -->
 
-  <div class="setup-field">
-    <label class="setup-label" for="inputToken">Personal Access Token</label>
-    <input class="setup-input" id="inputToken" type="password" placeholder="github_pat_...">
-  </div>
-
-  <div class="setup-field">
-    <label class="setup-label" for="inputGistId">Gist ID</label>
-    <input class="setup-input" id="inputGistId" type="text" placeholder="Leave blank to create a new Gist">
-  </div>
-
-<button class="setup-btn" onclick="setupConnect()">Connect</button>
-
-  <div class="setup-hint">
-    Create a token at github.com/settings/tokens (classic)<br>
-    Required scope: <strong style="color:#7effa0">gist</strong><br><br>
-    Leave Gist ID blank on your first device — a new Gist will be created.<br>
-    Copy the Gist ID shown after setup and enter it on your other devices.
+<div class="modal-overlay" id="setupModal">
+  <div class="modal">
+    <h2>Gist Sync Setup</h2>
+    <p>Your data syncs across all devices via a private GitHub Gist. Token stays on this device only.</p>
+    <label>Personal Access Token</label>
+    <input type="password" id="inputToken" placeholder="github_pat_...">
+    <label>Gist ID <span style="color:#333;font-size:10px">(leave blank to create new)</span></label>
+    <input type="text" id="inputGistId" placeholder="optional">
+    <div class="modal-gist-id" id="createdGistId"></div>
+    <div class="modal-btns">
+      <button class="btn-primary" onclick="setupConnect()">Connect</button>
+      <button class="btn-ghost" onclick="closeSetup()">Cancel</button>
+    </div>
+    <div class="modal-hint">
+      Create token at github.com/settings/tokens (classic), scope: gist<br>
+      First device: leave Gist ID blank. Copy the ID shown and enter it on other devices.
+    </div>
   </div>
 </div>
 
-<!-- MAIN APP -->
+<!-- APP -->
 
-<div class="app hidden" id="appScreen">
+<h1>tts</h1>
 
-  <div class="sync-bar" style="width:100%;max-width:560px">
-    <div class="sync-status" id="syncStatus"><span class="sync-dot"></span>Ready</div>
-    <button class="btn-settings" onclick="showSettings()">Settings</button>
+<div class="top-bar">
+  <div class="timer-display" id="timerDisplay">00:00:00</div>
+  <button class="btn-control start" id="btnControl" onclick="toggleTimer()">START</button>
+</div>
+
+<div class="active-indicator" id="activeIndicator">&#8212;</div>
+
+<div class="projects-grid" id="projectsGrid"></div>
+
+<div class="color-popup" id="colorPopup"></div>
+
+<div class="section">
+  <div class="section-title">Today's Log</div>
+  <div id="logList"></div>
+</div>
+
+<div class="section">
+  <div class="section-title">Report</div>
+  <div class="report-tabs">
+    <button class="report-tab active" onclick="setReport('week')">This Week</button>
+    <button class="report-tab" onclick="setReport('month')">This Month</button>
+    <button class="report-tab" onclick="setReport('all')">All Time</button>
   </div>
+  <div id="reportContent"></div>
+</div>
 
-  <div class="top-bar">
-    <div class="timer-display" id="timerDisplay">00:00:00</div>
-    <button class="btn-control start" id="btnControl" onclick="toggleTimer()">START</button>
+<div class="section">
+  <div class="section-title">Projects</div>
+  <div id="projectsMgr"></div>
+  <div class="add-row">
+    <input class="add-input" id="newProjName" placeholder="New project name..."
+      onkeydown="if(event.key==='Enter')addProject()">
+    <button class="add-btn" onclick="addProject()">+</button>
   </div>
-
-  <div class="active-indicator" id="activeIndicator">&#8212;</div>
-
-  <div class="projects-grid" id="projectsGrid"></div>
-
-  <div class="color-popup" id="colorPopup"></div>
-
-  <div class="section">
-    <div class="section-title">Today's Log</div>
-    <div id="logList"></div>
-  </div>
-
-  <div class="section">
-    <div class="section-title">Report</div>
-    <div class="report-tabs">
-      <button class="report-tab active" onclick="setReport('week')">This Week</button>
-      <button class="report-tab" onclick="setReport('month')">This Month</button>
-      <button class="report-tab" onclick="setReport('all')">All Time</button>
-    </div>
-    <div id="reportContent"></div>
-  </div>
-
-  <div class="section">
-    <div class="section-title">Projects</div>
-    <div id="projectsMgr"></div>
-    <div class="add-row">
-      <input class="add-input" id="newProjName" placeholder="New project name..."
-        onkeydown="if(event.key==='Enter')addProject()">
-      <button class="add-btn" onclick="addProject()">+</button>
-    </div>
-  </div>
-
 </div>
 
 <script>
@@ -628,9 +618,6 @@ let gistToken = '';
 let gistId = '';
 let tickInterval = null;
 let syncTimeout = null;
-let syncing = false;
-
-// ---- SETUP ----
 
 function loadCredentials() {
   gistToken = localStorage.getItem('tt_token') || '';
@@ -642,22 +629,34 @@ function saveCredentials() {
   localStorage.setItem('tt_gist_id', gistId);
 }
 
+// ---- SETUP MODAL ----
+
+function openSetup() {
+  document.getElementById('inputToken').value = gistToken;
+  document.getElementById('inputGistId').value = gistId;
+  document.getElementById('createdGistId').textContent = '';
+  document.getElementById('setupModal').classList.add('active');
+}
+
+function closeSetup() {
+  document.getElementById('setupModal').classList.remove('active');
+}
+
 async function setupConnect() {
   const token = document.getElementById('inputToken').value.trim();
   const gid = document.getElementById('inputGistId').value.trim();
   if (!token) { alert('Please enter a Personal Access Token.'); return; }
 
   gistToken = token;
+  setSyncStatus('syncing', 'Connecting...');
 
   if (!gid) {
-    // Create a new Gist
-    setSyncStatus('syncing', 'Creating Gist...');
     try {
       const res = await fetch('https://api.github.com/gists', {
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          description: 'Time Tracker Data',
+          description: 'tts data',
           public: false,
           files: { 'tt_data.json': { content: JSON.stringify(state) } }
         })
@@ -666,38 +665,22 @@ async function setupConnect() {
       const data = await res.json();
       gistId = data.id;
       saveCredentials();
-      alert('Gist created! Your Gist ID is:\n\n' + gistId + '\n\nCopy this and enter it on your other devices.');
-      showApp();
+      document.getElementById('createdGistId').textContent = 'Gist ID: ' + gistId;
+      setSyncStatus('synced', 'Synced');
     } catch(e) {
       setSyncStatus('error', 'Error: ' + e.message);
     }
   } else {
-    // Load existing Gist
     gistId = gid;
-    setSyncStatus('syncing', 'Loading...');
     try {
       await pullFromGist();
       saveCredentials();
-      showApp();
+      setSyncStatus('synced', 'Synced');
+      closeSetup();
+      renderAll();
     } catch(e) {
-      setSyncStatus('error', 'Could not load Gist. Check ID and token.');
+      setSyncStatus('error', 'Could not load Gist');
     }
-  }
-}
-
-function showApp() {
-  document.getElementById('setupScreen').classList.add('hidden');
-  document.getElementById('appScreen').classList.remove('hidden');
-  initApp();
-}
-
-function showSettings() {
-  const id = gistId;
-  const msg = 'Gist ID: ' + id + '\n\nTo use on another device, go to the app, leave Gist ID blank first time then enter this ID.\n\nClear credentials on this device?';
-  if (confirm(msg)) {
-    localStorage.removeItem('tt_token');
-    localStorage.removeItem('tt_gist_id');
-    location.reload();
   }
 }
 
@@ -722,7 +705,6 @@ async function pullFromGist() {
 
 async function pushToGist() {
   if (!gistToken || !gistId) return;
-  syncing = true;
   setSyncStatus('syncing', 'Syncing...');
   try {
     const res = await fetch('https://api.github.com/gists/' + gistId, {
@@ -730,13 +712,16 @@ async function pushToGist() {
       headers: { 'Authorization': 'Bearer ' + gistToken, 'Content-Type': 'application/json' },
       body: JSON.stringify({ files: { 'tt_data.json': { content: JSON.stringify(state) } } })
     });
-    if (!res.ok) throw new Error('Push failed: ' + res.status);
+    if (!res.ok) throw new Error('Push failed');
     setSyncStatus('synced', 'Synced');
-    setTimeout(function() { setSyncStatus('', 'Ready'); }, 2000);
+    setTimeout(function() {
+      if (document.getElementById('syncStatus').textContent === 'Synced') {
+        setSyncStatus('', 'Ready');
+      }
+    }, 2000);
   } catch(e) {
     setSyncStatus('error', 'Sync failed');
   }
-  syncing = false;
 }
 
 function schedulePush() {
@@ -747,8 +732,8 @@ function schedulePush() {
 function setSyncStatus(type, text) {
   const el = document.getElementById('syncStatus');
   if (!el) return;
-  el.className = 'sync-status' + (type ? ' ' + type : '');
-  el.innerHTML = '<span class="sync-dot"></span>' + text;
+  el.className = type ? 'syncing' === type ? 'syncing' : type : '';
+  el.textContent = text;
 }
 
 // ---- TIMER ----
@@ -897,6 +882,15 @@ function getProjectTotal(id) {
     total += Math.floor((Date.now() - state.activeSegmentStart) / 1000);
   }
   return total;
+}
+
+function renderAll() {
+  renderGrid();
+  renderLog();
+  renderReport();
+  renderProjectsMgr();
+  updateControlBtn();
+  updateIndicator();
 }
 
 // ---- LOG ----
@@ -1074,44 +1068,32 @@ function escHtml(s) {
 
 // ---- INIT ----
 
-function initApp() {
+async function init() {
+  loadCredentials();
   if (state.projects.length === 0) {
     DEFAULTS.forEach(function(name, i) {
       state.projects.push({ id: Date.now() + i, name: name, color: COLORS[i % COLORS.length] });
     });
-    schedulePush();
   }
-  renderGrid();
-  renderLog();
-  renderReport();
-  renderProjectsMgr();
-  updateControlBtn();
-  updateIndicator();
-  if (state.timerRunning && state.timerStart) {
-    updateControlBtn();
-    updateIndicator();
-    tickInterval = setInterval(tick, 1000);
-    tick();
-  }
-}
-
-async function init() {
-  loadCredentials();
+  renderAll();
   if (gistToken && gistId) {
-    document.getElementById('setupScreen').classList.add('hidden');
-    document.getElementById('appScreen').classList.remove('hidden');
     setSyncStatus('syncing', 'Loading...');
     try {
       await pullFromGist();
       setSyncStatus('synced', 'Synced');
       setTimeout(function() { setSyncStatus('', 'Ready'); }, 2000);
+      renderAll();
     } catch(e) {
-      setSyncStatus('error', 'Sync failed — using local cache');
+      setSyncStatus('error', 'Sync failed');
     }
-    initApp();
   } else {
-    document.getElementById('inputToken').value = gistToken;
-    document.getElementById('inputGistId').value = gistId;
+    setSyncStatus('', 'Not connected');
+  }
+  if (state.timerRunning && state.timerStart) {
+    updateControlBtn();
+    updateIndicator();
+    tickInterval = setInterval(tick, 1000);
+    tick();
   }
 }
 
