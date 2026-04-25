@@ -19,8 +19,8 @@ align-items: center;
 padding: 72px 16px 80px;
 }
 
-/* TOP BAR */
-#topBar {
+/* SYNC BAR */
+#syncBar {
 position: fixed;
 top: 0; left: 0; right: 0;
 display: flex;
@@ -34,19 +34,19 @@ color: #ccc;
 z-index: 50;
 }
 
-#topBar span { letter-spacing: 0.15em; }
+#syncBar span { letter-spacing: 0.15em; }
 
 #syncStatus { display: flex; align-items: center; }
-#topBar .dot {
+#syncBar .dot {
 width: 7px; height: 7px;
 border-radius: 50%;
 display: inline-block;
 margin-right: 5px;
 background: #555;
 }
-#topBar .dot.synced { background: #4caf50; }
-#topBar .dot.syncing { background: #ff9800; }
-#topBar .dot.error { background: #f44336; }
+#syncBar .dot.synced { background: #4caf50; }
+#syncBar .dot.syncing { background: #ff9800; }
+#syncBar .dot.error { background: #f44336; }
 
 #setupBtn {
 background: none;
@@ -700,7 +700,7 @@ letter-spacing: 0.05em;
 
 <!-- TOP BAR -->
 
-<div id="topBar">
+<div id="syncBar">
   <span>tts</span>
   <div id="syncStatus"><span class="dot" id="syncDot"></span><span id="syncText">not connected</span></div>
   <button id="setupBtn" onclick="openSetup()">setup</button>
@@ -730,7 +730,7 @@ letter-spacing: 0.05em;
 
 <!-- APP -->
 
-<h1>tts</h1>
+<h1>tts<span style="font-size:10px;color:#bbb;margin-left:8px;letter-spacing:0.05em;text-transform:none;font-weight:normal">v1.0</span></h1>
 
 <div class="top-bar">
   <div class="timer-display" id="timerDisplay">00:00:00</div>
