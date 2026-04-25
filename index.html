@@ -15,7 +15,7 @@
 body {
 background: #2a2a2a;
 color: #e0e0e0;
-font-family: ‘Courier New’, Courier, monospace;
+font-family: 'Courier New', Courier, monospace;
 min-height: 100vh;
 display: flex;
 flex-direction: column;
@@ -29,14 +29,6 @@ text-align: center;
 margin-bottom: 60px;
 }
 
-.title-row {
-display: flex;
-align-items: center;
-justify-content: center;
-gap: 14px;
-margin-bottom: 8px;
-}
-
 header h1 {
 font-size: 2rem;
 font-weight: normal;
@@ -46,79 +38,11 @@ text-transform: lowercase;
 }
 
 header p {
+margin-top: 8px;
 font-size: 0.75rem;
 color: #ccc;
 letter-spacing: 0.2em;
 text-transform: uppercase;
-}
-
-/* ENDERMAN HEAD */
-.enderman-head {
-width: 36px;
-height: 36px;
-background: linear-gradient(145deg, #1c1c1c 0%, #0e0e0e 60%, #181818 100%);
-border-radius: 4px;
-position: relative;
-flex-shrink: 0;
-cursor: default;
-animation: ender-idle 5s ease-in-out infinite;
-box-shadow: 0 2px 8px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04);
-}
-
-.ender-eye {
-position: absolute;
-width: 6px;
-height: 9px;
-background: #cc00ee;
-border-radius: 2px;
-top: 12px;
-box-shadow: 0 0 5px #cc00ee, 0 0 10px #9900bb, 0 0 18px #660088;
-transition: background 0.15s, box-shadow 0.15s;
-}
-.ender-eye.left  { left: 6px; }
-.ender-eye.right { right: 6px; }
-
-.enderman-head.staring .ender-eye {
-background: #ee44ff;
-box-shadow: 0 0 8px #ee44ff, 0 0 18px #cc00ee, 0 0 30px #9900bb;
-}
-
-.enderman-head.twitching {
-animation: ender-twitch 0.25s ease-in-out !important;
-}
-
-@keyframes ender-idle {
-0%   { transform: translateY(0)    rotate(0deg); }
-12%  { transform: translateY(-2px) rotate(-2deg); }
-25%  { transform: translateY(0)    rotate(0deg); }
-38%  { transform: translateY(1px)  rotate(1.5deg); }
-50%  { transform: translateY(0)    rotate(0deg); }
-63%  { transform: translateY(-1px) rotate(-1.5deg); }
-78%  { transform: translateY(1px)  rotate(2deg); }
-90%  { transform: translateY(0)    rotate(-0.5deg); }
-100% { transform: translateY(0)    rotate(0deg); }
-}
-
-@keyframes ender-twitch {
-0%   { transform: rotate(0deg)   translateX(0); }
-20%  { transform: rotate(-9deg)  translateX(-3px); }
-50%  { transform: rotate(9deg)   translateX(3px); }
-75%  { transform: rotate(-4deg)  translateX(-1px); }
-100% { transform: rotate(0deg)   translateX(0); }
-}
-
-@keyframes ender-bg-flash {
-0%   { background: #2a2a2a; }
-12%  { background: #3b1550; }
-28%  { background: #2a2a2a; }
-45%  { background: #331248; }
-65%  { background: #2a2a2a; }
-82%  { background: #2e1040; }
-100% { background: #2a2a2a; }
-}
-
-body.ender-focused {
-animation: ender-bg-flash 1.4s ease-out forwards;
 }
 
 .grid {
@@ -186,19 +110,149 @@ color: #bbb;
 letter-spacing: 0.2em;
 text-align: center;
 }
+
+/* ── ENDERMAN ───────────────────────────────────── */
+
+#enderman {
+position: fixed;
+top: 0;
+left: 0;
+z-index: 5;
+pointer-events: none;
+}
+
+.ender-flip {
+/* scaleX toggled by JS for direction */
+}
+
+.ender-figure {
+display: flex;
+flex-direction: column;
+align-items: center;
+animation: ender-bob 0.7s ease-in-out infinite;
+}
+
+.ender-head {
+width: 11px;
+height: 11px;
+background: linear-gradient(150deg, #1e1e1e 0%, #0c0c0c 100%);
+border-radius: 2px;
+position: relative;
+box-shadow: 0 1px 5px rgba(0,0,0,0.9);
+flex-shrink: 0;
+}
+
+.ender-eye {
+position: absolute;
+width: 2px;
+height: 4px;
+background: #cc00ee;
+top: 3px;
+border-radius: 1px;
+box-shadow: 0 0 4px #cc00ee, 0 0 8px #9900bb;
+}
+.ender-eye.left  { left: 1px; }
+.ender-eye.right { right: 1px; }
+
+.ender-body-wrap {
+display: flex;
+align-items: flex-start;
+margin-top: 1px;
+}
+
+.ender-torso {
+width: 5px;
+height: 12px;
+background: linear-gradient(180deg, #181818 0%, #0c0c0c 100%);
+}
+
+.ender-arm {
+width: 2px;
+height: 28px;
+background: linear-gradient(180deg, #151515, #0a0a0a);
+border-radius: 1px;
+transform-origin: top center;
+}
+.ender-arm.left  { animation: ender-arm-l 0.7s ease-in-out infinite; }
+.ender-arm.right { animation: ender-arm-r 0.7s ease-in-out infinite; }
+
+.ender-legs {
+display: flex;
+gap: 1px;
+}
+
+.ender-leg {
+width: 2px;
+height: 30px;
+background: linear-gradient(180deg, #111, #080808);
+border-radius: 1px;
+transform-origin: top center;
+}
+.ender-leg.left  { animation: ender-leg-l 0.7s ease-in-out infinite; }
+.ender-leg.right { animation: ender-leg-r 0.7s ease-in-out infinite; }
+
+@keyframes ender-bob {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-2px); }
+}
+@keyframes ender-arm-l {
+  0%, 100% { transform: rotate(-13deg); }
+  50%       { transform: rotate(13deg); }
+}
+@keyframes ender-arm-r {
+  0%, 100% { transform: rotate(13deg); }
+  50%       { transform: rotate(-13deg); }
+}
+@keyframes ender-leg-l {
+  0%, 100% { transform: rotate(-24deg); }
+  50%       { transform: rotate(24deg); }
+}
+@keyframes ender-leg-r {
+  0%, 100% { transform: rotate(24deg); }
+  50%       { transform: rotate(-24deg); }
+}
+
+@keyframes ender-bg-flash {
+  0%   { background: #2a2a2a; }
+  10%  { background: #3b1550; }
+  25%  { background: #2a2a2a; }
+  42%  { background: #331248; }
+  60%  { background: #2a2a2a; }
+  78%  { background: #2d1040; }
+  100% { background: #2a2a2a; }
+}
+
+body.ender-focused {
+animation: ender-bg-flash 1.5s ease-out forwards;
+}
 </style>
 
 </head>
 <body>
 
-<header>
-  <div class="title-row">
-    <div class="enderman-head" id="endermanHead">
-      <div class="ender-eye left"></div>
-      <div class="ender-eye right"></div>
+<!-- ENDERMAN -->
+<div id="enderman">
+  <div class="ender-flip" id="enderFlip">
+    <div class="ender-figure">
+      <div class="ender-head">
+        <div class="ender-eye left"></div>
+        <div class="ender-eye right"></div>
+      </div>
+      <div class="ender-body-wrap">
+        <div class="ender-arm left"></div>
+        <div class="ender-torso"></div>
+        <div class="ender-arm right"></div>
+      </div>
+      <div class="ender-legs">
+        <div class="ender-leg left"></div>
+        <div class="ender-leg right"></div>
+      </div>
     </div>
-    <h1>endermatx</h1>
   </div>
+</div>
+
+<header>
+  <h1>endermatx</h1>
   <p>tools</p>
 </header>
 
@@ -295,33 +349,71 @@ text-align: center;
 })();
 
 (function() {
-  var head = document.getElementById('endermanHead');
+  var ENDER_W  = 14;
+  var ENDER_H  = 70;
+  var SPEED    = 46; // px per second
 
-  function triggerStare() {
-    head.classList.add('staring');
+  var enderman = document.getElementById('enderman');
+  var flip     = document.getElementById('enderFlip');
+
+  var x           = 20;
+  var dir         = 1;
+  var teleporting = false;
+  var last        = null;
+
+  function positionV() {
+    var rect = document.querySelector('header').getBoundingClientRect();
+    var top  = rect.top + rect.height / 2 - ENDER_H / 2;
+    enderman.style.top = Math.max(8, top) + 'px';
+  }
+
+  function flash() {
     document.body.classList.remove('ender-focused');
     void document.body.offsetWidth;
     document.body.classList.add('ender-focused');
   }
 
-  function releaseStare() {
-    head.classList.remove('staring');
+  function teleport() {
+    teleporting = true;
+    flash();
+    enderman.style.opacity = '0';
+    setTimeout(function() {
+      dir = -dir;
+      x   = dir === 1 ? 0 : window.innerWidth - ENDER_W;
+      enderman.style.transform = 'translateX(' + x + 'px)';
+      flip.style.transform     = dir === -1 ? 'scaleX(-1)' : 'scaleX(1)';
+      enderman.style.opacity   = '1';
+      teleporting = false;
+    }, 220);
   }
 
-  head.addEventListener('mouseenter', triggerStare);
-  head.addEventListener('mouseleave', releaseStare);
-  head.addEventListener('touchstart', function(e) {
-    e.preventDefault();
-    triggerStare();
-    setTimeout(releaseStare, 1400);
-  }, { passive: false });
-
-  setInterval(function() {
-    if (Math.random() < 0.35) {
-      head.classList.add('twitching');
-      setTimeout(function() { head.classList.remove('twitching'); }, 260);
+  function step(dt) {
+    if (teleporting) return;
+    x += dir * SPEED * (dt / 1000);
+    var maxX = window.innerWidth - ENDER_W;
+    if (x >= maxX || x <= 0) {
+      x = Math.min(Math.max(x, 0), maxX);
+      enderman.style.transform = 'translateX(' + x + 'px)';
+      teleport();
+      return;
     }
-  }, 3200);
+    enderman.style.transform = 'translateX(' + x + 'px)';
+  }
+
+  function loop(ts) {
+    if (last !== null) step(ts - last);
+    last = ts;
+    requestAnimationFrame(loop);
+  }
+
+  positionV();
+  enderman.style.transform = 'translateX(' + x + 'px)';
+  window.addEventListener('resize', function() {
+    positionV();
+    x = Math.min(x, window.innerWidth - ENDER_W);
+  });
+
+  requestAnimationFrame(loop);
 })();
 </script>
 
