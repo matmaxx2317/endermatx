@@ -46,10 +46,9 @@ text-transform: uppercase;
 }
 
 .grid {
-display: flex;
+display: grid;
+grid-template-columns: 220px 220px;
 gap: 24px;
-flex-wrap: wrap;
-justify-content: center;
 }
 
 a.card {
@@ -140,16 +139,16 @@ text-align: center;
     <div class="card-arrow">pomodoro &rarr;</div>
   </a>
 
-  <a class="card" href="./str/">
-    <div class="card-label">04</div>
-    <div class="card-name">str</div>
-    <div class="card-arrow">string tracker &rarr;</div>
-  </a>
-
   <a class="card" href="./mtg/">
-    <div class="card-label">05</div>
+    <div class="card-label">04</div>
     <div class="card-name">mtg</div>
     <div class="card-arrow">meeting notes &rarr;</div>
+  </a>
+
+  <a class="card" href="./str/">
+    <div class="card-label">05</div>
+    <div class="card-name">str</div>
+    <div class="card-arrow">string tracker &rarr;</div>
   </a>
 
 </nav>
