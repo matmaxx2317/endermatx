@@ -29,6 +29,14 @@ text-align: center;
 margin-bottom: 60px;
 }
 
+.title-row {
+display: flex;
+align-items: center;
+justify-content: center;
+gap: 14px;
+margin-bottom: 8px;
+}
+
 header h1 {
 font-size: 2rem;
 font-weight: normal;
@@ -38,11 +46,79 @@ text-transform: lowercase;
 }
 
 header p {
-margin-top: 8px;
 font-size: 0.75rem;
 color: #ccc;
 letter-spacing: 0.2em;
 text-transform: uppercase;
+}
+
+/* ENDERMAN HEAD */
+.enderman-head {
+width: 32px;
+height: 32px;
+background: #151515;
+border: 1px solid #0a0a0a;
+position: relative;
+image-rendering: pixelated;
+flex-shrink: 0;
+cursor: default;
+animation: ender-idle 5s ease-in-out infinite;
+box-shadow: inset 1px 1px 0 #1e1e1e;
+}
+
+.ender-eye {
+position: absolute;
+width: 4px;
+height: 8px;
+background: #dd00ff;
+top: 11px;
+box-shadow: 0 0 3px #dd00ff, 0 0 7px #aa00cc;
+transition: background 0.1s, box-shadow 0.1s;
+}
+.ender-eye.left  { left: 7px; }
+.ender-eye.right { right: 7px; }
+
+.enderman-head.staring .ender-eye {
+background: #ff44ff;
+box-shadow: 0 0 6px #ff44ff, 0 0 14px #dd00ff, 0 0 22px #aa00cc;
+}
+
+.enderman-head.twitching {
+animation: ender-twitch 0.25s ease-in-out !important;
+}
+
+@keyframes ender-idle {
+0%   { transform: translateY(0)    rotate(0deg); }
+12%  { transform: translateY(-2px) rotate(-2deg); }
+25%  { transform: translateY(0)    rotate(0deg); }
+38%  { transform: translateY(1px)  rotate(1.5deg); }
+50%  { transform: translateY(0)    rotate(0deg); }
+63%  { transform: translateY(-1px) rotate(-1.5deg); }
+78%  { transform: translateY(1px)  rotate(2deg); }
+90%  { transform: translateY(0)    rotate(-0.5deg); }
+100% { transform: translateY(0)    rotate(0deg); }
+}
+
+@keyframes ender-twitch {
+0%   { transform: rotate(0deg)   translateX(0); }
+20%  { transform: rotate(-9deg)  translateX(-3px); }
+50%  { transform: rotate(9deg)   translateX(3px); }
+75%  { transform: rotate(-4deg)  translateX(-1px); }
+100% { transform: rotate(0deg)   translateX(0); }
+}
+
+@keyframes ender-bg-flash {
+0%   { background: #2a2a2a; }
+12%  { background: #3b1550; }
+28%  { background: #2a2a2a; }
+45%  { background: #331248; }
+65%  { background: #2a2a2a; }
+82%  { background: #2e1040; }
+100% { background: #2a2a2a; }
+}
+
+body.ender-focused {
+animation: ender-bg-flash 1.4s ease-out forwards;
 }
 
 .grid {
@@ -116,7 +192,13 @@ text-align: center;
 <body>
 
 <header>
-  <h1>endermatx</h1>
+  <div class="title-row">
+    <div class="enderman-head" id="endermanHead">
+      <div class="ender-eye left"></div>
+      <div class="ender-eye right"></div>
+    </div>
+    <h1>endermatx</h1>
+  </div>
   <p>tools</p>
 </header>
 
@@ -210,6 +292,36 @@ text-align: center;
 
   poll();
   setInterval(poll, 5000);
+})();
+
+(function() {
+  var head = document.getElementById('endermanHead');
+
+  function triggerStare() {
+    head.classList.add('staring');
+    document.body.classList.remove('ender-focused');
+    void document.body.offsetWidth;
+    document.body.classList.add('ender-focused');
+  }
+
+  function releaseStare() {
+    head.classList.remove('staring');
+  }
+
+  head.addEventListener('mouseenter', triggerStare);
+  head.addEventListener('mouseleave', releaseStare);
+  head.addEventListener('touchstart', function(e) {
+    e.preventDefault();
+    triggerStare();
+    setTimeout(releaseStare, 1400);
+  }, { passive: false });
+
+  setInterval(function() {
+    if (Math.random() < 0.35) {
+      head.classList.add('twitching');
+      setTimeout(function() { head.classList.remove('twitching'); }, 260);
+    }
+  }, 3200);
 })();
 </script>
 
