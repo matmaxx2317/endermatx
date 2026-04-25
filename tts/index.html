@@ -586,6 +586,48 @@ font-family: inherit;
 
 .proj-delete:hover { color: #ff6b6b; }
 
+.proj-archive {
+background: none;
+border: none;
+color: #2a2a2a;
+cursor: pointer;
+font-size: 11px;
+letter-spacing: 0.08em;
+padding: 2px 6px;
+transition: color 0.15s;
+font-family: inherit;
+text-transform: uppercase;
+}
+
+.proj-archive:hover { color: #ffd56b; }
+
+.archived-title {
+font-size: 10px;
+letter-spacing: 0.2em;
+text-transform: uppercase;
+color: #2a2a2a;
+margin-top: 20px;
+margin-bottom: 4px;
+}
+
+.proj-item.is-archived .proj-color-dot { opacity: 0.35; cursor: default; }
+.proj-item.is-archived .proj-name-input { color: #444; }
+
+.proj-reactivate {
+background: none;
+border: none;
+color: #2a2a2a;
+cursor: pointer;
+font-size: 11px;
+letter-spacing: 0.08em;
+padding: 2px 6px;
+transition: color 0.15s;
+font-family: inherit;
+text-transform: uppercase;
+}
+
+.proj-reactivate:hover { color: #7effa0; }
+
 .add-row { display: flex; gap: 8px; margin-top: 12px; }
 
 .add-input {
@@ -978,11 +1020,13 @@ function sortedProjects() {
 function renderGrid() {
   const grid = document.getElementById('projectsGrid');
   if (!grid) return;
-  if (state.projects.length === 0) {
+  const active = state.projects.filter(function(p) { return !p.archived; });
+  if (active.length === 0) {
     grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1">Add projects below to get started.</div>';
     return;
   }
-  grid.innerHTML = sortedProjects().map(function(p) {
+  const sorted = active.slice().sort(function(a,b) { return a.name.localeCompare(b.name); });
+  grid.innerHTML = sorted.map(function(p) {
     const isActive = state.timerRunning && state.activeProjectId === p.id;
     const isInactive = !state.timerRunning;
     const total = getProjectTotal(p.id);
@@ -1312,13 +1356,36 @@ function renderProjectsMgr() {
   const list = document.getElementById('projectsMgr');
   if (!list) return;
   if (state.projects.length === 0) { list.innerHTML = '<div class="empty-state">No projects yet.</div>'; return; }
-  list.innerHTML = sortedProjects().map(function(p) {
-    return '<div class="proj-item">' +
-      '<div class="proj-color-dot" style="background:' + p.color + '" onclick="openColorPicker(' + p.id + ',this)"></div>' +
-      '<input class="proj-name-input" value="' + escHtml(p.name) + '" onblur="renameProject(' + p.id + ',this.value)" onkeydown="if(event.key===\'Enter\')this.blur()">' +
-      '<button class="proj-delete" onclick="deleteProject(' + p.id + ')">&#215;</button>' +
-      '</div>';
-  }).join('');
+
+  const active = sortedProjects().filter(function(p) { return !p.archived; });
+  const archived = sortedProjects().filter(function(p) { return p.archived; });
+
+  var html = '';
+
+  if (active.length === 0) {
+    html += '<div class="empty-state">No active projects.</div>';
+  } else {
+    html += active.map(function(p) {
+      return '<div class="proj-item">' +
+        '<div class="proj-color-dot" style="background:' + p.color + '" onclick="openColorPicker(' + p.id + ',this)"></div>' +
+        '<input class="proj-name-input" value="' + escHtml(p.name) + '" onblur="renameProject(' + p.id + ',this.value)" onkeydown="if(event.key===\'Enter\')this.blur()">' +
+        '<button class="proj-archive" onclick="archiveOrDeleteProject(' + p.id + ')" title="Archive or delete">&#8212;</button>' +
+        '</div>';
+    }).join('');
+  }
+
+  if (archived.length > 0) {
+    html += '<div class="archived-title">Archived</div>';
+    html += archived.map(function(p) {
+      return '<div class="proj-item is-archived">' +
+        '<div class="proj-color-dot" style="background:' + p.color + ';cursor:default"></div>' +
+        '<input class="proj-name-input" value="' + escHtml(p.name) + '" disabled style="opacity:0.4">' +
+        '<button class="proj-reactivate" onclick="reactivateProject(' + p.id + ')" title="Reactivate">&#8635;</button>' +
+        '</div>';
+    }).join('');
+  }
+
+  list.innerHTML = html;
 }
 
 function addProject() {
@@ -1343,8 +1410,21 @@ function renameProject(id, name) {
   }
 }
 
-function deleteProject(id) {
-  state.projects = state.projects.filter(function(p) { return p.id !== id; });
+function archiveOrDeleteProject(id) {
+  var hasEntries = state.entries.some(function(e) { return e.projectId === id; });
+  if (hasEntries) {
+    var p = state.projects.find(function(p) { return p.id === id; });
+    if (p) { p.archived = true; }
+  } else {
+    state.projects = state.projects.filter(function(p) { return p.id !== id; });
+  }
+  schedulePush();
+  renderProjectsMgr(); renderGrid(); renderLog(); renderReport();
+}
+
+function reactivateProject(id) {
+  var p = state.projects.find(function(p) { return p.id === id; });
+  if (p) { p.archived = false; }
   schedulePush();
   renderProjectsMgr(); renderGrid(); renderLog(); renderReport();
 }
