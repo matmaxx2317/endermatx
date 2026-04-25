@@ -214,19 +214,6 @@ transform-origin: top center;
   50%       { transform: rotate(-24deg); }
 }
 
-@keyframes ender-bg-flash {
-  0%   { background: #2a2a2a; }
-  8%   { background: #5a1880; }
-  20%  { background: #2a2a2a; }
-  35%  { background: #4a1268; }
-  55%  { background: #2a2a2a; }
-  75%  { background: #3a0e50; }
-  100% { background: #2a2a2a; }
-}
-
-body.ender-focused {
-animation: ender-bg-flash 1.5s ease-out forwards;
-}
 </style>
 
 </head>
@@ -386,12 +373,6 @@ animation: ender-bg-flash 1.5s ease-out forwards;
     enderman.style.top = Math.max(8, top) + 'px';
   }
 
-  function flash() {
-    document.body.classList.remove('ender-focused');
-    void document.body.offsetWidth;
-    document.body.classList.add('ender-focused');
-  }
-
   var PARTICLE_COLORS = ['#cc00ee','#dd44ff','#9900bb','#ee88ff','#aa00dd'];
 
   function spawnParticles(px, py, count) {
@@ -436,7 +417,6 @@ animation: ender-bg-flash 1.5s ease-out forwards;
 
   function teleport() {
     teleporting = true;
-    flash();
     var from = enderPos();
     spawnParticles(from.px, from.py, 14);
     enderman.style.opacity = '0';
