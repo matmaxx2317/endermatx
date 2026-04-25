@@ -110,7 +110,7 @@ margin-top: 14px;
 
 .modal input {
 width: 100%;
-background: #1a1a1a;
+background: #222;
 border: 1px solid #3a3a3a;
 color: #c8c8c8;
 font-size: 12px;
@@ -128,7 +128,7 @@ border-radius: 3px;
 .btn-modal-primary {
 flex: 1;
 padding: 9px;
-background: #ff6b35;
+background: #9b1a1a;
 border: none;
 color: #fff;
 font-size: 11px;
@@ -140,7 +140,7 @@ border-radius: 3px;
 transition: background 0.15s;
 }
 
-.btn-modal-primary:hover { background: #ff8255; }
+.btn-modal-primary:hover { background: #b52020; }
 
 .btn-modal-ghost {
 padding: 9px 14px;
@@ -199,7 +199,7 @@ border-radius: 4px;
 outline: none;
 }
 input[type=number] { width: 60px; }
-input[type=range] { width: 72px; accent-color: #ff6b35; cursor: pointer; }
+input[type=range] { width: 72px; accent-color: #9b1a1a; cursor: pointer; }
 
 .flag-btn {
 background: none;
@@ -269,7 +269,7 @@ cursor: pointer;
 }
 
 .add-btn {
-background: #ff6b35;
+background: #9b1a1a;
 border: none;
 color: #fff;
 font-family: inherit;
@@ -281,7 +281,7 @@ cursor: pointer;
 height: 30px;
 white-space: nowrap;
 }
-.add-btn:hover { background: #ff8255; }
+.add-btn:hover { background: #b52020; }
 
 .project-list { display: flex; flex-wrap: wrap; gap: 8px; }
 
@@ -351,7 +351,7 @@ position: relative;
 .day.sat, .day.sun { color: #ccc; }
 
 .day.today {
-background: #ff6b35;
+background: #9b1a1a;
 color: #fff;
 font-weight: 700;
 border-radius: 50%;
@@ -394,8 +394,8 @@ z-index: 100;
 pointer-events: none;
 }
 
-.month-tile.has-today .month-header { border-bottom-color: #ff6b35; }
-.month-tile.has-today .month-name { color: #ff6b35; }
+.month-tile.has-today .month-header { border-bottom-color: #9b1a1a; }
+.month-tile.has-today .month-name { color: #9b1a1a; }
 
 .proj-name-label {
 position: absolute;
@@ -1027,7 +1027,7 @@ function render() {
     root.appendChild(sec);
   });
   var leg = document.createElement('div'); leg.className = 'legend';
-  leg.innerHTML = '<div class="legend-item"><div class="legend-dot" style="background:#ff6b35"></div>Today</div><div class="legend-item"><div class="legend-dot" style="background:#5bb8f5"></div>Holiday</div>';
+  leg.innerHTML = '<div class="legend-item"><div class="legend-dot" style="background:#9b1a1a"></div>Today</div><div class="legend-item"><div class="legend-dot" style="background:#5bb8f5"></div>Holiday</div>';
   root.appendChild(leg);
   scrollToToday();
 }
