@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>mtg</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+background: #0d0d0d;
+color: #e0e0e0;
+font-family: ‘Courier New’, monospace;
+font-size: 14px;
+min-height: 100vh;
+}
+
+/* SYNC BAR */
+#syncBar {
+display: flex;
+align-items: center;
+justify-content: space-between;
+padding: 6px 12px;
+background: #111;
+border-bottom: 1px solid #222;
+font-size: 11px;
+color: #555;
+}
+#syncBar .dot {
+width: 7px; height: 7px;
+border-radius: 50%;
+display: inline-block;
+margin-right: 5px;
+background: #555;
+}
+#syncBar .dot.synced { background: #4caf50; }
+#syncBar .dot.syncing { background: #ff9800; }
+#syncBar .dot.error { background: #f44336; }
+#syncStatus { display: flex; align-items: center; }
+#setupBtn {
+background: none; border: 1px solid #333;
+color: #555; cursor: pointer; padding: 2px 8px;
+font-family: ‘Courier New’, monospace; font-size: 11px;
+border-radius: 2px;
+}
+#setupBtn:hover { color: #aaa; border-color: #555; }
+
+/* SETUP MODAL */
+.modal-overlay {
+display: none;
+position: fixed; inset: 0;
+background: rgba(0,0,0,0.85);
+z-index: 100;
+align-items: center; justify-content: center;
+}
+.modal-overlay.active { display: flex; }
+.modal {
+background: #111;
+border: 1px solid #333;
+padding: 24px;
+width: 90%; max-width: 420px;
+border-radius: 4px;
+}
+.modal h2 { font-size: 14px; color: #aaa; margin-bottom: 16px; letter-spacing: 2px; text-transform: uppercase; }
+.modal label { display: block; color: #555; font-size: 11px; margin-bottom: 4px; margin-top: 12px; }
+.modal input {
+width: 100%; background: #0d0d0d;
+border: 1px solid #333; color: #e0e0e0;
+padding: 8px; font-family: ‘Courier New’, monospace; font-size: 13px;
+border-radius: 2px;
+}
+.modal input:focus { outline: none; border-color: #666; }
+.modal-btns { display: flex; gap: 8px; margin-top: 20px; }
+.btn {
+padding: 8px 16px; cursor: pointer;
+font-family: ‘Courier New’, monospace; font-size: 13px;
+border-radius: 2px; border: 1px solid #444;
+}
+.btn-primary { background: #e0e0e0; color: #0d0d0d; border-color: #e0e0e0; }
+.btn-primary:hover { background: #fff; }
+.btn-ghost { background: none; color: #666; }
+.btn-ghost:hover { color: #aaa; }
+
+/* MAIN LAYOUT */
+#app { display: flex; flex-direction: column; height: calc(100vh - 33px); }
+
+/* TOP NAV */
+#nav {
+display: flex; align-items: center; gap: 0;
+padding: 0 12px;
+background: #111;
+border-bottom: 1px solid #222;
+}
+.nav-tab {
+padding: 10px 16px; cursor: pointer;
+font-family: ‘Courier New’, monospace; font-size: 12px;
+color: #555; border-bottom: 2px solid transparent;
+letter-spacing: 1px; text-transform: uppercase;
+background: none; border-top: none; border-left: none; border-right: none;
+}
+.nav-tab:hover { color: #aaa; }
+.nav-tab.active { color: #e0e0e0; border-bottom-color: #e0e0e0; }
+#newMtgBtn {
+margin-left: auto;
+background: #e0e0e0; color: #0d0d0d;
+border: none; padding: 6px 14px;
+font-family: ‘Courier New’, monospace; font-size: 12px;
+cursor: pointer; border-radius: 2px; letter-spacing: 1px;
+}
+#newMtgBtn:hover { background: #fff; }
+
+/* VIEWS */
+.view { display: none; flex: 1; overflow-y: auto; padding: 16px; }
+.view.active { display: flex; flex-direction: column; gap: 12px; }
+
+/* MEETINGS LIST */
+.mtg-card {
+background: #111;
+border: 1px solid #222;
+border-radius: 3px;
+padding: 14px;
+cursor: pointer;
+transition: border-color 0.15s;
+}
+.mtg-card:hover { border-color: #444; }
+.mtg-card-title { font-size: 14px; color: #e0e0e0; margin-bottom: 4px; }
+.mtg-card-meta { font-size: 11px; color: #555; }
+.mtg-card-meta span { margin-right: 12px; }
+.mtg-card-actions { margin-top: 8px; font-size: 11px; color: #777; }
+.badge {
+display: inline-block; padding: 1px 6px;
+border-radius: 2px; font-size: 10px; margin-left: 6px;
+}
+.badge-open { background: #1a2a1a; color: #4caf50; }
+.badge-done { background: #1a1a2a; color: #5c7cfa; }
+.empty-state { color: #444; text-align: center; padding: 60px 20px; font-size: 13px; letter-spacing: 1px; }
+
+/* MEETING EDITOR */
+#editorView { gap: 0; padding: 0; }
+#editorView .editor-inner {
+display: flex; flex-direction: column; flex: 1;
+overflow-y: auto; padding: 16px; gap: 14px;
+}
+.field-group { display: flex; flex-direction: column; gap: 6px; }
+.field-label { font-size: 11px; color: #555; letter-spacing: 1px; text-transform: uppercase; }
+.field-input {
+background: #111; border: 1px solid #222;
+color: #e0e0e0; padding: 8px 10px;
+font-family: ‘Courier New’, monospace; font-size: 14px;
+border-radius: 2px; width: 100%;
+}
+.field-input:focus { outline: none; border-color: #555; }
+textarea.field-input { resize: vertical; min-height: 120px; line-height: 1.6; }
+#attendeesList { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.attendee-chip {
+background: #1a1a1a; border: 1px solid #333;
+padding: 3px 10px; border-radius: 20px; font-size: 12px;
+display: flex; align-items: center; gap: 6px;
+}
+.attendee-chip button {
+background: none; border: none; color: #555;
+cursor: pointer; font-size: 12px; padding: 0; line-height: 1;
+}
+.attendee-chip button:hover { color: #f44336; }
+.attendee-add { display: flex; gap: 6px; }
+.attendee-add input { flex: 1; }
+.attendee-add button {
+background: #1a1a1a; border: 1px solid #333;
+color: #aaa; cursor: pointer; padding: 6px 12px;
+font-family: ‘Courier New’, monospace; font-size: 12px;
+border-radius: 2px;
+}
+.attendee-add button:hover { border-color: #555; }
+
+/* ACTION ITEMS IN EDITOR */
+.action-list { display: flex; flex-direction: column; gap: 6px; }
+.action-item {
+display: flex; align-items: flex-start; gap: 8px;
+background: #111; border: 1px solid #222;
+padding: 8px 10px; border-radius: 2px;
+}
+.action-item input[type=“checkbox”] { margin-top: 2px; accent-color: #4caf50; flex-shrink: 0; }
+.action-item-text { flex: 1; }
+.action-item-owner { font-size: 11px; color: #555; margin-top: 2px; }
+.action-item-delete {
+background: none; border: none; color: #333;
+cursor: pointer; font-size: 14px; padding: 0;
+flex-shrink: 0;
+}
+.action-item-delete:hover { color: #f44336; }
+.action-add-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.action-add-row input { background: #111; border: 1px solid #222; color: #e0e0e0; padding: 7px 10px; font-family: ‘Courier New’, monospace; font-size: 13px; border-radius: 2px; }
+.action-add-row input:focus { outline: none; border-color: #555; }
+.action-add-row .txt { flex: 2; min-width: 140px; }
+.action-add-row .own { flex: 1; min-width: 80px; }
+.action-add-row button {
+background: #1a1a1a; border: 1px solid #333;
+color: #aaa; cursor: pointer; padding: 7px 12px;
+font-family: ‘Courier New’, monospace; font-size: 12px;
+border-radius: 2px; white-space: nowrap;
+}
+.action-add-row button:hover { border-color: #555; }
+
+/* EDITOR BOTTOM BAR */
+#editorBar {
+display: flex; gap: 8px; align-items: center;
+padding: 10px 16px; border-top: 1px solid #222;
+background: #0d0d0d; flex-wrap: wrap;
+}
+#editorBar .left { display: flex; gap: 8px; flex: 1; flex-wrap: wrap; }
+#backBtn {
+background: none; border: 1px solid #333; color: #666;
+cursor: pointer; padding: 7px 12px;
+font-family: ‘Courier New’, monospace; font-size: 12px;
+border-radius: 2px;
+}
+#backBtn:hover { color: #aaa; border-color: #555; }
+#summarizeBtn {
+background: #1a2a1a; border: 1px solid #2d4a2d;
+color: #4caf50; cursor: pointer; padding: 7px 14px;
+font-family: ‘Courier New’, monospace; font-size: 12px;
+border-radius: 2px;
+}
+#summarizeBtn:hover { background: #203520; }
+#summarizeBtn:disabled { opacity: 0.4; cursor: default; }
+#saveMtgBtn {
+background: #e0e0e0; color: #0d0d0d; border: none;
+cursor: pointer; padding: 7px 16px;
+font-family: ‘Courier New’, monospace; font-size: 12px;
+border-radius: 2px;
+}
+#saveMtgBtn:hover { background: #fff; }
+#deleteMtgBtn {
+background: none; border: 1px solid #2a1a1a;
+color: #944; cursor: pointer; padding: 7px 12px;
+font-family: ‘Courier New’, monospace; font-size: 12px;
+border-radius: 2px;
+}
+#deleteMtgBtn:hover { border-color: #f44336; color: #f44336; }
+
+/* SUMMARY PANEL */
+#summaryPanel {
+background: #0a140a; border: 1px solid #1a3a1a;
+border-radius: 3px; padding: 14px;
+font-size: 13px; line-height: 1.7; color: #b0d4b0;
+white-space: pre-wrap;
+}
+#summaryPanel.loading { color: #4caf50; animation: pulse 1.2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+/* ACTIONS VIEW */
+.actions-filter {
+display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px;
+}
+.filter-btn {
+background: #111; border: 1px solid #222;
+color: #666; cursor: pointer; padding: 4px 12px;
+font-family: ‘Courier New’, monospace; font-size: 11px;
+border-radius: 2px; letter-spacing: 1px;
+}
+.filter-btn.active { border-color: #555; color: #e0e0e0; }
+.action-row {
+display: flex; align-items: flex-start; gap: 10px;
+background: #111; border: 1px solid #222;
+padding: 10px 12px; border-radius: 2px;
+}
+.action-row input[type=“checkbox”] { margin-top: 2px; accent-color: #4caf50; flex-shrink: 0; }
+.action-row-body { flex: 1; }
+.action-row-text { font-size: 13px; color: #e0e0e0; }
+.action-row-text.done { text-decoration: line-through; color: #555; }
+.action-row-meta { font-size: 11px; color: #555; margin-top: 3px; }
+.action-row-meta .owner { color: #7a9; margin-right: 10px; }
+.action-row-meta .mtg-ref { color: #556; }
+
+/* RESPONSIVE */
+@media (max-width: 480px) {
+.nav-tab { padding: 10px 10px; font-size: 11px; }
+#newMtgBtn { padding: 5px 10px; font-size: 11px; }
+.action-add-row { flex-direction: column; }
+.action-add-row input, .action-add-row button { width: 100%; }
+}
+</style>
+
+</head>
+<body>
+
+<!-- SYNC BAR -->
+
+<div id="syncBar">
+  <div id="syncStatus"><span class="dot" id="syncDot"></span><span id="syncText">not connected</span></div>
+  <button id="setupBtn">setup</button>
+</div>
+
+<!-- SETUP MODAL -->
+
+<div class="modal-overlay" id="setupModal">
+  <div class="modal">
+    <h2>Sync Setup</h2>
+    <label>GitHub Personal Access Token</label>
+    <input type="password" id="setupToken" placeholder="ghp_...">
+    <label>Gist ID <span style="color:#444">(leave blank to create new)</span></label>
+    <input type="text" id="setupGistId" placeholder="optional">
+    <div class="modal-btns">
+      <button class="btn btn-primary" id="setupSaveBtn">Save</button>
+      <button class="btn btn-ghost" id="setupCancelBtn">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+
+<div id="app">
+  <div id="nav">
+    <button class="nav-tab active" data-view="listView">Meetings</button>
+    <button class="nav-tab" data-view="actionsView">Actions</button>
+    <button id="newMtgBtn">+ New</button>
+  </div>
+
+  <!-- MEETINGS LIST -->
+
+  <div class="view active" id="listView">
+    <div id="mtgList"><div class="empty-state">no meetings yet</div></div>
+  </div>
+
+  <!-- ACTIONS CROSS VIEW -->
+
+  <div class="view" id="actionsView">
+    <div class="actions-filter">
+      <button class="filter-btn active" data-filter="open">Open</button>
+      <button class="filter-btn" data-filter="done">Done</button>
+      <button class="filter-btn" data-filter="all">All</button>
+    </div>
+    <div id="actionsList"></div>
+  </div>
+
+  <!-- EDITOR VIEW -->
+
+  <div class="view" id="editorView">
+    <div class="editor-inner">
+      <div class="field-group">
+        <div class="field-label">Meeting Title</div>
+        <input class="field-input" id="edTitle" placeholder="e.g. Sprint Planning Q2">
+      </div>
+      <div class="field-group">
+        <div class="field-label">Date</div>
+        <input class="field-input" id="edDate" type="date">
+      </div>
+      <div class="field-group">
+        <div class="field-label">Attendees</div>
+        <div id="attendeesList"></div>
+        <div class="attendee-add">
+          <input class="field-input" id="attendeeInput" placeholder="name or initials" style="flex:1">
+          <button onclick="addAttendee()">+ Add</button>
+        </div>
+      </div>
+      <div class="field-group">
+        <div class="field-label">Notes</div>
+        <textarea class="field-input" id="edNotes" placeholder="Freeform notes, context, decisions..."></textarea>
+      </div>
+      <div class="field-group">
+        <div class="field-label">Action Items</div>
+        <div class="action-list" id="edActions"></div>
+        <div class="action-add-row" style="margin-top:6px">
+          <input class="txt" id="newActionText" placeholder="action item...">
+          <input class="own" id="newActionOwner" placeholder="owner">
+          <button onclick="addActionItem()">+ Add</button>
+        </div>
+      </div>
+      <div class="field-group" id="summaryGroup" style="display:none">
+        <div class="field-label">AI Summary</div>
+        <div id="summaryPanel"></div>
+      </div>
+    </div>
+    <div id="editorBar">
+      <div class="left">
+        <button id="backBtn" onclick="goBack()">&#8592; Back</button>
+        <button id="summarizeBtn" onclick="generateSummary()">&#10022; Summarize</button>
+        <button id="deleteMtgBtn" onclick="deleteMeeting()">Delete</button>
+      </div>
+      <button id="saveMtgBtn" onclick="saveMeeting()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── STATE ──────────────────────────────────────────────────────────────────
+let data = { meetings: [] };
+let currentMtgId = null;
+let currentAttendees = [];
+let currentActions = [];
+let pushTimer = null;
+let syncState = 'idle';
+
+// ── STORAGE KEYS ───────────────────────────────────────────────────────────
+const LS_TOKEN = 'mtg_token';
+const LS_GIST = 'mtg_gist_id';
+
+// ── SYNC ───────────────────────────────────────────────────────────────────
+function setSyncState(s, msg) {
+  syncState = s;
+  const dot = document.getElementById('syncDot');
+  const txt = document.getElementById('syncText');
+  dot.className = 'dot ' + (s === 'synced' ? 'synced' : s === 'syncing' ? 'syncing' : s === 'error' ? 'error' : '');
+  txt.textContent = msg || s;
+}
+
+function getToken() { return localStorage.getItem(LS_TOKEN) || ''; }
+function getGistId() { return localStorage.getItem(LS_GIST) || ''; }
+
+async function pullFromGist() {
+  const token = getToken(); const gistId = getGistId();
+  if (!token || !gistId) return;
+  setSyncState('syncing', 'syncing...');
+  try {
+    const r = await fetch('https://api.github.com/gists/' + gistId, {
+      headers: { Authorization: 'token ' + token }
+    });
+    if (!r.ok) throw new Error('pull failed');
+    const g = await r.json();
+    const content = g.files['mtg_data.json']?.content;
+    if (content) data = JSON.parse(content);
+    setSyncState('synced', 'synced');
+  } catch (e) { setSyncState('error', 'sync error'); }
+  renderAll();
+}
+
+async function pushToGist() {
+  const token = getToken(); let gistId = getGistId();
+  if (!token) return;
+  setSyncState('syncing', 'saving...');
+  try {
+    const body = { files: { 'mtg_data.json': { content: JSON.stringify(data) } } };
+    let r;
+    if (gistId) {
+      r = await fetch('https://api.github.com/gists/' + gistId, {
+        method: 'PATCH', headers: { Authorization: 'token ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+    } else {
+      body.description = 'mtg_data'; body.public = false;
+      r = await fetch('https://api.github.com/gists', {
+        method: 'POST', headers: { Authorization: 'token ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const g = await r.json();
+      localStorage.setItem(LS_GIST, g.id);
+    }
+    if (!r.ok) throw new Error('push failed');
+    setSyncState('synced', 'synced');
+  } catch (e) { setSyncState('error', 'sync error'); }
+}
+
+function schedulePush() {
+  clearTimeout(pushTimer);
+  pushTimer = setTimeout(pushToGist, 1500);
+}
+
+// ── SETUP ──────────────────────────────────────────────────────────────────
+document.getElementById('setupBtn').onclick = () => {
+  document.getElementById('setupToken').value = getToken();
+  document.getElementById('setupGistId').value = getGistId();
+  document.getElementById('setupModal').classList.add('active');
+};
+document.getElementById('setupCancelBtn').onclick = () => document.getElementById('setupModal').classList.remove('active');
+document.getElementById('setupSaveBtn').onclick = async () => {
+  const t = document.getElementById('setupToken').value.trim();
+  const g = document.getElementById('setupGistId').value.trim();
+  if (t) localStorage.setItem(LS_TOKEN, t);
+  if (g) localStorage.setItem(LS_GIST, g);
+  document.getElementById('setupModal').classList.remove('active');
+  await pullFromGist();
+};
+
+// ── NAV ────────────────────────────────────────────────────────────────────
+document.querySelectorAll('.nav-tab').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    showView(btn.dataset.view);
+  };
+});
+
+function showView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if (id === 'actionsView') renderActionsView();
+}
+
+// ── MEETINGS LIST ──────────────────────────────────────────────────────────
+function renderAll() {
+  renderMtgList();
+  renderActionsView();
+}
+
+function renderMtgList() {
+  const el = document.getElementById('mtgList');
+  const sorted = [...data.meetings].sort((a, b) => b.date.localeCompare(a.date));
+  if (!sorted.length) { el.innerHTML = '<div class="empty-state">no meetings yet</div>'; return; }
+  el.innerHTML = sorted.map(m => {
+    const open = (m.actions || []).filter(a => !a.done).length;
+    const done = (m.actions || []).filter(a => a.done).length;
+    const att = (m.attendees || []).join(', ') || 'no attendees';
+    return `<div class="mtg-card" onclick="openMeeting('${m.id}')">
+      <div class="mtg-card-title">${esc(m.title || 'Untitled')}</div>
+      <div class="mtg-card-meta">
+        <span>${m.date || ''}</span>
+        <span>${esc(att)}</span>
+      </div>
+      <div class="mtg-card-actions">
+        ${open ? `<span class="badge badge-open">${open} open</span>` : ''}
+        ${done ? `<span class="badge badge-done">${done} done</span>` : ''}
+        ${!open && !done ? '<span style="color:#444">no actions</span>' : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── EDITOR ─────────────────────────────────────────────────────────────────
+document.getElementById('newMtgBtn').onclick = () => {
+  currentMtgId = null;
+  currentAttendees = [];
+  currentActions = [];
+  document.getElementById('edTitle').value = '';
+  document.getElementById('edDate').value = todayStr();
+  document.getElementById('edNotes').value = '';
+  document.getElementById('summaryGroup').style.display = 'none';
+  renderEditorAttendees();
+  renderEditorActions();
+  showEditorView();
+};
+
+function openMeeting(id) {
+  const m = data.meetings.find(x => x.id === id);
+  if (!m) return;
+  currentMtgId = id;
+  currentAttendees = [...(m.attendees || [])];
+  currentActions = (m.actions || []).map(a => ({...a}));
+  document.getElementById('edTitle').value = m.title || '';
+  document.getElementById('edDate').value = m.date || todayStr();
+  document.getElementById('edNotes').value = m.notes || '';
+  const sg = document.getElementById('summaryGroup');
+  if (m.summary) {
+    sg.style.display = '';
+    document.getElementById('summaryPanel').textContent = m.summary;
+    document.getElementById('summaryPanel').classList.remove('loading');
+  } else { sg.style.display = 'none'; }
+  renderEditorAttendees();
+  renderEditorActions();
+  showEditorView();
+}
+
+function showEditorView() {
+  document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('editorView').classList.add('active');
+}
+
+function goBack() {
+  showView('listView');
+  document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+  document.querySelector('[data-view="listView"]').classList.add('active');
+}
+
+function renderEditorAttendees() {
+  const el = document.getElementById('attendeesList');
+  el.innerHTML = currentAttendees.map((a, i) =>
+    `<div class="attendee-chip">${esc(a)}<button onclick="removeAttendee(${i})">x</button></div>`
+  ).join('');
+}
+
+function addAttendee() {
+  const inp = document.getElementById('attendeeInput');
+  const val = inp.value.trim();
+  if (!val) return;
+  currentAttendees.push(val);
+  inp.value = '';
+  renderEditorAttendees();
+}
+function removeAttendee(i) { currentAttendees.splice(i, 1); renderEditorAttendees(); }
+
+document.getElementById('attendeeInput').addEventListener('keydown', e => { if (e.key === 'Enter') addAttendee(); });
+
+function renderEditorActions() {
+  const el = document.getElementById('edActions');
+  el.innerHTML = currentActions.map((a, i) =>
+    `<div class="action-item">
+      <input type="checkbox" ${a.done ? 'checked' : ''} onchange="toggleAction(${i}, this.checked)">
+      <div class="action-item-text">
+        <div>${esc(a.text)}</div>
+        ${a.owner ? `<div class="action-item-owner">@${esc(a.owner)}</div>` : ''}
+      </div>
+      <button class="action-item-delete" onclick="removeAction(${i})">x</button>
+    </div>`
+  ).join('');
+}
+
+function addActionItem() {
+  const txt = document.getElementById('newActionText').value.trim();
+  if (!txt) return;
+  const owner = document.getElementById('newActionOwner').value.trim();
+  currentActions.push({ id: uid(), text: txt, owner, done: false });
+  document.getElementById('newActionText').value = '';
+  document.getElementById('newActionOwner').value = '';
+  renderEditorActions();
+}
+function toggleAction(i, val) { currentActions[i].done = val; }
+function removeAction(i) { currentActions.splice(i, 1); renderEditorActions(); }
+
+document.getElementById('newActionText').addEventListener('keydown', e => { if (e.key === 'Enter') addActionItem(); });
+
+function saveMeeting() {
+  const title = document.getElementById('edTitle').value.trim() || 'Untitled';
+  const date = document.getElementById('edDate').value || todayStr();
+  const notes = document.getElementById('edNotes').value;
+  const summaryEl = document.getElementById('summaryPanel');
+  const summary = summaryEl.textContent || '';
+
+  if (currentMtgId) {
+    const m = data.meetings.find(x => x.id === currentMtgId);
+    if (m) { m.title = title; m.date = date; m.notes = notes; m.attendees = [...currentAttendees]; m.actions = [...currentActions]; if (summary) m.summary = summary; }
+  } else {
+    const m = { id: uid(), title, date, notes, attendees: [...currentAttendees], actions: [...currentActions], summary: '' };
+    currentMtgId = m.id;
+    data.meetings.push(m);
+  }
+  schedulePush();
+  renderAll();
+  goBack();
+}
+
+function deleteMeeting() {
+  if (!currentMtgId) { goBack(); return; }
+  if (!confirm('Delete this meeting?')) return;
+  data.meetings = data.meetings.filter(m => m.id !== currentMtgId);
+  schedulePush();
+  renderAll();
+  goBack();
+}
+
+// ── AI SUMMARY ─────────────────────────────────────────────────────────────
+async function generateSummary() {
+  const title = document.getElementById('edTitle').value.trim() || 'Untitled';
+  const date = document.getElementById('edDate').value;
+  const notes = document.getElementById('edNotes').value.trim();
+  const actions = currentActions;
+  const attendees = currentAttendees;
+
+  const sg = document.getElementById('summaryGroup');
+  const sp = document.getElementById('summaryPanel');
+  sg.style.display = '';
+  sp.classList.add('loading');
+  sp.textContent = 'generating summary...';
+  document.getElementById('summarizeBtn').disabled = true;
+
+  const prompt = `You are a meeting notes assistant. Given the following meeting information, produce a concise structured summary.
+
+Meeting: ${title}
+Date: ${date}
+Attendees: ${attendees.join(', ') || 'not specified'}
+
+Raw Notes:
+${notes || '(none)'}
+
+Action Items:
+${actions.length ? actions.map(a => `- [${a.done ? 'x' : ' '}] ${a.text}${a.owner ? ' (@' + a.owner + ')' : ''}`).join('\n') : '(none)'}
+
+Write a structured summary with these sections:
+1. OVERVIEW (2-3 sentences)
+2. KEY DECISIONS
+3. ACTION ITEMS (with owners)
+4. OPEN QUESTIONS / NEXT STEPS
+
+Be concise and use plain text, no markdown symbols.`;
+
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const d = await r.json();
+    const text = d.content?.map(c => c.text || '').join('') || 'No summary generated.';
+    sp.textContent = text;
+    sp.classList.remove('loading');
+    // persist to current meeting if saved
+    if (currentMtgId) {
+      const m = data.meetings.find(x => x.id === currentMtgId);
+      if (m) { m.summary = text; schedulePush(); }
+    }
+  } catch (e) {
+    sp.textContent = 'Error generating summary. Check console.';
+    sp.classList.remove('loading');
+  }
+  document.getElementById('summarizeBtn').disabled = false;
+}
+
+// ── ACTIONS VIEW ───────────────────────────────────────────────────────────
+let actionsFilter = 'open';
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    actionsFilter = btn.dataset.filter;
+    renderActionsView();
+  };
+});
+
+function renderActionsView() {
+  const el = document.getElementById('actionsList');
+  const allActions = [];
+  data.meetings.forEach(m => {
+    (m.actions || []).forEach(a => allActions.push({ ...a, mtgTitle: m.title, mtgId: m.id }));
+  });
+  const filtered = allActions.filter(a => {
+    if (actionsFilter === 'open') return !a.done;
+    if (actionsFilter === 'done') return a.done;
+    return true;
+  });
+  if (!filtered.length) { el.innerHTML = '<div class="empty-state">no actions</div>'; return; }
+  el.innerHTML = filtered.map(a =>
+    `<div class="action-row">
+      <input type="checkbox" ${a.done ? 'checked' : ''} onchange="toggleGlobalAction('${a.mtgId}','${a.id}',this.checked)">
+      <div class="action-row-body">
+        <div class="action-row-text ${a.done ? 'done' : ''}">${esc(a.text)}</div>
+        <div class="action-row-meta">
+          ${a.owner ? `<span class="owner">@${esc(a.owner)}</span>` : ''}
+          <span class="mtg-ref">${esc(a.mtgTitle || 'untitled')}</span>
+        </div>
+      </div>
+    </div>`
+  ).join('');
+}
+
+function toggleGlobalAction(mtgId, actionId, val) {
+  const m = data.meetings.find(x => x.id === mtgId);
+  if (!m) return;
+  const a = (m.actions || []).find(x => x.id === actionId);
+  if (a) { a.done = val; schedulePush(); renderActionsView(); }
+}
+
+// ── UTILS ──────────────────────────────────────────────────────────────────
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+function todayStr() { return new Date().toISOString().slice(0, 10); }
+function esc(s) { return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ── INIT ───────────────────────────────────────────────────────────────────
+(async function init() {
+  if (getToken() && getGistId()) {
+    await pullFromGist();
+  } else {
+    setSyncState('idle', 'not connected');
+    renderAll();
+  }
+})();
+</script>
+
+</body>
+</html>
