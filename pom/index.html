@@ -30,7 +30,7 @@ padding: 6px 12px;
 background: #111;
 border-bottom: 1px solid #222;
 font-size: 11px;
-color: #999;
+color: #ccc;
 }
 
 #syncStatus { display: flex; align-items: center; }
@@ -47,11 +47,11 @@ background: #555;
 
 #setupBtn {
 background: none; border: 1px solid #333;
-color: #999; cursor: pointer; padding: 2px 8px;
+color: #ccc; cursor: pointer; padding: 2px 8px;
 font-family: ‘Courier New’, monospace; font-size: 11px;
 border-radius: 2px;
 }
-#setupBtn:hover { color: #aaa; border-color: #999; }
+#setupBtn:hover { color: #ccc; border-color: #ccc; }
 
 /* SETUP MODAL */
 .modal-overlay {
@@ -69,15 +69,15 @@ padding: 24px;
 width: 90%; max-width: 420px;
 border-radius: 4px;
 }
-.modal h2 { font-size: 14px; color: #aaa; margin-bottom: 16px; letter-spacing: 2px; text-transform: uppercase; }
-.modal label { display: block; color: #999; font-size: 11px; margin-bottom: 4px; margin-top: 12px; }
+.modal h2 { font-size: 14px; color: #ccc; margin-bottom: 16px; letter-spacing: 2px; text-transform: uppercase; }
+.modal label { display: block; color: #ccc; font-size: 11px; margin-bottom: 4px; margin-top: 12px; }
 .modal input {
 width: 100%; background: #0d0d0d;
 border: 1px solid #333; color: #e0e0e0;
 padding: 8px; font-family: ‘Courier New’, monospace; font-size: 13px;
 border-radius: 2px;
 }
-.modal input:focus { outline: none; border-color: #aaa; }
+.modal input:focus { outline: none; border-color: #ccc; }
 .modal-btns { display: flex; gap: 8px; margin-top: 20px; }
 .mbtn {
 padding: 8px 16px; cursor: pointer;
@@ -86,8 +86,8 @@ border-radius: 2px; border: 1px solid #444;
 }
 .mbtn-primary { background: #e0e0e0; color: #0d0d0d; border-color: #e0e0e0; }
 .mbtn-primary:hover { background: #fff; }
-.mbtn-ghost { background: none; color: #aaa; }
-.mbtn-ghost:hover { color: #aaa; }
+.mbtn-ghost { background: none; color: #ccc; }
+.mbtn-ghost:hover { color: #ccc; }
 
 /* MAIN */
 #main {
@@ -102,7 +102,7 @@ max-width: 480px;
 #mode-label {
 font-size: 11px;
 letter-spacing: 0.2em;
-color: #999;
+color: #ccc;
 text-transform: uppercase;
 }
 
@@ -119,7 +119,7 @@ transition: color 0.5s;
 
 #message {
 font-size: 13px;
-color: #999;
+color: #ccc;
 text-align: center;
 min-height: 20px;
 max-width: 320px;
@@ -136,7 +136,7 @@ gap: 16px;
 button {
 background: none;
 border: 1px solid #2a2a2a;
-color: #888;
+color: #bbb;
 font-family: ‘Courier New’, Courier, monospace;
 font-size: 12px;
 letter-spacing: 0.1em;
@@ -146,15 +146,15 @@ text-transform: uppercase;
 transition: border-color 0.2s, color 0.2s;
 }
 
-button:hover { border-color: #999; color: #ccc; }
-button:active { border-color: #888; }
+button:hover { border-color: #ccc; color: #ccc; }
+button:active { border-color: #bbb; }
 
 button.primary {
-border-color: #888;
+border-color: #bbb;
 color: #ccc;
 }
 
-button.primary:hover { border-color: #888; color: #fff; }
+button.primary:hover { border-color: #bbb; color: #fff; }
 
 #stats {
 width: 100%;
@@ -176,7 +176,7 @@ line-height: 1;
 
 .stat-label {
 font-size: 10px;
-color: #888;
+color: #bbb;
 letter-spacing: 0.15em;
 text-transform: uppercase;
 }
@@ -216,7 +216,7 @@ width: 0%;
     <h2>Sync Setup</h2>
     <label>GitHub Personal Access Token</label>
     <input type="password" id="input-token" placeholder="ghp_..." autocomplete="off">
-    <label>Gist ID <span style="color: #999">(leave blank to create new)</span></label>
+    <label>Gist ID <span style="color: #ccc">(leave blank to create new)</span></label>
     <input type="text" id="input-gist" placeholder="optional">
     <div class="modal-btns">
       <button class="mbtn mbtn-primary" id="btn-connect">Save</button>
