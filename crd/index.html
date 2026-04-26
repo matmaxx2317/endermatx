@@ -544,6 +544,8 @@ the red desert snows.
 
   <div class="nav">
     <button class="btn" onclick="goStep1()">← Back</button>
+    <button class="btn" onclick="runAutoAlign()" title="Distribute chords proportionally across lyrics">⟳ Re-align</button>
+    <span class="status-flash" id="align-flash">Auto-aligned!</span>
     <div class="spacer"></div>
     <button class="btn p" onclick="goStep3()">Export →</button>
   </div>
@@ -616,8 +618,9 @@ const S = {
   manualOutput: null,   // string when user edited step 3; null = regenerate
 };
 
-let popupWid = null;
-let wordSeq  = 0;
+let popupWid    = null;
+let wordSeq     = 0;
+let pdfChordData = []; // [{chord,x,y,p}] — chord positions from last PDF load
 const wid = () => 'w' + (++wordSeq);
 
 // ─── Gist sync ────────────────────────────────────────────────────────────────
@@ -793,12 +796,13 @@ async function loadPdf(file) {
     });
 
     const chords = [];
+    pdfChordData = [];
     for (const it of items) {
-      // Match the whole text item — chord labels in Chordify PDFs are each their
-      // own text element, so splitting by whitespace would pick up stray letters
-      // from prose like "Transposed from B to C (1 semitone up)".
       const n = normaliseChord(it.s.trim());
-      if (CHORD_RE.test(n)) chords.push(n);
+      if (CHORD_RE.test(n)) {
+        chords.push(n);
+        pdfChordData.push({ chord: n, x: it.x, y: it.y, p: it.p });
+      }
     }
 
     if (chords.length === 0) {
@@ -859,6 +863,7 @@ function goStep2(fromStep3 = false) {
     S.cursor  = 0;
     S.history = [];
     S.manualOutput = null;
+    if (S.chords.length) autoAlign();
   }
   renderMedia();
   renderQueue();
@@ -1060,6 +1065,79 @@ function resetAll() {
 function findWord(id) {
   for (const l of S.lines) for (const w of l.words) if (w.id === id) return w;
   return null;
+}
+
+// ─── Auto-alignment ───────────────────────────────────────────────────────────
+function computeTimeFromPositions(data) {
+  if (data.length <= 1) return data.map((_, i) => i);
+  // Group sorted items into horizontal rows by (page, rounded-y band)
+  const rows = [];
+  let lastKey = null, curRow = [];
+  for (const item of data) {
+    const key = item.p * 1e6 + Math.round(item.y / 8);
+    if (key !== lastKey) { if (curRow.length) rows.push(curRow); curRow = [item]; lastKey = key; }
+    else curRow.push(item);
+  }
+  if (curRow.length) rows.push(curRow);
+  const total = rows.length;
+  const fracs = [];
+  for (let ri = 0; ri < rows.length; ri++) {
+    const row = rows[ri];
+    const xs   = row.map(r => r.x);
+    const xMin = Math.min(...xs), xRange = Math.max(...xs) - xMin || 1;
+    for (const item of row)
+      fracs.push((ri + (item.x - xMin) / xRange) / total);
+  }
+  return fracs;
+}
+
+function autoAlign() {
+  // Collect all real lyric words in document order
+  const wordList = [];
+  for (let li = 0; li < S.lines.length; li++) {
+    const l = S.lines[li];
+    if (l.type !== 'lyric') continue;
+    for (const w of l.words) if (w.text !== '') wordList.push(w);
+  }
+  const N = S.chords.length, M = wordList.length;
+  if (!N || !M) return;
+
+  // Clear existing placements (remove anchors, null out chords)
+  S.lines.forEach(l => {
+    l.words = l.words.filter(w => w.text !== '');
+    l.words.forEach(w => { w.chord = null; });
+  });
+
+  // Use PDF positions when they match the current chord list, else even spread
+  const usePos = pdfChordData.length === N &&
+    pdfChordData.every((d, i) => d.chord === S.chords[i]);
+  const fracs = usePos
+    ? computeTimeFromPositions(pdfChordData)
+    : Array.from({ length: N }, (_, i) => i / Math.max(N - 1, 1));
+
+  const placed = new Set();
+  for (let i = 0; i < N; i++) {
+    let idx = Math.round(fracs[i] * (M - 1));
+    while (placed.has(idx) && idx < M - 1) idx++;
+    if (placed.has(idx)) continue; // no room — skip
+    placed.add(idx);
+    wordList[idx].chord  = S.chords[i];
+    if (wordList[idx].chordOff == null) wordList[idx].chordOff = wordList[idx].off;
+  }
+
+  S.cursor       = N;
+  S.history      = [];
+  S.manualOutput = null;
+}
+
+function runAutoAlign() {
+  const hasChords = S.lines.some(l => l.words.some(w => w.chord));
+  if (hasChords && !confirm('Re-align will replace all current chord placements. Continue?')) return;
+  autoAlign();
+  renderQueue(); renderEditor(); schedulePush();
+  const f = document.getElementById('align-flash');
+  f.classList.add('vis');
+  setTimeout(() => f.classList.remove('vis'), 2500);
 }
 
 // ─── Lyrics editor ─────────────────────────────────────────────────────────────

@@ -1,5 +1,4 @@
 ---
-name: pullup
 description: Pull branch to head of main after merging a PR
 ---
 
