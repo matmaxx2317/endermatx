@@ -162,6 +162,12 @@ align-items: flex-start;
 margin-top: 1px;
 }
 
+.ender-column {
+display: flex;
+flex-direction: column;
+align-items: center;
+}
+
 .ender-torso {
 width: 8px;
 height: 14px;
@@ -184,6 +190,7 @@ transform-origin: top center;
 .ender-legs {
 display: flex;
 gap: 1px;
+margin-top: 0;
 }
 
 .ender-leg {
@@ -232,12 +239,14 @@ transform-origin: top center;
       </div>
       <div class="ender-body-wrap">
         <div class="ender-arm left"></div>
-        <div class="ender-torso"></div>
+        <div class="ender-column">
+          <div class="ender-torso"></div>
+          <div class="ender-legs">
+            <div class="ender-leg left"></div>
+            <div class="ender-leg right"></div>
+          </div>
+        </div>
         <div class="ender-arm right"></div>
-      </div>
-      <div class="ender-legs">
-        <div class="ender-leg left"></div>
-        <div class="ender-leg right"></div>
       </div>
     </div>
   </div>
