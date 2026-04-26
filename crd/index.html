@@ -552,13 +552,19 @@ async function loadPdf(file) {
       const page = await pdf.getPage(pn);
       const vp   = page.getViewport({ scale: 1 });
       const tc   = await page.getTextContent();
+      // Chordify page 1 header (logo + title + subtitle + BPM) sits in roughly
+      // the top 17 % of the page. Chord labels only appear inside the staves
+      // below that, so we drop anything in that header band on page 1.
+      const headerCutoff = pn === 1 ? vp.height * 0.17 : 0;
       for (const it of tc.items) {
         const s = it.str.trim();
         if (!s) continue;
+        const y = vp.height - it.transform[5]; // flip to top-down
+        if (y < headerCutoff) continue;
         items.push({
           s,
           x: it.transform[4],
-          y: vp.height - it.transform[5], // flip to top-down
+          y,
           p: pn,
         });
       }
