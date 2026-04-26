@@ -324,7 +324,53 @@ textarea:focus, input:focus { border-color: var(--accent); }
 
 /* ── Media ── */
 .media-wrap { margin-bottom: 12px; }
-.media-wrap iframe { width: 100%; border: 0; border-radius: 3px; display: block; }
+
+/* ── Mini player ── */
+.mp {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  font-family: 'Courier New', Courier, monospace;
+}
+
+.mp-row1 { display: flex; align-items: center; gap: 10px; }
+
+.mp-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 14px;
+  width: 32px; height: 32px;
+  border-radius: 3px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: border-color 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+.mp-btn:hover { border-color: var(--accent); color: var(--accent); }
+.mp-btn.playing { border-color: var(--green); color: var(--green); }
+
+.mp-time { font-size: 11px; color: var(--muted); white-space: nowrap; margin-left: auto; }
+
+.mp-bar-wrap {
+  margin-top: 8px;
+  height: 4px;
+  background: var(--bg4);
+  border-radius: 2px;
+  cursor: pointer;
+  position: relative;
+}
+.mp-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  width: 0%;
+  transition: width 0.4s linear;
+  pointer-events: none;
+}
+.mp-note { font-size: 11px; color: var(--muted); padding: 6px 0; }
 
 /* ── Toolbar ── */
 .toolbar { display: flex; gap: 8px; margin-bottom: 10px; align-items: center; }
@@ -836,24 +882,131 @@ function regenerateOutput() {
 }
 
 // ─── Media player ─────────────────────────────────────────────────────────────
+// ─── Mini player ─────────────────────────────────────────────────────────────
+let mp = { type: null, yt: null, audio: null, ticker: null, locked: false };
+
+function mpFmt(s) {
+  if (!isFinite(s) || s < 0) return '0:00';
+  const m = Math.floor(s / 60), sec = Math.floor(s % 60);
+  return `${m}:${sec.toString().padStart(2,'0')}`;
+}
+
+function mpTick() {
+  let cur = 0, dur = 0;
+  if (mp.type === 'yt' && mp.yt) {
+    try { cur = mp.yt.getCurrentTime(); dur = mp.yt.getDuration(); } catch(e) {}
+  } else if (mp.type === 'audio' && mp.audio) {
+    cur = mp.audio.currentTime; dur = mp.audio.duration || 0;
+  }
+  const pct = dur > 0 ? (cur / dur) * 100 : 0;
+  const fill = document.getElementById('mp-fill');
+  const time = document.getElementById('mp-time');
+  if (fill) fill.style.width = pct + '%';
+  if (time) time.textContent = mpFmt(cur) + ' / ' + mpFmt(dur);
+}
+
+function mpSetPlaying(on) {
+  const btn = document.getElementById('mp-play');
+  if (btn) { btn.textContent = on ? '⏸' : '▶'; btn.classList.toggle('playing', on); }
+}
+
+function mpToggle() {
+  if (mp.type === 'yt' && mp.yt) {
+    try {
+      const state = mp.yt.getPlayerState();
+      if (state === YT.PlayerState.PLAYING) { mp.yt.pauseVideo(); mpSetPlaying(false); }
+      else { mp.yt.playVideo(); mpSetPlaying(true); }
+    } catch(e) {}
+  } else if (mp.type === 'audio' && mp.audio) {
+    if (mp.audio.paused) { mp.audio.play(); mpSetPlaying(true); }
+    else { mp.audio.pause(); mpSetPlaying(false); }
+  }
+}
+
+function mpSeek(delta) {
+  if (mp.type === 'yt' && mp.yt) {
+    try { mp.yt.seekTo(Math.max(0, mp.yt.getCurrentTime() + delta), true); } catch(e) {}
+  } else if (mp.type === 'audio' && mp.audio) {
+    mp.audio.currentTime = Math.max(0, mp.audio.currentTime + delta);
+  }
+}
+
+function mpScrub(e) {
+  const rect = e.currentTarget.getBoundingClientRect();
+  const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  if (mp.type === 'yt' && mp.yt) {
+    try { mp.yt.seekTo(pct * mp.yt.getDuration(), true); } catch(e) {}
+  } else if (mp.type === 'audio' && mp.audio) {
+    mp.audio.currentTime = pct * mp.audio.duration;
+  }
+}
+
+function mpDestroy() {
+  clearInterval(mp.ticker);
+  if (mp.yt) { try { mp.yt.destroy(); } catch(e) {} }
+  if (mp.audio) { mp.audio.pause(); mp.audio = null; }
+  mp = { type: null, yt: null, audio: null, ticker: null, locked: false };
+}
+
+function mpBuildUI(wrap) {
+  wrap.innerHTML = `<div class="mp">
+    <div class="mp-row1">
+      <button class="mp-btn" onclick="mpSeek(-15)" title="−15 s">⏮</button>
+      <button class="mp-btn" id="mp-play" onclick="mpToggle()" title="Play / Pause">▶</button>
+      <button class="mp-btn" onclick="mpSeek(15)" title="+15 s">⏭</button>
+      <span class="mp-time" id="mp-time">0:00 / 0:00</span>
+    </div>
+    <div class="mp-bar-wrap" onclick="mpScrub(event)" title="Seek">
+      <div class="mp-bar-fill" id="mp-fill"></div>
+    </div>
+  </div>`;
+}
+
 function renderMedia() {
   const url = document.getElementById('media-url').value.trim();
   const wrap = document.getElementById('media-wrap');
+  mpDestroy();
   if (!url) { wrap.innerHTML = ''; return; }
 
-  const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_-]{11})/);
-  const sp = url.match(/open\.spotify\.com\/(track|album|playlist)\/([A-Za-z0-9]+)/);
+  const ytM = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+  const audioM = url.match(/\.(mp3|ogg|wav|m4a|aac|flac)(\?|$)/i);
+  const spM = url.match(/open\.spotify\.com/);
 
-  if (yt) {
-    wrap.innerHTML =
-      `<div class="media-wrap"><iframe height="100"
-        src="https://www.youtube.com/embed/${yt[1]}?autoplay=0"
-        allow="encrypted-media" allowfullscreen></iframe></div>`;
-  } else if (sp) {
-    wrap.innerHTML =
-      `<div class="media-wrap"><iframe height="80"
-        src="https://open.spotify.com/embed/${sp[1]}/${sp[2]}"
-        allow="encrypted-media"></iframe></div>`;
+  if (ytM) {
+    mp.type = 'yt'; mp.locked = true;
+    mpBuildUI(wrap);
+    // Hidden YT iframe container
+    const holder = document.createElement('div');
+    holder.id = 'yt-holder'; holder.style.cssText = 'width:0;height:0;overflow:hidden;';
+    wrap.appendChild(holder);
+    const init = () => {
+      mp.yt = new YT.Player('yt-holder', {
+        height: 0, width: 0,
+        videoId: ytM[1],
+        playerVars: { autoplay: 0, controls: 0 },
+        events: {
+          onStateChange: e => mpSetPlaying(e.data === YT.PlayerState.PLAYING),
+        },
+      });
+      mp.ticker = setInterval(mpTick, 500);
+    };
+    if (window.YT && window.YT.Player) { init(); }
+    else {
+      window.onYouTubeIframeAPIReady = init;
+      if (!document.getElementById('yt-api')) {
+        const s = document.createElement('script');
+        s.id = 'yt-api'; s.src = 'https://www.youtube.com/iframe_api';
+        document.head.appendChild(s);
+      }
+    }
+  } else if (audioM) {
+    mp.type = 'audio'; mp.locked = true;
+    mpBuildUI(wrap);
+    mp.audio = new Audio(url);
+    mp.audio.addEventListener('ended', () => mpSetPlaying(false));
+    mp.ticker = setInterval(mpTick, 500);
+  } else if (spM) {
+    wrap.innerHTML = `<div class="mp"><div class="mp-note">Spotify doesn't allow external playback — paste a YouTube or direct audio (.mp3) URL for the mini player.</div></div>`;
   } else {
     wrap.innerHTML = '';
   }
@@ -1252,7 +1405,7 @@ Hold onto the ones who mean most to you
 [Outro]`;
 
 document.getElementById('media-url').value =
-  'https://open.spotify.com/track/17qjCe1YUGGooqqRow3DHD?si=xKx65IGbQIynFErR-owbHQ';
+  'https://youtu.be/fFz1WG38mxw?is=xkKh2rBhkvj7E1ye';
 
 pullFromGist().then(() => {
   if (!S.lines.length) showStep(1);
