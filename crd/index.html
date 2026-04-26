@@ -552,13 +552,19 @@ async function loadPdf(file) {
       const page = await pdf.getPage(pn);
       const vp   = page.getViewport({ scale: 1 });
       const tc   = await page.getTextContent();
+      // Chordify page 1 header (logo + title + subtitle + BPM) sits in roughly
+      // the top 17 % of the page. Chord labels only appear inside the staves
+      // below that, so we drop anything in that header band on page 1.
+      const headerCutoff = pn === 1 ? vp.height * 0.17 : 0;
       for (const it of tc.items) {
         const s = it.str.trim();
         if (!s) continue;
+        const y = vp.height - it.transform[5]; // flip to top-down
+        if (y < headerCutoff) continue;
         items.push({
           s,
           x: it.transform[4],
-          y: vp.height - it.transform[5], // flip to top-down
+          y,
           p: pn,
         });
       }
@@ -888,6 +894,105 @@ function esc(s) {
   return String(s)
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+
+document.getElementById('lyrics-in').value = `UG - Bossfight
+
+[Intro]
+2
+4
+8
+
+[Verse] 8
+Carry me away, away from all this death and disease
+A product of a system bleeding out into the streets
+It can't win (it won't win)
+When corrosive life is feeding on its ever limit beating of a heart
+The grind is getting harder as the sun turns black
+Born into catastrophe and we can't turn back again
+I guess we gotta ride this hellfire out and see it through to the end
+
+[Bridge] 8
+When will we see this is all fake
+It's all a show, a masquerade
+Keeping up appearances for the likes
+Youre never gonna do what you really li—ke
+I don't think I can take another hit but I'll
+
+[Chorus] 12
+Fight the boss
+We're still going forward
+And if you fall
+Collect your soul and start again
+And again we all get knocked down
+Tripped up on mistakes and let downs
+Catalyst for the constant knockouts
+All my stitched up wounds are falling out
+But we can always make our way back to the bonfire
+Dancing on the ashes of the monster
+Dancing on the ones who try and bring us down
+
+[Interlude] 8
+
+[Verse] 8
+So wake up wake up and watch the fall
+I spent the last week just trying to stand tall
+But down and out don't mean dead and gone (pick it up)
+You need to wake wake wake from this zombie coma
+Your words are weapons
+You got a quota
+And as the dream of the new world dies
+Please don't give up
+
+[Bridge] 8
+The only option is to shred
+Concussed and bruised but never dead
+You gotta see through this plastic lens
+Don't forget ya got family and frie—nds
+When you don't think you can take another hit you'll just
+
+[Chorus] 12
+Fight the boss
+We're still going forward
+And if you fall
+Collect your soul and start again
+And again we all get knocked down
+Tripped up on mistakes and let downs
+Catalyst for the constant knockouts
+All my stitched up wounds are falling out
+But we can always make our way back to the bonfire
+Dancing on the ashes of the monster
+Dancing on the ones who try and bring us down
+
+[Verse] 8
+Ohoh (Ohoh)
+Ohoh (Ohoh)
+Ohoh (Ohoh)
+Ohoh (Ohoh)
+Ohoh (Ohoh)
+Ohoh (Ohoh)
+Ohoh (Ohoh)
+Ohoh (Ohoh)
+
+[Bridge] 8
+Keeping up appearances for the likes
+You're never gonna do what you really like
+I don't think I can take another hit but I'll try
+When there's no hope left in si—-ght
+
+[Breakdown 1]
+Lala
+
+[Breakdown 2]
+I need to find a place to rest
+My head on, collision
+I just need a break from blurred vision
+Just march on, move forward
+Hold onto the ones who mean most to you
+
+[Outro]`;
+
+document.getElementById('media-url').value =
+  'https://open.spotify.com/track/17qjCe1YUGGooqqRow3DHD?si=xKx65IGbQIynFErR-owbHQ';
 
 showStep(1);
 </script>
