@@ -230,9 +230,20 @@ textarea:focus, input:focus { border-color: var(--accent); }
   font-size: 14px;
 }
 
-.ll { margin-bottom: 18px; }
-.ll-blank { margin-bottom: 8px; height: 8px; }
-.ll-section { color: var(--muted); font-style: italic; margin-bottom: 12px; }
+.ll { margin-bottom: 18px; display: flex; align-items: flex-start; gap: 4px; }
+.ll-main { flex: 1; min-width: 0; }
+.ll-ctrl { display: flex; flex-direction: column; gap: 2px; padding-top: 2px; opacity: 0; transition: opacity 0.15s; }
+.ll:hover .ll-ctrl { opacity: 1; }
+.ic { background: none; border: 1px solid var(--border); color: var(--muted); font-size: 10px; padding: 1px 4px; border-radius: 2px; cursor: pointer; line-height: 1.4; }
+.ic:hover { border-color: var(--accent); color: var(--accent); }
+
+.ll-blank { margin-bottom: 8px; min-height: 12px; display: flex; align-items: center; }
+.ll-section { color: var(--muted); font-style: italic; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+.ll-stxt { flex: 1; }
+.add-ch { font-size: 11px; color: var(--border); cursor: pointer; padding: 0 4px; border-radius: 2px; }
+.add-ch:hover { color: var(--accent); background: rgba(91,163,208,0.08); }
+.lsp { cursor: crosshair; }
+.lsp:hover { background: rgba(91,163,208,0.15); }
 
 .ll-chords {
   min-height: 18px;
@@ -241,8 +252,10 @@ textarea:focus, input:focus { border-color: var(--accent); }
   font-size: 13px;
   font-weight: bold;
   line-height: 1.4;
-  pointer-events: none;
 }
+
+.clp { cursor: pointer; color: var(--accent); }
+.clp:hover { text-decoration: underline; }
 
 .ll-words { white-space: pre-wrap; line-height: 1.6; }
 
@@ -316,6 +329,21 @@ textarea:focus, input:focus { border-color: var(--accent); }
 /* ── Toolbar ── */
 .toolbar { display: flex; gap: 8px; margin-bottom: 10px; align-items: center; }
 
+/* ── Sync bar ── */
+.sync-dot { display:inline-block; width:7px; height:7px; border-radius:50%; background:#333; margin-left:8px; vertical-align:middle; }
+.sync-dot.syncing { background: var(--yellow); }
+.sync-dot.synced  { background: var(--accent); }
+.sync-dot.error   { background: var(--red); }
+.sync-lbl { font-size:10px; letter-spacing:.1em; color:#666; vertical-align:middle; }
+
+/* ── Setup modal ── */
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:300; display:flex; align-items:center; justify-content:center; }
+.modal { background:var(--bg2); border:1px solid var(--border); border-radius:4px; padding:22px; width:340px; max-width:92vw; }
+.modal h2 { font-size:13px; color:var(--accent); margin-bottom:14px; }
+.modal label { margin-top:10px; }
+.modal input { margin-top:4px; }
+.modal .mbtns { display:flex; gap:8px; margin-top:14px; }
+
 @media (max-width: 760px) {
   .content { padding: 12px 10px; }
 
@@ -367,6 +395,7 @@ textarea:focus, input:focus { border-color: var(--accent); }
 
   .ll { margin-bottom: 14px; }
   .ll-chords { font-size: 12px; }
+  .ll-ctrl { opacity: 1; flex-direction: row; padding-top: 18px; }
 }
 </style>
 </head>
@@ -375,6 +404,9 @@ textarea:focus, input:focus { border-color: var(--accent); }
 <div class="hdr">
   <h1>crd</h1>
   <a href="../">← home</a>
+  <span id="sync-dot" class="sync-dot" title="Gist sync status"></span>
+  <span id="sync-lbl" class="sync-lbl"></span>
+  <button class="btn" id="setup-btn" onclick="openSetup()" style="font-size:11px;padding:4px 10px;margin-left:4px">setup</button>
   <div class="steps">
     <div class="step-dot active" id="dot1">1</div>
     <div class="step-dot sep">›</div>
@@ -480,22 +512,44 @@ the red desert snows.
     <div class="toolbar">
       <button class="btn g" onclick="copyOut()">Copy to Clipboard</button>
       <button class="btn"   onclick="downloadOut()">Download .txt</button>
+      <button class="btn"   onclick="regenerateOutput()">Regenerate</button>
       <span class="status-flash" id="copy-flash">Copied!</span>
     </div>
-    <div id="out-box"></div>
+    <textarea id="out-box" spellcheck="false" rows="30" style="font-size:13px;line-height:1.65;resize:vertical;background:#0a0a0a;border-color:var(--border)"></textarea>
   </div>
 
   <div class="nav">
-    <button class="btn" onclick="goStep2()">← Back to Align</button>
+    <button class="btn" onclick="goStep2(true)">← Back to Align</button>
   </div>
 </div>
 
 </div><!-- /content -->
 
+<!-- Setup modal -->
+<div class="modal-overlay hidden" id="setup-modal">
+  <div class="modal">
+    <h2>Gist Sync Setup</h2>
+    <label>GitHub Personal Access Token (scope: gist)</label>
+    <input type="text" id="setup-token" placeholder="ghp_…">
+    <label>Gist ID <span style="color:var(--muted)">(leave blank to create new)</span></label>
+    <input type="text" id="setup-gist" placeholder="abc123…">
+    <div class="mbtns">
+      <button class="btn g" onclick="saveSetup()">Save</button>
+      <button class="btn"   onclick="closeSetup()">Cancel</button>
+      <button class="btn r" onclick="clearSetup()">Clear</button>
+    </div>
+  </div>
+</div>
+
 
 <!-- ═══ Chord edit popup ═══ -->
 <div id="popup" class="hidden">
   <input type="text" id="popup-in" placeholder="Chord (e.g. G, Em, Cmaj7)">
+  <div style="display:flex;align-items:center;gap:6px;margin:7px 0;font-size:11px;color:var(--muted)">
+    <button class="btn" style="padding:3px 8px" onclick="shiftChord(-1)">←</button>
+    <span>col <span id="pp-col">0</span></span>
+    <button class="btn" style="padding:3px 8px" onclick="shiftChord(1)">→</button>
+  </div>
   <div class="pr">
     <button class="btn g" onclick="popupApply()">Apply</button>
     <button class="btn r" onclick="popupRemove()">Remove</button>
@@ -510,15 +564,131 @@ pdfjsLib.GlobalWorkerOptions.workerSrc =
 
 // ─── State ────────────────────────────────────────────────────────────────────
 const S = {
-  lines:   [],    // parsed line objects
-  chords:  [],    // chord queue
-  cursor:  0,     // position in chord queue
-  history: [],    // undo stack: [{wordId, prev, cursorWas}]
+  lines:       [],
+  chords:      [],
+  cursor:      0,
+  history:     [],
+  manualOutput: null,   // string when user edited step 3; null = regenerate
 };
 
 let popupWid = null;
 let wordSeq  = 0;
 const wid = () => 'w' + (++wordSeq);
+
+// ─── Gist sync ────────────────────────────────────────────────────────────────
+let gistToken = localStorage.getItem('crd_token') || '';
+let gistId    = localStorage.getItem('crd_gist_id') || '';
+let pushTimer = null;
+
+function setSyncStatus(state, text) {
+  document.getElementById('sync-dot').className = 'sync-dot' + (state ? ' ' + state : '');
+  document.getElementById('sync-lbl').textContent = text;
+}
+
+function schedulePush() {
+  clearTimeout(pushTimer);
+  pushTimer = setTimeout(pushToGist, 1500);
+}
+
+function gistPayload() {
+  return {
+    v: 1,
+    lyrics:       document.getElementById('lyrics-in').value,
+    manualChords: document.getElementById('manual-chords').value,
+    mediaUrl:     document.getElementById('media-url').value,
+    chords:       S.chords,
+    cursor:       S.cursor,
+    wordSeq,
+    lines:        S.lines,
+    manualOutput: S.manualOutput,
+  };
+}
+
+async function pushToGist() {
+  if (!gistToken) return;
+  setSyncStatus('syncing', 'saving…');
+  const content = JSON.stringify(gistPayload(), null, 2);
+  try {
+    let url = 'https://api.github.com/gists';
+    let method = 'POST';
+    let body = { description: 'crd data', public: false, files: { 'crd_data.json': { content } } };
+    if (gistId) {
+      url = `https://api.github.com/gists/${gistId}`;
+      method = 'PATCH';
+      body = { files: { 'crd_data.json': { content } } };
+    }
+    const res = await fetch(url, {
+      method, headers: { Authorization: `token ${gistToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(res.status);
+    const data = await res.json();
+    if (!gistId) {
+      gistId = data.id;
+      localStorage.setItem('crd_gist_id', gistId);
+      document.getElementById('setup-gist').value = gistId;
+    }
+    setSyncStatus('synced', 'saved');
+  } catch (e) {
+    setSyncStatus('error', 'error');
+  }
+}
+
+async function pullFromGist() {
+  if (!gistToken || !gistId) return;
+  setSyncStatus('syncing', 'loading…');
+  try {
+    const res = await fetch(`https://api.github.com/gists/${gistId}`, {
+      headers: { Authorization: `token ${gistToken}` },
+    });
+    if (!res.ok) throw new Error(res.status);
+    const data = await res.json();
+    const raw = data.files['crd_data.json']?.content;
+    if (!raw) throw new Error('no file');
+    const d = JSON.parse(raw);
+    // Restore input fields
+    if (d.lyrics)       document.getElementById('lyrics-in').value      = d.lyrics;
+    if (d.manualChords) document.getElementById('manual-chords').value  = d.manualChords;
+    if (d.mediaUrl)     document.getElementById('media-url').value      = d.mediaUrl;
+    // Restore state
+    S.chords       = d.chords || [];
+    S.cursor       = d.cursor || 0;
+    S.manualOutput = d.manualOutput || null;
+    wordSeq        = d.wordSeq || 0;
+    if (d.lines && d.lines.length) {
+      S.lines = d.lines;
+      renderMedia();
+      renderQueue();
+      renderEditor();
+      showStep(2);
+    }
+    setSyncStatus('synced', 'loaded');
+  } catch (e) {
+    setSyncStatus('error', 'load error');
+  }
+}
+
+// ─── Setup modal ──────────────────────────────────────────────────────────────
+function openSetup() {
+  document.getElementById('setup-token').value = gistToken;
+  document.getElementById('setup-gist').value  = gistId;
+  document.getElementById('setup-modal').classList.remove('hidden');
+}
+function closeSetup() { document.getElementById('setup-modal').classList.add('hidden'); }
+function saveSetup() {
+  gistToken = document.getElementById('setup-token').value.trim();
+  gistId    = document.getElementById('setup-gist').value.trim();
+  localStorage.setItem('crd_token', gistToken);
+  localStorage.setItem('crd_gist_id', gistId);
+  closeSetup();
+  pullFromGist();
+}
+function clearSetup() {
+  gistToken = ''; gistId = '';
+  localStorage.removeItem('crd_token'); localStorage.removeItem('crd_gist_id');
+  closeSetup();
+  setSyncStatus('', '');
+}
 
 // ─── Chord regex ─────────────────────────────────────────────────────────────
 // Matches common chord names: G, Em, Cmaj7, Bb, F#m, Gsus4, Dadd9, etc.
@@ -606,13 +776,12 @@ async function loadPdf(file) {
 function parseLyrics(text) {
   return text.split('\n').map(raw => {
     const tr = raw.trim();
-    if (!tr) return { type: 'blank', text: raw, words: [] };
-    if (/^\[.+\]$/.test(tr)) return { type: 'section', text: tr, words: [] };
-    // Lyric line: find word positions within raw string
+    if (!tr) return { type: 'blank', text: raw, words: [], indent: 0 };
+    if (/^\[.+\]/.test(tr)) return { type: 'section', text: tr, words: [], indent: 0 };
     const words = [...raw.matchAll(/\S+/g)].map(m => ({
-      id: wid(), text: m[0], off: m.index, chord: null,
+      id: wid(), text: m[0], off: m.index, chordOff: m.index, chord: null,
     }));
-    return { type: 'lyric', text: raw, words };
+    return { type: 'lyric', text: raw, words, indent: 0 };
   });
 }
 
@@ -630,20 +799,22 @@ function showStep(n) {
 
 function goStep1() { showStep(1); }
 
-function goStep2() {
-  const lyr = document.getElementById('lyrics-in').value;
-  if (!lyr.trim()) { alert('Please enter song lyrics.'); return; }
-
-  const manualRaw = document.getElementById('manual-chords').value.trim();
-  const chords = manualRaw
-    ? manualRaw.split(/[\s,]+/).map(normaliseChord).filter(c => CHORD_RE.test(c))
-    : [];
-
-  S.lines  = parseLyrics(lyr);
-  S.chords = chords;
-  S.cursor = 0;
-  S.history = [];
-
+// fromStep3=true means we're navigating back — don't re-parse, just save manual output
+function goStep2(fromStep3 = false) {
+  if (fromStep3) {
+    S.manualOutput = document.getElementById('out-box').value;
+  } else {
+    const lyr = document.getElementById('lyrics-in').value;
+    if (!lyr.trim()) { alert('Please enter song lyrics.'); return; }
+    const manualRaw = document.getElementById('manual-chords').value.trim();
+    S.chords  = manualRaw
+      ? manualRaw.split(/[\s,]+/).map(normaliseChord).filter(c => CHORD_RE.test(c))
+      : [];
+    S.lines   = parseLyrics(lyr);
+    S.cursor  = 0;
+    S.history = [];
+    S.manualOutput = null;
+  }
   renderMedia();
   renderQueue();
   renderEditor();
@@ -651,8 +822,18 @@ function goStep2() {
 }
 
 function goStep3() {
-  renderOutput();
+  const box = document.getElementById('out-box');
+  if (S.manualOutput !== null) {
+    box.value = S.manualOutput;
+  } else {
+    box.value = generateOutput();
+  }
   showStep(3);
+}
+
+function regenerateOutput() {
+  S.manualOutput = null;
+  document.getElementById('out-box').value = generateOutput();
 }
 
 // ─── Media player ─────────────────────────────────────────────────────────────
@@ -699,24 +880,29 @@ function renderQueue() {
 function jumpCursor(i) { S.cursor = i; renderQueue(); }
 
 function skipChord() {
-  if (S.cursor < S.chords.length) { S.cursor++; renderQueue(); }
+  if (S.cursor < S.chords.length) { S.cursor++; renderQueue(); schedulePush(); }
 }
 
 function undoLast() {
   if (!S.history.length) return;
-  const { wordId, prev, cursorWas } = S.history.pop();
-  const w = findWord(wordId);
-  if (w) w.chord = prev;
-  S.cursor = cursorWas;
-  renderQueue();
-  renderEditor();
+  const entry = S.history.pop();
+  if (entry.type === 'anchor') {
+    const line = S.lines[entry.li];
+    if (line) line.words = line.words.filter(w => w.id !== entry.wordId);
+  } else {
+    const w = findWord(entry.wordId);
+    if (w) w.chord = entry.prev;
+  }
+  S.cursor = entry.cursorWas;
+  S.manualOutput = null;
+  renderQueue(); renderEditor(); schedulePush();
 }
 
 function resetAll() {
   if (!confirm('Remove all chord placements?')) return;
-  S.lines.forEach(l => l.words.forEach(w => w.chord = null));
-  S.cursor = 0; S.history = [];
-  renderQueue(); renderEditor();
+  S.lines.forEach(l => { l.words = l.words.filter(w => w.text !== ''); l.words.forEach(w => w.chord = null); });
+  S.cursor = 0; S.history = []; S.manualOutput = null;
+  renderQueue(); renderEditor(); schedulePush();
 }
 
 function findWord(id) {
@@ -727,12 +913,20 @@ function findWord(id) {
 // ─── Lyrics editor ─────────────────────────────────────────────────────────────
 function renderEditor() {
   const el = document.getElementById('le');
-  const html = S.lines.map(l => {
-    if (l.type === 'blank')   return '<div class="ll-blank"></div>';
-    if (l.type === 'section') return `<div class="ll-section">${esc(l.text)}</div>`;
-    return `<div class="ll">
-      <div class="ll-chords">${buildChordLineHtml(l)}</div>
-      <div class="ll-words">${buildWordRowHtml(l)}</div>
+  const html = S.lines.map((l, li) => {
+    const chords = l.words && l.words.some(w => w.chord)
+      ? `<div class="ll-chords">${buildChordLineHtml(l)}</div>` : '';
+    if (l.type === 'blank') return `<div class="ll-blank" data-li="${li}">${chords}<span class="add-ch" data-li="${li}" title="Add chord here">+</span></div>`;
+    if (l.type === 'section') return `<div class="ll-section" data-li="${li}">${chords}<span class="ll-stxt">${esc(l.text)}</span><span class="add-ch" data-li="${li}" title="Add chord here">+</span></div>`;
+    return `<div class="ll" data-li="${li}">
+      <div class="ll-ctrl">
+        <button class="ic" onclick="indentLine(${li},-1)" title="Unindent">⇤</button>
+        <button class="ic" onclick="indentLine(${li},1)"  title="Indent">⇥</button>
+      </div>
+      <div class="ll-main">
+        <div class="ll-chords">${buildChordLineHtml(l)}</div>
+        <div class="ll-words">${buildWordRowHtml(l)}</div>
+      </div>
     </div>`;
   }).join('');
   el.innerHTML = html;
@@ -740,33 +934,80 @@ function renderEditor() {
     sp.addEventListener('click', e => { e.stopPropagation(); placeChord(sp.dataset.id); });
     sp.addEventListener('contextmenu', e => { e.preventDefault(); openPopup(sp.dataset.id, e); });
   });
+  el.querySelectorAll('.clp').forEach(sp => {
+    sp.addEventListener('click', e => { e.stopPropagation(); openPopup(sp.dataset.id, e); });
+  });
+  el.querySelectorAll('.lsp').forEach(sp => {
+    sp.addEventListener('click', e => {
+      e.stopPropagation();
+      const li = parseInt(e.target.closest('[data-li]').dataset.li);
+      placeChordAtOffset(li, parseInt(sp.dataset.off));
+    });
+  });
+  el.querySelectorAll('.add-ch').forEach(sp => {
+    sp.addEventListener('click', e => { e.stopPropagation(); placeChordAtOffset(parseInt(sp.dataset.li), 0); });
+  });
 }
 
 function buildChordLineHtml(line) {
-  const wc = line.words.filter(w => w.chord);
+  const indent = line.indent || 0;
+  const wc = line.words.filter(w => w.chord).sort((a,b) => (a.chordOff??a.off) - (b.chordOff??b.off));
   if (!wc.length) return ' ';
-  let s = '';
-  let lastEnd = 0;
+  let html = '';
+  let visPos = 0;
+  let minNext = 0;
   for (const w of wc) {
-    const pos = Math.max(lastEnd, w.off);
-    s = s.padEnd(pos) + w.chord;
-    lastEnd = s.length + 1;
+    const rawPos = w.chordOff ?? w.off;
+    const pos = indent + Math.max(minNext, rawPos);
+    const spaces = pos - visPos;
+    if (spaces > 0) { html += ' '.repeat(spaces); visPos += spaces; }
+    html += `<span class="clp" data-id="${w.id}" title="Click to edit chord/position">${esc(w.chord)}</span>`;
+    visPos += w.chord.length;
+    minNext = Math.max(minNext, rawPos) + w.chord.length + 1;
   }
-  return esc(s);
+  return html || ' ';
 }
 
 function buildWordRowHtml(line) {
   const raw = line.text;
-  let html = '';
+  const indent = line.indent || 0;
+  let html = indent > 0 ? ' '.repeat(indent) : '';
   let cur = 0;
-  for (const w of line.words) {
-    if (w.off > cur) html += esc(raw.slice(cur, w.off));
+  const realWords = line.words.filter(w => w.text !== '');
+  for (const w of realWords) {
+    for (let i = cur; i < w.off; i++) {
+      html += `<span class="lsp" data-off="${i}"> </span>`;
+    }
     html += `<span class="lw${w.chord ? ' hc' : ''}" data-id="${w.id}"
-      title="${w.chord ? 'Chord: ' + esc(w.chord) + ' — right-click to edit' : 'Click to place chord'}">${esc(w.text)}</span>`;
+      title="${w.chord ? 'Chord: ' + esc(w.chord) + ' — click chord above to edit' : 'Click to place chord'}">${esc(w.text)}</span>`;
     cur = w.off + w.text.length;
   }
-  if (cur < raw.length) html += esc(raw.slice(cur));
-  return html;
+  for (let i = cur; i < raw.length; i++) {
+    html += `<span class="lsp" data-off="${i}"> </span>`;
+  }
+  return html || ' ';
+}
+
+// ─── Anchor / offset chord placement ─────────────────────────────────────────
+function placeChordAtOffset(li, off) {
+  const line = S.lines[li];
+  if (!line) return;
+  const chord = S.chords[S.cursor] || null;
+  const anchor = { id: wid(), text: '', off, chordOff: off, chord };
+  S.history.push({ type: 'anchor', li, wordId: anchor.id, cursorWas: S.cursor });
+  line.words.push(anchor);
+  line.words.sort((a,b) => a.off - b.off);
+  if (chord) { S.cursor++; S.manualOutput = null; renderQueue(); renderEditor(); schedulePush(); }
+  else { renderEditor(); openPopup(anchor.id, null); }
+}
+
+// ─── Indent ───────────────────────────────────────────────────────────────────
+function indentLine(li, delta) {
+  const line = S.lines[li];
+  if (!line) return;
+  line.indent = Math.max(0, (line.indent || 0) + delta);
+  S.manualOutput = null;
+  renderEditor(); schedulePush();
 }
 
 // ─── Chord placement ──────────────────────────────────────────────────────────
@@ -777,9 +1018,10 @@ function placeChord(wordId) {
   if (!chord) { openPopup(wordId, null); return; }
   S.history.push({ wordId, prev: w.chord, cursorWas: S.cursor });
   w.chord = chord;
+  if (w.chordOff == null) w.chordOff = w.off;
   S.cursor++;
-  renderQueue();
-  renderEditor();
+  S.manualOutput = null;
+  renderQueue(); renderEditor(); schedulePush();
 }
 
 // ─── Popup ────────────────────────────────────────────────────────────────────
@@ -788,13 +1030,13 @@ function openPopup(wordId, e) {
   const w = findWord(wordId);
   const popup = document.getElementById('popup');
   document.getElementById('popup-in').value = w?.chord || '';
+  document.getElementById('pp-col').textContent = w ? (w.chordOff ?? w.off) : 0;
   popup.classList.remove('hidden');
   popup.style.transform = '';
-
   if (e) {
     let x = e.clientX, y = e.clientY + 10;
-    if (x + 200 > window.innerWidth) x = window.innerWidth - 205;
-    if (y + 110 > window.innerHeight) y = e.clientY - 115;
+    if (x + 210 > window.innerWidth) x = window.innerWidth - 215;
+    if (y + 130 > window.innerHeight) y = e.clientY - 135;
     popup.style.left = x + 'px'; popup.style.top = y + 'px';
   } else {
     popup.style.left = '50%'; popup.style.top = '38%';
@@ -803,19 +1045,37 @@ function openPopup(wordId, e) {
   document.getElementById('popup-in').focus();
 }
 
+function shiftChord(delta) {
+  if (!popupWid) return;
+  const w = findWord(popupWid);
+  if (!w) return;
+  w.chordOff = Math.max(0, (w.chordOff ?? w.off) + delta);
+  document.getElementById('pp-col').textContent = w.chordOff;
+  S.manualOutput = null;
+  renderEditor(); schedulePush();
+}
+
 function popupApply() {
   if (!popupWid) return;
   const w = findWord(popupWid);
   const val = document.getElementById('popup-in').value.trim();
-  if (w) w.chord = val || null;
-  popupClose(); renderEditor();
+  if (w) { w.chord = val || null; if (w.chordOff == null) w.chordOff = w.off; }
+  S.manualOutput = null;
+  popupClose(); renderEditor(); schedulePush();
 }
 
 function popupRemove() {
   if (!popupWid) return;
   const w = findWord(popupWid);
-  if (w) w.chord = null;
-  popupClose(); renderEditor();
+  if (w) {
+    if (w.text === '') {
+      for (const l of S.lines) l.words = l.words.filter(x => x.id !== popupWid);
+    } else {
+      w.chord = null;
+    }
+  }
+  S.manualOutput = null;
+  popupClose(); renderEditor(); schedulePush();
 }
 
 function popupClose() {
@@ -838,42 +1098,43 @@ document.addEventListener('click', e => {
 function generateOutput() {
   const rows = [];
   for (const l of S.lines) {
-    if (l.type === 'blank')   { rows.push(''); continue; }
-    if (l.type === 'section') { rows.push(l.text); continue; }
-
-    const wc = l.words.filter(w => w.chord);
-    if (wc.length) {
-      let cl = '';
-      let lastEnd = 0;
-      for (const w of wc) {
-        const pos = Math.max(lastEnd, w.off);
-        cl = cl.padEnd(pos) + w.chord;
-        lastEnd = cl.length + 1;
-      }
-      rows.push(cl);
+    const indent = '  '.repeat(l.indent || 0).slice(0, (l.indent||0)*2); // 2 spaces per indent level
+    const indentStr = ' '.repeat(l.indent || 0);
+    if (l.type === 'blank') {
+      const wc = l.words.filter(w => w.chord);
+      if (wc.length) { rows.push(buildChordStr(l)); }
+      rows.push('');
+      continue;
     }
-    rows.push(l.text);
+    if (l.type === 'section') {
+      const wc = l.words.filter(w => w.chord);
+      if (wc.length) rows.push(buildChordStr(l));
+      rows.push(l.text);
+      continue;
+    }
+    const wc = l.words.filter(w => w.chord);
+    if (wc.length) rows.push(buildChordStr(l));
+    rows.push(indentStr + l.text);
   }
   return rows.join('\n');
 }
 
-function renderOutput() {
-  const out = generateOutput();
-  // Highlight chord lines in the preview
-  const html = out.split('\n').map(line => {
-    const isChordLine = line.trim().length > 0
-      && /^[\sA-G#b0-9majinusdgaug]+$/.test(line)
-      && /[A-G]/.test(line)
-      && !/[a-f-h-z]/i.test(line.replace(/maj|min|aug|dim|sus|add|Em|Am|Bm|Dm|Fm|Gm/g,''));
-    return isChordLine
-      ? `<span class="oc">${esc(line)}</span>`
-      : esc(line);
-  }).join('\n');
-  document.getElementById('out-box').innerHTML = html;
+function buildChordStr(line) {
+  const indent = line.indent || 0;
+  const wc = line.words.filter(w => w.chord).sort((a,b) => (a.chordOff??a.off) - (b.chordOff??b.off));
+  let s = '';
+  let minNext = 0;
+  for (const w of wc) {
+    const pos = indent + Math.max(minNext, w.chordOff ?? w.off);
+    s = s.padEnd(pos) + w.chord;
+    minNext = Math.max(minNext, w.chordOff ?? w.off) + w.chord.length + 1;
+  }
+  return s;
 }
 
 function copyOut() {
-  navigator.clipboard.writeText(generateOutput()).then(() => {
+  const text = document.getElementById('out-box').value;
+  navigator.clipboard.writeText(text).then(() => {
     const f = document.getElementById('copy-flash');
     f.classList.add('vis');
     setTimeout(() => f.classList.remove('vis'), 2000);
@@ -881,7 +1142,7 @@ function copyOut() {
 }
 
 function downloadOut() {
-  const blob = new Blob([generateOutput()], { type: 'text/plain' });
+  const blob = new Blob([document.getElementById('out-box').value], { type: 'text/plain' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = 'chords.txt';
@@ -994,7 +1255,9 @@ Hold onto the ones who mean most to you
 document.getElementById('media-url').value =
   'https://open.spotify.com/track/17qjCe1YUGGooqqRow3DHD?si=xKx65IGbQIynFErR-owbHQ';
 
-showStep(1);
+pullFromGist().then(() => {
+  if (!S.lines.length) showStep(1);
+});
 </script>
 </body>
 </html>
