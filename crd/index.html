@@ -361,13 +361,12 @@ textarea:focus, input:focus { border-color: var(--accent); }
     gap: 8px;
   }
 
-  /* Chord pills scroll horizontally so the panel stays compact */
+  /* Chord pills wrap and the panel scrolls vertically — no horizontal bleed */
   #q-list {
-    white-space: nowrap;
-    overflow-x: auto;
+    max-height: 110px;
+    overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    line-height: 1;
-    padding-bottom: 4px;
+    line-height: 1.7;
   }
 
   /* Hide the verbose hint on small screens */
