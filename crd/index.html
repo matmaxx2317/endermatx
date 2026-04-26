@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>crd — chord aligner</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0d0d0d;
+  --bg2: #161616;
+  --bg3: #1e1e1e;
+  --bg4: #252525;
+  --text: #ddd;
+  --muted: #666;
+  --border: #2e2e2e;
+  --accent: #5ba3d0;
+  --green: #6dbf67;
+  --yellow: #f0b429;
+  --red: #d05b5b;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13px;
+  min-height: 100vh;
+}
+
+/* ── Header ── */
+.hdr {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.hdr h1 {
+  font-size: 17px;
+  letter-spacing: 2px;
+  color: var(--accent);
+}
+
+.hdr a {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 11px;
+}
+
+.hdr a:hover { color: var(--text); }
+
+.steps {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+  align-items: center;
+}
+
+.step-dot {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--muted);
+  transition: all 0.2s;
+}
+
+.step-dot.active { border-color: var(--accent); color: var(--accent); background: rgba(91,163,208,0.08); }
+.step-dot.done   { border-color: var(--green);  color: var(--green);  background: rgba(109,191,103,0.08); }
+.step-dot.sep    { border: none; color: var(--border); width: auto; font-size: 16px; }
+
+/* ── Content ── */
+.content {
+  max-width: 1140px;
+  margin: 0 auto;
+  padding: 22px 18px;
+}
+
+/* ── Panel ── */
+.panel {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 18px;
+  margin-bottom: 14px;
+}
+
+.panel-title {
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+
+/* ── Form controls ── */
+label { display: block; color: var(--muted); font-size: 11px; margin-bottom: 5px; }
+
+textarea, input[type="url"], input[type="text"] {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13px;
+  padding: 9px 10px;
+  border-radius: 3px;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+textarea:focus, input:focus { border-color: var(--accent); }
+
+/* ── Buttons ── */
+.btn {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 12px;
+  padding: 7px 14px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.btn:hover           { border-color: var(--accent); color: var(--accent); }
+.btn.p               { border-color: var(--accent); color: var(--accent); }
+.btn.g               { border-color: var(--green);  color: var(--green); }
+.btn.r               { border-color: var(--red);    color: var(--red); }
+.btn:disabled        { opacity: 0.4; cursor: default; }
+.btn:disabled:hover  { border-color: var(--border); color: var(--text); }
+
+.hidden { display: none !important; }
+
+/* ── Step 1 layout ── */
+.s1-grid {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 14px;
+}
+
+/* ── Upload area ── */
+.upload-box {
+  border: 1px dashed var(--border);
+  border-radius: 3px;
+  padding: 20px 14px;
+  text-align: center;
+  cursor: pointer;
+  background: var(--bg3);
+  transition: border-color 0.15s, color 0.15s;
+  position: relative;
+}
+
+.upload-box:hover, .upload-box.over { border-color: var(--accent); color: var(--accent); }
+.upload-box input[type="file"] { display: none; }
+#pdf-status { margin-top: 8px; font-size: 11px; color: var(--muted); }
+
+/* chord pill */
+.cpill {
+  display: inline-block;
+  background: var(--bg4);
+  border: 1px solid #3a3a3a;
+  border-radius: 3px;
+  padding: 1px 5px;
+  margin: 2px 1px;
+  font-size: 11px;
+  color: var(--accent);
+}
+
+.cpill.cur { border-color: var(--accent); background: rgba(91,163,208,0.12); font-weight: bold; }
+.cpill.done { opacity: 0.3; }
+
+/* ── Step 2 layout ── */
+.s2-grid {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 14px;
+}
+
+/* ── Chord queue sidebar ── */
+.q-panel {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 14px;
+  position: sticky;
+  top: 56px;
+  max-height: calc(100vh - 80px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.q-panel .panel-title { margin-bottom: 0; }
+
+#q-list { line-height: 1.8; }
+
+.q-btn-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+.q-btn-row .btn { width: 100%; text-align: center; }
+
+/* ── Lyrics editor ── */
+.le {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 18px 20px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 14px;
+}
+
+.ll { margin-bottom: 18px; }
+.ll-blank { margin-bottom: 8px; height: 8px; }
+.ll-section { color: var(--muted); font-style: italic; margin-bottom: 12px; }
+
+.ll-chords {
+  min-height: 18px;
+  white-space: pre;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: bold;
+  line-height: 1.4;
+  pointer-events: none;
+}
+
+.ll-words { white-space: pre-wrap; line-height: 1.6; }
+
+.lw {
+  display: inline;
+  cursor: pointer;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.1s, color 0.1s;
+}
+
+.lw:hover { border-bottom-color: var(--accent); color: var(--accent); }
+.lw.hc    { border-bottom-color: var(--green); color: var(--green); }
+
+/* ── Output ── */
+#out-box {
+  background: #0a0a0a;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 16px;
+  white-space: pre;
+  overflow-x: auto;
+  max-height: 70vh;
+  overflow-y: auto;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--text);
+}
+
+.oc { color: var(--accent); }
+
+/* ── Nav bar ── */
+.nav { display: flex; gap: 8px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); align-items: center; }
+.nav .spacer { flex: 1; }
+.status-flash { font-size: 11px; color: var(--green); opacity: 0; transition: opacity 0.3s; }
+.status-flash.vis { opacity: 1; }
+
+/* ── Popup ── */
+#popup {
+  position: fixed;
+  z-index: 200;
+  background: var(--bg2);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 10px;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.6);
+  min-width: 180px;
+}
+
+#popup input {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 15px;
+  padding: 6px 8px;
+  border-radius: 3px;
+  outline: none;
+}
+
+#popup input:focus { border-color: var(--accent); }
+#popup .pr { display: flex; gap: 5px; margin-top: 7px; }
+#popup .pr .btn { flex: 1; text-align: center; font-size: 11px; padding: 5px; }
+
+.hint { font-size: 11px; color: var(--muted); }
+
+/* ── Media ── */
+.media-wrap { margin-bottom: 12px; }
+.media-wrap iframe { width: 100%; border: 0; border-radius: 3px; display: block; }
+
+/* ── Toolbar ── */
+.toolbar { display: flex; gap: 8px; margin-bottom: 10px; align-items: center; }
+
+@media (max-width: 760px) {
+  .s1-grid { grid-template-columns: 1fr; }
+  .s2-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <h1>crd</h1>
+  <a href="../">← home</a>
+  <div class="steps">
+    <div class="step-dot active" id="dot1">1</div>
+    <div class="step-dot sep">›</div>
+    <div class="step-dot" id="dot2">2</div>
+    <div class="step-dot sep">›</div>
+    <div class="step-dot" id="dot3">3</div>
+  </div>
+</div>
+
+<div class="content">
+
+<!-- ═══════════════════ STEP 1: INPUT ═══════════════════ -->
+<div id="s1">
+  <div class="s1-grid">
+
+    <!-- Lyrics -->
+    <div class="panel">
+      <div class="panel-title">Song Lyrics</div>
+      <label>Paste the full lyrics. Use [Section] headers on their own lines.</label>
+      <textarea id="lyrics-in" rows="22" placeholder="[Intro]
+
+[Verse]
+I will love you until
+the last star explodes.
+I will love you until
+the red desert snows.
+
+[Chorus]
+..."></textarea>
+    </div>
+
+    <!-- Right column -->
+    <div>
+      <!-- PDF upload -->
+      <div class="panel">
+        <div class="panel-title">Chord Chart PDF</div>
+        <label>Upload a Chordify export PDF — chords are extracted automatically.</label>
+        <div class="upload-box" id="pdf-drop" onclick="document.getElementById('pdf-file').click()">
+          <input type="file" id="pdf-file" accept=".pdf">
+          <div id="pdf-label" style="font-size:12px">Drop PDF here or click to browse</div>
+          <div id="pdf-status"></div>
+        </div>
+        <div class="hint" style="margin-top:8px">Or enter the chord sequence manually below.</div>
+      </div>
+
+      <!-- Manual chord entry -->
+      <div class="panel">
+        <div class="panel-title">Manual Chord Entry</div>
+        <label>Space or comma-separated chord names (overrides PDF if non-empty)</label>
+        <textarea id="manual-chords" rows="4" placeholder="G G C G D G C G D G Em D C G Em D C D C Em D C G C Em D G C Em D G"></textarea>
+      </div>
+
+      <!-- Reference link -->
+      <div class="panel">
+        <div class="panel-title">Reference Link (optional)</div>
+        <label>YouTube or Spotify URL — displayed as a player during alignment</label>
+        <input type="url" id="media-url" placeholder="https://www.youtube.com/watch?v=...">
+      </div>
+    </div>
+  </div>
+
+  <div class="nav">
+    <button class="btn p" onclick="goStep2()">Next: Align Chords →</button>
+  </div>
+</div>
+
+
+<!-- ═══════════════════ STEP 2: ALIGN ═══════════════════ -->
+<div id="s2" class="hidden">
+  <div id="media-wrap"></div>
+
+  <div class="s2-grid">
+
+    <!-- Chord queue -->
+    <div class="q-panel" id="q-panel">
+      <div class="panel-title">Chord Queue</div>
+      <div id="q-list"></div>
+      <div class="hint">Click a word to place the highlighted chord. Right-click a word to edit or remove its chord.</div>
+      <div class="q-btn-row">
+        <button class="btn" onclick="skipChord()">Skip →</button>
+        <button class="btn" onclick="undoLast()">← Undo</button>
+        <button class="btn r" onclick="resetAll()" style="margin-top:4px">Reset All</button>
+      </div>
+    </div>
+
+    <!-- Lyrics editor -->
+    <div class="le" id="le"></div>
+
+  </div>
+
+  <div class="nav">
+    <button class="btn" onclick="goStep1()">← Back</button>
+    <div class="spacer"></div>
+    <button class="btn p" onclick="goStep3()">Export →</button>
+  </div>
+</div>
+
+
+<!-- ═══════════════════ STEP 3: EXPORT ═══════════════════ -->
+<div id="s3" class="hidden">
+  <div class="panel">
+    <div class="panel-title">Ultimate Guitar Output</div>
+    <div class="toolbar">
+      <button class="btn g" onclick="copyOut()">Copy to Clipboard</button>
+      <button class="btn"   onclick="downloadOut()">Download .txt</button>
+      <span class="status-flash" id="copy-flash">Copied!</span>
+    </div>
+    <div id="out-box"></div>
+  </div>
+
+  <div class="nav">
+    <button class="btn" onclick="goStep2()">← Back to Align</button>
+  </div>
+</div>
+
+</div><!-- /content -->
+
+
+<!-- ═══ Chord edit popup ═══ -->
+<div id="popup" class="hidden">
+  <input type="text" id="popup-in" placeholder="Chord (e.g. G, Em, Cmaj7)">
+  <div class="pr">
+    <button class="btn g" onclick="popupApply()">Apply</button>
+    <button class="btn r" onclick="popupRemove()">Remove</button>
+    <button class="btn"   onclick="popupClose()">Cancel</button>
+  </div>
+</div>
+
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// ─── State ────────────────────────────────────────────────────────────────────
+const S = {
+  lines:   [],    // parsed line objects
+  chords:  [],    // chord queue
+  cursor:  0,     // position in chord queue
+  history: [],    // undo stack: [{wordId, prev, cursorWas}]
+};
+
+let popupWid = null;
+let wordSeq  = 0;
+const wid = () => 'w' + (++wordSeq);
+
+// ─── Chord regex ─────────────────────────────────────────────────────────────
+// Matches common chord names: G, Em, Cmaj7, Bb, F#m, Gsus4, Dadd9, etc.
+const CHORD_RE = /^[A-G][#b]?(maj7?|m(aj7?|in)?|aug|dim7?|sus[24]?|add9?|[679]|11|13)?$/;
+
+function normaliseChord(s) {
+  return s.replace(/♭/g, 'b').replace(/♯/g, '#').replace(/△/g, 'maj').replace(/°/g, 'dim');
+}
+
+// ─── PDF extraction ───────────────────────────────────────────────────────────
+const pdfDrop = document.getElementById('pdf-drop');
+document.getElementById('pdf-file').addEventListener('change', e => {
+  if (e.target.files[0]) loadPdf(e.target.files[0]);
+});
+pdfDrop.addEventListener('dragover', e => { e.preventDefault(); pdfDrop.classList.add('over'); });
+pdfDrop.addEventListener('dragleave', () => pdfDrop.classList.remove('over'));
+pdfDrop.addEventListener('drop', e => {
+  e.preventDefault(); pdfDrop.classList.remove('over');
+  if (e.dataTransfer.files[0]) loadPdf(e.dataTransfer.files[0]);
+});
+
+async function loadPdf(file) {
+  document.getElementById('pdf-label').textContent = 'Reading…';
+  document.getElementById('pdf-status').innerHTML = '';
+  try {
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    const items = [];
+
+    for (let pn = 1; pn <= pdf.numPages; pn++) {
+      const page = await pdf.getPage(pn);
+      const vp   = page.getViewport({ scale: 1 });
+      const tc   = await page.getTextContent();
+      for (const it of tc.items) {
+        const s = it.str.trim();
+        if (!s) continue;
+        items.push({
+          s,
+          x: it.transform[4],
+          y: vp.height - it.transform[5], // flip to top-down
+          p: pn,
+        });
+      }
+    }
+
+    // Sort: page → row (8pt tolerance) → x
+    items.sort((a, b) => {
+      if (a.p !== b.p) return a.p - b.p;
+      const rd = Math.round((a.y - b.y) / 8);
+      return rd !== 0 ? rd : a.x - b.x;
+    });
+
+    const chords = [];
+    for (const it of items) {
+      for (const tok of it.s.split(/\s+/)) {
+        const n = normaliseChord(tok);
+        if (CHORD_RE.test(n)) chords.push(n);
+      }
+    }
+
+    if (chords.length === 0) {
+      document.getElementById('pdf-label').textContent = 'No chords found.';
+    } else {
+      document.getElementById('pdf-label').textContent =
+        `${file.name} — ${chords.length} chords found`;
+      document.getElementById('pdf-status').innerHTML =
+        chords.slice(0, 48).map(c => `<span class="cpill">${esc(c)}</span>`).join('') +
+        (chords.length > 48 ? `<span class="cpill">+${chords.length - 48}</span>` : '');
+      // Populate manual field so user can review/edit
+      document.getElementById('manual-chords').value = chords.join(' ');
+    }
+  } catch (err) {
+    document.getElementById('pdf-label').textContent = 'Error: ' + err.message;
+  }
+}
+
+// ─── Lyric parsing ─────────────────────────────────────────────────────────────
+function parseLyrics(text) {
+  return text.split('\n').map(raw => {
+    const tr = raw.trim();
+    if (!tr) return { type: 'blank', text: raw, words: [] };
+    if (/^\[.+\]$/.test(tr)) return { type: 'section', text: tr, words: [] };
+    // Lyric line: find word positions within raw string
+    const words = [...raw.matchAll(/\S+/g)].map(m => ({
+      id: wid(), text: m[0], off: m.index, chord: null,
+    }));
+    return { type: 'lyric', text: raw, words };
+  });
+}
+
+// ─── Step navigation ──────────────────────────────────────────────────────────
+function showStep(n) {
+  ['s1','s2','s3'].forEach((id, i) =>
+    document.getElementById(id).classList.toggle('hidden', i + 1 !== n));
+  ['dot1','dot2','dot3'].forEach((id, i) => {
+    const el = document.getElementById(id);
+    el.classList.remove('active','done');
+    if (i + 1 < n) el.classList.add('done');
+    else if (i + 1 === n) el.classList.add('active');
+  });
+}
+
+function goStep1() { showStep(1); }
+
+function goStep2() {
+  const lyr = document.getElementById('lyrics-in').value;
+  if (!lyr.trim()) { alert('Please enter song lyrics.'); return; }
+
+  const manualRaw = document.getElementById('manual-chords').value.trim();
+  const chords = manualRaw
+    ? manualRaw.split(/[\s,]+/).map(normaliseChord).filter(c => CHORD_RE.test(c))
+    : [];
+
+  S.lines  = parseLyrics(lyr);
+  S.chords = chords;
+  S.cursor = 0;
+  S.history = [];
+
+  renderMedia();
+  renderQueue();
+  renderEditor();
+  showStep(2);
+}
+
+function goStep3() {
+  renderOutput();
+  showStep(3);
+}
+
+// ─── Media player ─────────────────────────────────────────────────────────────
+function renderMedia() {
+  const url = document.getElementById('media-url').value.trim();
+  const wrap = document.getElementById('media-wrap');
+  if (!url) { wrap.innerHTML = ''; return; }
+
+  const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+  const sp = url.match(/open\.spotify\.com\/(track|album|playlist)\/([A-Za-z0-9]+)/);
+
+  if (yt) {
+    wrap.innerHTML =
+      `<div class="media-wrap"><iframe height="100"
+        src="https://www.youtube.com/embed/${yt[1]}?autoplay=0"
+        allow="encrypted-media" allowfullscreen></iframe></div>`;
+  } else if (sp) {
+    wrap.innerHTML =
+      `<div class="media-wrap"><iframe height="80"
+        src="https://open.spotify.com/embed/${sp[1]}/${sp[2]}"
+        allow="encrypted-media"></iframe></div>`;
+  } else {
+    wrap.innerHTML = '';
+  }
+}
+
+// ─── Chord queue ──────────────────────────────────────────────────────────────
+function renderQueue() {
+  const el = document.getElementById('q-list');
+  if (!S.chords.length) {
+    el.innerHTML = '<div class="hint">No chord queue loaded.<br>Click any word to type a chord manually.</div>';
+    return;
+  }
+  el.innerHTML = S.chords.map((c, i) => {
+    let cls = 'cpill';
+    if (i < S.cursor)       cls += ' done';
+    else if (i === S.cursor) cls += ' cur';
+    return `<span class="${cls}" onclick="jumpCursor(${i})" title="${i < S.cursor ? 'already used — click to rewind' : ''}">${esc(c)}</span>`;
+  }).join('');
+  const cur = el.querySelector('.cur');
+  if (cur) cur.scrollIntoView({ block: 'nearest' });
+}
+
+function jumpCursor(i) { S.cursor = i; renderQueue(); }
+
+function skipChord() {
+  if (S.cursor < S.chords.length) { S.cursor++; renderQueue(); }
+}
+
+function undoLast() {
+  if (!S.history.length) return;
+  const { wordId, prev, cursorWas } = S.history.pop();
+  const w = findWord(wordId);
+  if (w) w.chord = prev;
+  S.cursor = cursorWas;
+  renderQueue();
+  renderEditor();
+}
+
+function resetAll() {
+  if (!confirm('Remove all chord placements?')) return;
+  S.lines.forEach(l => l.words.forEach(w => w.chord = null));
+  S.cursor = 0; S.history = [];
+  renderQueue(); renderEditor();
+}
+
+function findWord(id) {
+  for (const l of S.lines) for (const w of l.words) if (w.id === id) return w;
+  return null;
+}
+
+// ─── Lyrics editor ─────────────────────────────────────────────────────────────
+function renderEditor() {
+  const el = document.getElementById('le');
+  const html = S.lines.map(l => {
+    if (l.type === 'blank')   return '<div class="ll-blank"></div>';
+    if (l.type === 'section') return `<div class="ll-section">${esc(l.text)}</div>`;
+    return `<div class="ll">
+      <div class="ll-chords">${buildChordLineHtml(l)}</div>
+      <div class="ll-words">${buildWordRowHtml(l)}</div>
+    </div>`;
+  }).join('');
+  el.innerHTML = html;
+  el.querySelectorAll('.lw').forEach(sp => {
+    sp.addEventListener('click', e => { e.stopPropagation(); placeChord(sp.dataset.id); });
+    sp.addEventListener('contextmenu', e => { e.preventDefault(); openPopup(sp.dataset.id, e); });
+  });
+}
+
+function buildChordLineHtml(line) {
+  const wc = line.words.filter(w => w.chord);
+  if (!wc.length) return ' ';
+  let s = '';
+  let lastEnd = 0;
+  for (const w of wc) {
+    const pos = Math.max(lastEnd, w.off);
+    s = s.padEnd(pos) + w.chord;
+    lastEnd = s.length + 1;
+  }
+  return esc(s);
+}
+
+function buildWordRowHtml(line) {
+  const raw = line.text;
+  let html = '';
+  let cur = 0;
+  for (const w of line.words) {
+    if (w.off > cur) html += esc(raw.slice(cur, w.off));
+    html += `<span class="lw${w.chord ? ' hc' : ''}" data-id="${w.id}"
+      title="${w.chord ? 'Chord: ' + esc(w.chord) + ' — right-click to edit' : 'Click to place chord'}">${esc(w.text)}</span>`;
+    cur = w.off + w.text.length;
+  }
+  if (cur < raw.length) html += esc(raw.slice(cur));
+  return html;
+}
+
+// ─── Chord placement ──────────────────────────────────────────────────────────
+function placeChord(wordId) {
+  const w = findWord(wordId);
+  if (!w) return;
+  const chord = S.chords[S.cursor] || null;
+  if (!chord) { openPopup(wordId, null); return; }
+  S.history.push({ wordId, prev: w.chord, cursorWas: S.cursor });
+  w.chord = chord;
+  S.cursor++;
+  renderQueue();
+  renderEditor();
+}
+
+// ─── Popup ────────────────────────────────────────────────────────────────────
+function openPopup(wordId, e) {
+  popupWid = wordId;
+  const w = findWord(wordId);
+  const popup = document.getElementById('popup');
+  document.getElementById('popup-in').value = w?.chord || '';
+  popup.classList.remove('hidden');
+  popup.style.transform = '';
+
+  if (e) {
+    let x = e.clientX, y = e.clientY + 10;
+    if (x + 200 > window.innerWidth) x = window.innerWidth - 205;
+    if (y + 110 > window.innerHeight) y = e.clientY - 115;
+    popup.style.left = x + 'px'; popup.style.top = y + 'px';
+  } else {
+    popup.style.left = '50%'; popup.style.top = '38%';
+    popup.style.transform = 'translate(-50%,-50%)';
+  }
+  document.getElementById('popup-in').focus();
+}
+
+function popupApply() {
+  if (!popupWid) return;
+  const w = findWord(popupWid);
+  const val = document.getElementById('popup-in').value.trim();
+  if (w) w.chord = val || null;
+  popupClose(); renderEditor();
+}
+
+function popupRemove() {
+  if (!popupWid) return;
+  const w = findWord(popupWid);
+  if (w) w.chord = null;
+  popupClose(); renderEditor();
+}
+
+function popupClose() {
+  document.getElementById('popup').classList.add('hidden');
+  popupWid = null;
+}
+
+document.getElementById('popup-in').addEventListener('keydown', e => {
+  if (e.key === 'Enter') popupApply();
+  if (e.key === 'Escape') popupClose();
+});
+
+document.addEventListener('click', e => {
+  const popup = document.getElementById('popup');
+  if (!popup.classList.contains('hidden') && !e.target.closest('#popup') && !e.target.closest('.lw'))
+    popupClose();
+});
+
+// ─── Output ───────────────────────────────────────────────────────────────────
+function generateOutput() {
+  const rows = [];
+  for (const l of S.lines) {
+    if (l.type === 'blank')   { rows.push(''); continue; }
+    if (l.type === 'section') { rows.push(l.text); continue; }
+
+    const wc = l.words.filter(w => w.chord);
+    if (wc.length) {
+      let cl = '';
+      let lastEnd = 0;
+      for (const w of wc) {
+        const pos = Math.max(lastEnd, w.off);
+        cl = cl.padEnd(pos) + w.chord;
+        lastEnd = cl.length + 1;
+      }
+      rows.push(cl);
+    }
+    rows.push(l.text);
+  }
+  return rows.join('\n');
+}
+
+function renderOutput() {
+  const out = generateOutput();
+  // Highlight chord lines in the preview
+  const html = out.split('\n').map(line => {
+    const isChordLine = line.trim().length > 0
+      && /^[\sA-G#b0-9majinusdgaug]+$/.test(line)
+      && /[A-G]/.test(line)
+      && !/[a-f-h-z]/i.test(line.replace(/maj|min|aug|dim|sus|add|Em|Am|Bm|Dm|Fm|Gm/g,''));
+    return isChordLine
+      ? `<span class="oc">${esc(line)}</span>`
+      : esc(line);
+  }).join('\n');
+  document.getElementById('out-box').innerHTML = html;
+}
+
+function copyOut() {
+  navigator.clipboard.writeText(generateOutput()).then(() => {
+    const f = document.getElementById('copy-flash');
+    f.classList.add('vis');
+    setTimeout(() => f.classList.remove('vis'), 2000);
+  });
+}
+
+function downloadOut() {
+  const blob = new Blob([generateOutput()], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'chords.txt';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ─── Utility ──────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+showStep(1);
+</script>
+</body>
+</html>
