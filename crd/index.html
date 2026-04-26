@@ -317,8 +317,56 @@ textarea:focus, input:focus { border-color: var(--accent); }
 .toolbar { display: flex; gap: 8px; margin-bottom: 10px; align-items: center; }
 
 @media (max-width: 760px) {
+  .content { padding: 12px 10px; }
+
+  /* Step 1 */
   .s1-grid { grid-template-columns: 1fr; }
+
+  /* Step 2: stack chord panel above lyrics */
   .s2-grid { grid-template-columns: 1fr; }
+
+  .q-panel {
+    position: static;       /* no sticky — it sat at the top consuming 90vh */
+    max-height: none;
+    overflow: visible;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* Chord pills scroll horizontally so the panel stays compact */
+  #q-list {
+    white-space: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    line-height: 1;
+    padding-bottom: 4px;
+  }
+
+  /* Hide the verbose hint on small screens */
+  .q-panel > .hint { display: none; }
+
+  /* Buttons in a row instead of a column */
+  .q-btn-row {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .q-btn-row .btn {
+    flex: 1;
+    min-width: 0;
+    font-size: 11px;
+    padding: 6px 6px;
+    text-align: center;
+    width: auto;
+  }
+
+  /* Lyrics editor: smaller font + padding on mobile */
+  .le {
+    padding: 12px 10px;
+    font-size: 13px;
+  }
+
+  .ll { margin-bottom: 14px; }
+  .ll-chords { font-size: 12px; }
 }
 </style>
 </head>
@@ -639,7 +687,7 @@ function renderQueue() {
     return `<span class="${cls}" onclick="jumpCursor(${i})" title="${i < S.cursor ? 'already used — click to rewind' : ''}">${esc(c)}</span>`;
   }).join('');
   const cur = el.querySelector('.cur');
-  if (cur) cur.scrollIntoView({ block: 'nearest' });
+  if (cur) cur.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 }
 
 function jumpCursor(i) { S.cursor = i; renderQueue(); }
