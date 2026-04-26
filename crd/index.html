@@ -917,7 +917,7 @@ function renderEditor() {
     const chords = l.words && l.words.some(w => w.chord)
       ? `<div class="ll-chords">${buildChordLineHtml(l)}</div>` : '';
     if (l.type === 'blank') return `<div class="ll-blank" data-li="${li}">${chords}<span class="add-ch" data-li="${li}" title="Add chord here">+</span></div>`;
-    if (l.type === 'section') return `<div class="ll-section" data-li="${li}">${chords}<span class="ll-stxt">${esc(l.text)}</span><span class="add-ch" data-li="${li}" title="Add chord here">+</span></div>`;
+    if (l.type === 'section') return `<div class="ll-section" data-li="${li}">${chords}<span class="ll-stxt">${esc(l.text)}</span></div>`;
     return `<div class="ll" data-li="${li}">
       <div class="ll-ctrl">
         <button class="ic" onclick="indentLine(${li},-1)" title="Unindent">⇤</button>
