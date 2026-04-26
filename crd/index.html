@@ -525,10 +525,11 @@ async function loadPdf(file) {
 
     const chords = [];
     for (const it of items) {
-      for (const tok of it.s.split(/\s+/)) {
-        const n = normaliseChord(tok);
-        if (CHORD_RE.test(n)) chords.push(n);
-      }
+      // Match the whole text item — chord labels in Chordify PDFs are each their
+      // own text element, so splitting by whitespace would pick up stray letters
+      // from prose like "Transposed from B to C (1 semitone up)".
+      const n = normaliseChord(it.s.trim());
+      if (CHORD_RE.test(n)) chords.push(n);
     }
 
     if (chords.length === 0) {
