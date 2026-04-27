@@ -203,7 +203,7 @@ transition: color 0.3s;
 }
 
 .timer-display.running { color: #f0f0f0; }
-.timer-display.running.test { color: #ffd56b; }
+.timer-display.test { color: #ffd56b; }
 
 .btn-control {
 padding: 10px 22px;
@@ -1337,6 +1337,7 @@ function toggleTestMode() {
   btn.textContent = 'TEST MODE: ' + (testMode ? 'ON' : 'OFF');
   btn.style.color = testMode ? '#ffd56b' : '#555';
   btn.style.borderColor = testMode ? '#ffd56b' : '#1e1e1e';
+  document.getElementById('timerDisplay').classList.toggle('test', testMode);
 }
 
 // ---- REPORT ----
@@ -1726,12 +1727,13 @@ function escHtml(s) {
 
 async function init() {
   loadCredentials();
-  // Reflect persisted test mode state on the button.
+  // Reflect persisted test mode state on button and timer display.
   if (testMode) {
     const btn = document.getElementById('testModeBtn');
     btn.textContent = 'TEST MODE: ON';
     btn.style.color = '#ffd56b';
     btn.style.borderColor = '#ffd56b';
+    document.getElementById('timerDisplay').classList.add('test');
   }
   if (state.projects.length === 0) {
     DEFAULTS.forEach(function(name, i) {
