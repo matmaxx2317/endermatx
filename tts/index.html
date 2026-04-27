@@ -277,7 +277,7 @@ font-family: inherit;
 cursor: pointer;
 text-align: left;
 transition: border-color 0.15s, background 0.15s;
-min-height: 72px;
+min-height: 110px;
 display: flex;
 flex-direction: column;
 justify-content: space-between;
@@ -311,16 +311,36 @@ word-break: break-word;
 
 .proj-btn.active-project .proj-btn-name { color: #fff; }
 
-.proj-btn-time {
-font-size: 11px;
-color: #ccc;
+.proj-times {
 padding-left: 8px;
-font-variant-numeric: tabular-nums;
 margin-top: 8px;
-min-height: 14px;
+display: flex;
+flex-direction: column;
+gap: 3px;
 }
 
-.proj-btn.active-project .proj-btn-time { color: #7effa0; }
+.proj-time-row {
+display: flex;
+justify-content: space-between;
+align-items: baseline;
+}
+
+.proj-time-label {
+font-size: 9px;
+letter-spacing: 0.12em;
+text-transform: uppercase;
+color: #444;
+}
+
+.proj-time-val {
+font-size: 11px;
+color: #555;
+font-variant-numeric: tabular-nums;
+}
+
+.proj-btn.active-project .proj-time-label { color: #666; }
+.proj-btn.active-project .proj-time-val { color: #999; }
+.proj-btn.active-project .proj-time-ctx { color: #7effa0; }
 
 .section { width: 100%; max-width: 560px; margin-top: 40px; }
 
@@ -1177,40 +1197,63 @@ function renderGrid() {
     grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1">Add projects below to get started.</div>';
     return;
   }
-  const sorted = active.slice().sort(function(a,b) { return getProjectTotal(b.id) - getProjectTotal(a.id); });
+  const sorted = active.slice().sort(function(a,b) { return getOverallTotal(b.id) - getOverallTotal(a.id); });
   grid.innerHTML = sorted.map(function(p) {
     const isActive = state.timerRunning && state.activeProjectId === p.id;
     const isInactive = !state.timerRunning;
-    const total = getProjectTotal(p.id);
-    const timeStr = total > 0 ? formatDurationShort(total) : '';
     const borderStyle = isActive ? 'border-color:' + p.color + ';' : '';
+    const ctxSec = getSegmentTime(p.id);
+    const daySec = getDayTotal(p.id);
+    const allSec = getOverallTotal(p.id);
+    const ctxStr = ctxSec !== null ? formatDurationShort(ctxSec) : '--';
+    const dayStr = daySec > 0 ? formatDurationShort(daySec) : '--';
+    const allStr = allSec > 0 ? formatDurationShort(allSec) : '--';
     return '<button class="proj-btn' + (isActive ? ' active-project' : '') + (isInactive ? ' inactive' : '') +
       '" style="' + borderStyle + '" onclick="selectProject(' + p.id + ')" id="pgrid_' + p.id + '">' +
       '<div class="proj-btn-bar" style="background:' + p.color + '"></div>' +
       '<span class="proj-btn-now">NOW</span>' +
       '<div class="proj-btn-name">' + escHtml(p.name) + '</div>' +
-      '<div class="proj-btn-time" id="pgtime_' + p.id + '">' + timeStr + '</div>' +
+      '<div class="proj-times">' +
+        '<div class="proj-time-row"><span class="proj-time-label">ctx</span><span class="proj-time-val proj-time-ctx" id="pgctx_' + p.id + '">' + ctxStr + '</span></div>' +
+        '<div class="proj-time-row"><span class="proj-time-label">day</span><span class="proj-time-val">' + dayStr + '</span></div>' +
+        '<div class="proj-time-row"><span class="proj-time-label">all</span><span class="proj-time-val">' + allStr + '</span></div>' +
+      '</div>' +
       '</button>';
   }).join('');
 }
 
 function updateGridTimes() {
-  state.projects.forEach(function(p) {
-    const el = document.getElementById('pgtime_' + p.id);
-    if (!el) return;
-    const total = getProjectTotal(p.id);
-    el.textContent = total > 0 ? formatDurationShort(total) : '';
-  });
+  if (!state.timerRunning || !state.activeProjectId || !state.activeSegmentStart) return;
+  const el = document.getElementById('pgctx_' + state.activeProjectId);
+  if (!el) return;
+  const realSec = (Date.now() - state.activeSegmentStart) / 1000;
+  el.textContent = formatDurationShort(Math.floor(testMode ? realSec * TEST_MULTIPLIER : realSec));
+}
+
+function getSegmentTime(id) {
+  if (state.timerRunning && state.activeProjectId === id && state.activeSegmentStart) {
+    const realSec = (Date.now() - state.activeSegmentStart) / 1000;
+    return Math.floor(testMode ? realSec * TEST_MULTIPLIER : realSec);
+  }
+  const last = state.entries.filter(function(e) { return e.projectId === id && isToday(e.start); })
+    .sort(function(a, b) { return a.start - b.start; });
+  return last.length > 0 ? last[last.length - 1].duration : null;
+}
+
+function getDayTotal(id) {
+  return state.entries.filter(function(e) { return e.projectId === id && isToday(e.start); })
+    .reduce(function(s, e) { return s + e.duration; }, 0);
+}
+
+function getOverallTotal(id) {
+  return state.entries.filter(function(e) { return e.projectId === id; })
+    .reduce(function(s, e) { return s + e.duration; }, 0);
 }
 
 function getProjectTotal(id) {
-  let total = state.entries.filter(function(e) { return e.projectId === id; })
-    .reduce(function(s, e) { return s + e.duration; }, 0);
-  if (state.timerRunning && state.activeProjectId === id && state.activeSegmentStart) {
-    const realSec = (Date.now() - state.activeSegmentStart) / 1000;
-    total += Math.floor(testMode ? realSec * TEST_MULTIPLIER : realSec);
-  }
-  return total;
+  return getOverallTotal(id) + (state.timerRunning && state.activeProjectId === id && state.activeSegmentStart
+    ? Math.floor((Date.now() - state.activeSegmentStart) / 1000 * (testMode ? TEST_MULTIPLIER : 1))
+    : 0);
 }
 
 function renderAll() {
