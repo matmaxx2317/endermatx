@@ -14,7 +14,20 @@ Push to `main` → GitHub Pages deploys automatically. The root `index.html` pol
 deploy: <path/to/file> - DD.MM.YYYY HH:MM
 ```
 
-The `deploy/index.html` tool is a browser-based UI for committing files directly via the GitHub API (useful for quick edits without git).
+## Site structure
+
+Navigation is three levels deep:
+
+```
+index.html              ← landing page (enderman animation + category cards)
+  productivity/         ← category page → tts, cal, pom, mtg
+  personal/             ← category page → str, crd
+  games/                ← category page (placeholder, "coming soon")
+```
+
+The landing page and category pages share a common visual language: background `#2a2a2a`, monospace font, single-column card grid, stacked 3-line uppercase `<h1>`. Category pages have a ← back card as the first nav item.
+
+The landing page includes a CSS-animated enderman that walks across the page at variable speed and teleports every 3–5 seconds with purple particles (`#cc00ee`).
 
 ## Architecture: shared patterns across all tools
 
@@ -43,24 +56,35 @@ Each tool keeps a single `state` (or `data`) object in memory. Mutations happen 
 
 ### UI conventions
 
-- Background: `#0d0d0d` or `#0e0e0e`; font: `'Courier New', Courier, monospace`
-- Sync status shown in a fixed top bar with color-coded states: syncing (yellow), synced (green/tool-color), error (red)
+- Landing/category pages: background `#2a2a2a`; tool pages: background `#0d0d0d` or `#0e0e0e`; font everywhere: `'Courier New', Courier, monospace`
+- Sync status shown in a fixed top bar (`#syncBar`) with color-coded states: syncing (yellow), synced (green/tool-color), error (red). Left side shows tool name + version; right side shows status dot + "Setup" button.
 - HTML escaping uses an inline `escHtml()` / `esc()` helper — always use it when rendering user-supplied strings into innerHTML
 - IDs use numeric timestamps (`Date.now()`) as unique identifiers for projects/entries/meetings/guitars
 
 ## Tools reference
 
+### Productivity (`productivity/`)
+
 - **tts** (`tts/`) — Time tracker. Projects with colored labels; tracks time segments per project per session. Reports: week/month/all-time bar charts, heatmap (project × weekday), context-switch analysis.
 - **cal** (`cal/`) — Calendar. Month tiles across a configurable date range. Project timelines overlaid as colored date ranges. Holiday overlays for DE, AT, US, GB, FR, CN, JP (computed via Easter algorithm + fixed dates).
 - **pom** (`pom/`) — Pomodoro. 25-min work / 5-min break cycles. Timer state persists to Gist every 60 ticks so it survives page reloads. Snarky message pool in `MESSAGES` object, randomized via `pick()`.
 - **mtg** (`mtg/`) — Meeting notes. Meetings with title, date, attendees, freeform notes, and action items. "Summarize" generates a plain-text summary locally (no AI). Cross-meeting actions view with open/done/all filter.
+
+### Personal (`personal/`)
+
 - **str** (`str/`) — String tracker. Tracks guitar string change dates with per-guitar thresholds (default 30 days). Status colors: fresh (< 3 days), warn-yellow (≥ 75% of threshold), warn-red (≥ threshold or never changed).
+- **crd** (`crd/`) — Chord aligner. Paste lyrics + a reference audio URL; auto-aligns chord annotations to lyric positions.
+
+### Games (`games/`)
+
+Placeholder, currently empty ("coming soon").
 
 ## Adding a new tool
 
-1. Create `<name>/index.html` following the existing pattern (fixed sync bar, setup modal, Gist sync functions, `schedulePush` debounce).
+1. Create `<name>/index.html` following the existing pattern (fixed `#syncBar`, setup modal, Gist sync functions, `schedulePush` debounce).
 2. Choose a new `localStorage` key prefix to avoid collisions.
-3. Add a `.card` entry to the root `index.html` nav grid with the next sequential label number.
+3. Add a `.card` entry to the appropriate category page (`productivity/index.html`, `personal/index.html`, or `games/index.html`) with the next sequential label number.
+4. The root `index.html` only lists categories — no changes needed there unless a new category is added.
 
 ## No build, lint, or test commands
 
