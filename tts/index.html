@@ -862,6 +862,7 @@ let gistId = '';
 let tickInterval = null;
 let syncTimeout = null;
 let testMode = localStorage.getItem('tt_testmode') === '1';
+let cardOrder = null; // frozen project ID order while timer is running
 
 const TEST_MULTIPLIER = 600; // 1 real second = 10 fictional minutes
 
@@ -1020,6 +1021,8 @@ function toggleTimer() {
 }
 
 function startAll() {
+  const active = state.projects.filter(function(p) { return !p.archived; });
+  cardOrder = active.slice().sort(function(a, b) { return getOverallTotal(b.id) - getOverallTotal(a.id); }).map(function(p) { return p.id; });
   state.timerRunning = true;
   state.timerStart = Date.now();
   state.activeProjectId = null;
@@ -1034,6 +1037,7 @@ function startAll() {
 
 function stopAll() {
   flushSegment();
+  cardOrder = null;
   state.timerRunning = false;
   state.timerStart = null;
   state.activeProjectId = null;
@@ -1197,7 +1201,15 @@ function renderGrid() {
     grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1">Add projects below to get started.</div>';
     return;
   }
-  const sorted = active.slice().sort(function(a,b) { return getOverallTotal(b.id) - getOverallTotal(a.id); });
+  var sorted;
+  if (cardOrder) {
+    const activeById = {};
+    active.forEach(function(p) { activeById[p.id] = p; });
+    sorted = cardOrder.filter(function(id) { return activeById[id]; }).map(function(id) { return activeById[id]; });
+    active.forEach(function(p) { if (cardOrder.indexOf(p.id) === -1) sorted.push(p); });
+  } else {
+    sorted = active.slice().sort(function(a,b) { return getOverallTotal(b.id) - getOverallTotal(a.id); });
+  }
   grid.innerHTML = sorted.map(function(p) {
     const isActive = state.timerRunning && state.activeProjectId === p.id;
     const isInactive = !state.timerRunning;
