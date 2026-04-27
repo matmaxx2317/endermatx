@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>teleport tap · endermatx</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: #0d0d0d;
+  color: #e0e0e0;
+  font-family: 'Courier New', Courier, monospace;
+  user-select: none;
+}
+
+/* ── HUD ── */
+#bar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 50px;
+  background: #111;
+  border-bottom: 1px solid #1a1a1a;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  z-index: 100;
+}
+#barTitle {
+  font-size: 0.6rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: #cc00ee;
+}
+#barRight { display: flex; align-items: center; gap: 14px; }
+#livesWrap { display: flex; gap: 6px; }
+.life-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #cc00ee;
+  box-shadow: 0 0 6px #cc00ee;
+  transition: background 0.25s, box-shadow 0.25s;
+}
+.life-dot.lost { background: #222; box-shadow: none; }
+#scoreDisplay {
+  font-size: 1.1rem;
+  color: #fff;
+  min-width: 32px;
+  text-align: right;
+  letter-spacing: 0.05em;
+}
+
+/* ── ARENA ── */
+#arena {
+  position: fixed;
+  top: 50px; left: 0; right: 0; bottom: 0;
+  touch-action: none;
+  overflow: hidden;
+}
+
+/* ── SCREEN FLASH ── */
+#flash {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 90;
+  opacity: 0;
+  transition: opacity 0.06s;
+}
+
+/* ── ENDERMAN TARGET ── */
+.et {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 64px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.et.appear { animation: et-in 0.18s ease-out forwards; }
+.et.vanish {
+  animation: et-out 0.16s ease-in forwards;
+  pointer-events: none;
+}
+@keyframes et-in  {
+  from { opacity: 0; transform: scale(0.55) translateY(10px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0); }
+}
+@keyframes et-out {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(0.55); }
+}
+
+/* figure */
+.ef { display: flex; flex-direction: column; align-items: center; }
+.ef-head {
+  width: 28px; height: 28px;
+  background: linear-gradient(150deg, #1e1e1e 0%, #080808 100%);
+  border-radius: 4px;
+  position: relative;
+  box-shadow: 0 0 12px rgba(204,0,238,0.3);
+}
+.ef-eye {
+  position: absolute;
+  width: 5px; height: 9px;
+  background: #cc00ee;
+  top: 7px;
+  border-radius: 1px;
+  box-shadow: 0 0 7px #cc00ee, 0 0 16px #9900bb;
+  animation: eye-glow 1.1s ease-in-out infinite;
+}
+.ef-eye.l { left: 4px; }
+.ef-eye.r { right: 4px; }
+@keyframes eye-glow {
+  0%,100% { box-shadow: 0 0 7px #cc00ee, 0 0 16px #9900bb; }
+  50%      { box-shadow: 0 0 14px #ee66ff, 0 0 26px #cc00ee; }
+}
+.ef-bw { display: flex; align-items: flex-start; margin-top: 2px; }
+.ef-col { display: flex; flex-direction: column; align-items: center; }
+.ef-torso {
+  width: 18px; height: 32px;
+  background: linear-gradient(160deg, #252525 0%, #181818 40%, #0e0e0e 100%);
+  border-left: 1px solid #2e2e2e;
+  border-right: 1px solid #2e2e2e;
+}
+.ef-arm {
+  width: 5px; height: 56px;
+  background: linear-gradient(180deg, #181818, #080808);
+  border-radius: 2px;
+}
+.ef-legs { display: flex; gap: 2px; }
+.ef-leg {
+  width: 5px; height: 64px;
+  background: linear-gradient(180deg, #121212, #050505);
+  border-radius: 2px;
+}
+
+/* timer bar */
+.tw {
+  width: 48px; height: 3px;
+  background: #1e1e1e;
+  border-radius: 2px;
+  margin-top: 9px;
+  overflow: hidden;
+}
+.tb {
+  height: 100%; width: 100%;
+  border-radius: 2px;
+  transform-origin: left;
+}
+@keyframes tb-drain {
+  0%  { transform: scaleX(1); background: #cc00ee; }
+  65% { background: #cc00ee; }
+  100%{ transform: scaleX(0); background: #882200; }
+}
+
+/* ── OVERLAY ── */
+#overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.92);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  gap: 22px;
+  padding: 40px 24px;
+}
+#overlay.off { display: none; }
+
+.ov-title {
+  font-size: 1.7rem;
+  font-weight: normal;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #fff;
+  text-align: center;
+  line-height: 1.25;
+}
+.ov-title .hl { color: #cc00ee; }
+.ov-sub {
+  font-size: 0.68rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #666;
+  text-align: center;
+  line-height: 2;
+}
+.ov-score {
+  font-size: 4rem;
+  color: #cc00ee;
+  letter-spacing: 0.05em;
+  line-height: 1;
+}
+.ov-hs {
+  font-size: 0.65rem;
+  color: #555;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+.btn {
+  padding: 14px 38px;
+  border: 1px solid #cc00ee;
+  background: transparent;
+  color: #cc00ee;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.8rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn:active { background: #cc00ee; color: #000; }
+.ov-back {
+  font-size: 0.62rem;
+  color: #3a3a3a;
+  letter-spacing: 0.2em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+/* particles */
+.ptcl {
+  position: fixed;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 150;
+}
+</style>
+</head>
+<body>
+
+<div id="flash"></div>
+<div id="bar">
+  <div id="barTitle">TELEPORT TAP</div>
+  <div id="barRight">
+    <div id="livesWrap"></div>
+    <div id="scoreDisplay">0</div>
+  </div>
+</div>
+<div id="arena"></div>
+<div id="overlay"></div>
+
+<script>
+(function () {
+'use strict';
+
+var LIVES_MAX  = 3;
+var TW         = 64;   // target width
+var TH         = 150;  // target height (figure + timer)
+var BAR_H      = 50;
+var PAD        = 14;
+var PTCL_COL   = ['#cc00ee','#dd44ff','#9900bb','#ee88ff','#aa00dd'];
+
+var arena    = document.getElementById('arena');
+var overlay  = document.getElementById('overlay');
+var livesWrap= document.getElementById('livesWrap');
+var scoreDom = document.getElementById('scoreDisplay');
+var flashEl  = document.getElementById('flash');
+
+var g = {
+  phase   : 'menu',
+  score   : 0,
+  lives   : LIVES_MAX,
+  best    : +(localStorage.getItem('ender_tap_hs') || 0),
+  enders  : [],
+  spawnTmr: null,
+  uid     : 0
+};
+
+function diff(score) {
+  var lv = Math.floor(score / 5);
+  return {
+    interval  : Math.max(750,  2000 - lv * 160),
+    lifespan  : Math.max(850,  2500 - lv * 180),
+    maxActive : Math.min(5, 2 + Math.floor(lv / 2))
+  };
+}
+
+function findIdx(id) {
+  for (var i = 0; i < g.enders.length; i++)
+    if (g.enders[i].id === id) return i;
+  return -1;
+}
+
+/* ── particles ── */
+function burst(px, py, n) {
+  for (var i = 0; i < n; i++) {
+    (function () {
+      var p   = document.createElement('div');
+      var sz  = 2.5 + Math.random() * 3.5;
+      var col = PTCL_COL[Math.floor(Math.random() * PTCL_COL.length)];
+      p.className = 'ptcl';
+      p.style.cssText = 'width:' + sz + 'px;height:' + sz + 'px;' +
+        'background:' + col + ';box-shadow:0 0 6px ' + col + ';';
+      document.body.appendChild(p);
+      var ang = Math.random() * Math.PI * 2;
+      var d   = 22 + Math.random() * 70;
+      var vx  = Math.cos(ang) * d, vy = Math.sin(ang) * d;
+      var life = 400 + Math.random() * 320, t0 = null;
+      function fr(ts) {
+        if (!t0) t0 = ts;
+        var t = (ts - t0) / life;
+        if (t >= 1) { p.remove(); return; }
+        var e = 1 - Math.pow(1 - t, 2);
+        p.style.left    = (px + vx * e) + 'px';
+        p.style.top     = (py + vy * e - 32 * t) + 'px';
+        p.style.opacity = (1 - t).toFixed(3);
+        requestAnimationFrame(fr);
+      }
+      requestAnimationFrame(fr);
+    })();
+  }
+}
+
+/* ── flash ── */
+function doFlash(col) {
+  flashEl.style.background = col || '#cc00ee';
+  flashEl.style.opacity    = '0.22';
+  setTimeout(function () { flashEl.style.opacity = '0'; }, 90);
+}
+
+/* ── HUD ── */
+function renderHud() {
+  scoreDom.textContent = g.score;
+  livesWrap.innerHTML  = '';
+  for (var i = 0; i < LIVES_MAX; i++) {
+    var d = document.createElement('div');
+    d.className = 'life-dot' + (i < g.lives ? '' : ' lost');
+    livesWrap.appendChild(d);
+  }
+}
+
+/* ── enderman figure HTML ── */
+function figureHTML() {
+  return '<div class="ef">' +
+    '<div class="ef-head">' +
+      '<div class="ef-eye l"></div>' +
+      '<div class="ef-eye r"></div>' +
+    '</div>' +
+    '<div class="ef-bw">' +
+      '<div class="ef-arm"></div>' +
+      '<div class="ef-col">' +
+        '<div class="ef-torso"></div>' +
+        '<div class="ef-legs">' +
+          '<div class="ef-leg"></div>' +
+          '<div class="ef-leg"></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="ef-arm"></div>' +
+    '</div>' +
+  '</div>' +
+  '<div class="tw"><div class="tb"></div></div>';
+}
+
+/* ── overlap check ── */
+function overlaps(x, y) {
+  for (var i = 0; i < g.enders.length; i++) {
+    var e = g.enders[i];
+    if (Math.abs(x - e.x) < TW + 8 && Math.abs(y - e.y) < TH + 8) return true;
+  }
+  return false;
+}
+
+/* ── spawn ── */
+function spawn() {
+  if (g.phase !== 'playing') return;
+  var d  = diff(g.score);
+  if (g.enders.length >= d.maxActive) return;
+
+  var aW = window.innerWidth;
+  var aH = window.innerHeight - BAR_H;
+  var x, y, tries = 0;
+  do {
+    x = PAD + Math.random() * (aW - TW - PAD * 2);
+    y = PAD + Math.random() * (aH - TH - PAD * 2);
+    tries++;
+  } while (overlaps(x, y) && tries < 8);
+
+  var id  = g.uid++;
+  var el  = document.createElement('div');
+  el.className  = 'et appear';
+  el.innerHTML  = figureHTML();
+  el.style.left = x + 'px';
+  el.style.top  = y + 'px';
+
+  var life = d.lifespan;
+  var bar  = el.querySelector('.tb');
+  bar.style.animation = 'tb-drain ' + life + 'ms linear forwards';
+
+  var mid = { x: x + TW / 2, y: BAR_H + y + 18 };
+  burst(mid.x, mid.y, 10);
+
+  var tId   = setTimeout(function () { onMiss(id); }, life);
+  var ender = { id: id, x: x, y: y, el: el, timerId: tId, hit: false, mid: mid };
+  g.enders.push(ender);
+  arena.appendChild(el);
+
+  el.addEventListener('pointerdown', function (e) {
+    e.preventDefault();
+    onHit(id);
+  }, { passive: false });
+}
+
+/* ── hit / miss ── */
+function removeEnder(idx) {
+  var e = g.enders[idx];
+  g.enders.splice(idx, 1);
+  e.el.classList.remove('appear');
+  e.el.classList.add('vanish');
+  setTimeout(function () { e.el.remove(); }, 200);
+}
+
+function onHit(id) {
+  var idx = findIdx(id);
+  if (idx === -1) return;
+  var e = g.enders[idx];
+  if (e.hit) return;
+  e.hit = true;
+  clearTimeout(e.timerId);
+
+  burst(e.mid.x, e.mid.y, 20);
+  doFlash('#cc00ee');
+  removeEnder(idx);
+
+  g.score++;
+  if (g.score > g.best) {
+    g.best = g.score;
+    localStorage.setItem('ender_tap_hs', g.best);
+  }
+  renderHud();
+  resetSpawnTimer();
+}
+
+function onMiss(id) {
+  var idx = findIdx(id);
+  if (idx === -1) return;
+  var e = g.enders[idx];
+  if (e.hit) return;
+  e.hit = true;
+
+  e.el.querySelectorAll('.ef-eye').forEach(function (eye) {
+    eye.style.cssText += 'background:#ee3333;box-shadow:0 0 8px #ee3333;animation:none;';
+  });
+  doFlash('#cc1111');
+  removeEnder(idx);
+
+  g.lives--;
+  renderHud();
+  if (g.lives <= 0) gameOver();
+}
+
+/* ── timers ── */
+function resetSpawnTimer() {
+  clearInterval(g.spawnTmr);
+  g.spawnTmr = setInterval(spawn, diff(g.score).interval);
+}
+
+function stopTimers() {
+  clearInterval(g.spawnTmr);
+  g.spawnTmr = null;
+  g.enders.forEach(function (e) { clearTimeout(e.timerId); e.hit = true; });
+}
+
+function clearArena() {
+  g.enders.forEach(function (e) { e.el.remove(); });
+  g.enders = [];
+}
+
+/* ── overlay helpers ── */
+function showOverlay(html) {
+  overlay.classList.remove('off');
+  overlay.innerHTML = html;
+}
+function hideOverlay() {
+  overlay.classList.add('off');
+  overlay.innerHTML = '';
+}
+
+/* ── game states ── */
+function showMenu() {
+  g.phase = 'menu';
+  showOverlay(
+    '<div class="ov-title">TELEPORT<br><span class="hl">TAP</span></div>' +
+    '<div class="ov-sub">endermen appear and vanish<br>tap them before they escape<br>3 misses &mdash; game over</div>' +
+    '<button class="btn" id="btnStart">START</button>' +
+    (g.best > 0 ? '<div class="ov-hs">best &nbsp;' + g.best + '</div>' : '') +
+    '<a class="ov-back" href="../">&larr; back</a>'
+  );
+  document.getElementById('btnStart').addEventListener('pointerdown', function (e) {
+    e.preventDefault();
+    startGame();
+  });
+}
+
+function startGame() {
+  stopTimers();
+  clearArena();
+  g.phase = 'playing';
+  g.score = 0;
+  g.lives = LIVES_MAX;
+  g.uid   = 0;
+  hideOverlay();
+  renderHud();
+  resetSpawnTimer();
+  spawn();
+}
+
+function gameOver() {
+  stopTimers();
+  setTimeout(function () {
+    clearArena();
+    g.phase = 'dead';
+    showOverlay(
+      '<div class="ov-sub">GAME OVER</div>' +
+      '<div class="ov-score">' + g.score + '</div>' +
+      '<div class="ov-hs">best &nbsp;' + g.best + '</div>' +
+      '<button class="btn" id="btnRetry">TRY AGAIN</button>' +
+      '<a class="ov-back" href="../">&larr; back</a>'
+    );
+    document.getElementById('btnRetry').addEventListener('pointerdown', function (e) {
+      e.preventDefault();
+      startGame();
+    });
+  }, 380);
+}
+
+/* ── init ── */
+renderHud();
+showMenu();
+
+})();
+</script>
+</body>
+</html>
