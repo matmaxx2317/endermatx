@@ -1031,7 +1031,7 @@ function renderGrid() {
     grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1">Add projects below to get started.</div>';
     return;
   }
-  const sorted = active.slice().sort(function(a,b) { return a.name.localeCompare(b.name); });
+  const sorted = active.slice().sort(function(a,b) { return getProjectTotal(b.id) - getProjectTotal(a.id); });
   grid.innerHTML = sorted.map(function(p) {
     const isActive = state.timerRunning && state.activeProjectId === p.id;
     const isInactive = !state.timerRunning;
