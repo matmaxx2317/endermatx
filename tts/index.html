@@ -758,8 +758,10 @@ letter-spacing: 0.05em;
     <p>Your data syncs across all devices via a private GitHub Gist. Token stays on this device only.</p>
     <label>Personal Access Token</label>
     <input type="password" id="inputToken" placeholder="github_pat_...">
-    <label>Gist ID <span style="color: #bbb;font-size:10px">(leave blank to create new)</span></label>
+    <label>Production Gist ID <span style="color: #bbb;font-size:10px">(leave blank to create new)</span></label>
     <input type="text" id="inputGistId" placeholder="optional">
+    <label>Test Gist ID <span style="color: #bbb;font-size:10px">(leave blank to create new)</span></label>
+    <input type="text" id="inputTestGistId" placeholder="optional">
     <div class="modal-gist-id" id="createdGistId"></div>
     <div class="modal-btns">
       <button class="btn-primary" onclick="setupConnect()">Connect</button>
@@ -767,7 +769,7 @@ letter-spacing: 0.05em;
     </div>
     <div class="modal-hint">
       Create token at github.com/settings/tokens (classic), scope: gist<br>
-      First device: leave Gist ID blank. Copy the ID shown and enter it on other devices.
+      First device: leave Gist IDs blank. Copy the IDs shown and enter them on other devices.
     </div>
   </div>
 </div>
@@ -857,7 +859,9 @@ let state = {
 };
 
 let gistToken = '';
-let gistId = '';
+let prodGistId = '';
+let testGistId = '';
+let gistId = ''; // always reflects active mode: testMode ? testGistId : prodGistId
 let tickInterval = null;
 let syncTimeout = null;
 let testMode = localStorage.getItem('tt_testmode') === '1';
@@ -897,19 +901,23 @@ function formatTimeDisplay(ts) {
 
 function loadCredentials() {
   gistToken = localStorage.getItem('tt_token') || '';
-  gistId = localStorage.getItem('tt_gist_id') || '';
+  prodGistId = localStorage.getItem('tt_gist_id') || '';
+  testGistId = localStorage.getItem('tt_gist_id_test') || '';
+  gistId = testMode ? testGistId : prodGistId;
 }
 
 function saveCredentials() {
   localStorage.setItem('tt_token', gistToken);
-  localStorage.setItem('tt_gist_id', gistId);
+  localStorage.setItem('tt_gist_id', prodGistId);
+  localStorage.setItem('tt_gist_id_test', testGistId);
 }
 
 // ---- SETUP MODAL ----
 
 function openSetup() {
   document.getElementById('inputToken').value = gistToken;
-  document.getElementById('inputGistId').value = gistId;
+  document.getElementById('inputGistId').value = prodGistId;
+  document.getElementById('inputTestGistId').value = testGistId;
   document.getElementById('createdGistId').textContent = '';
   document.getElementById('setupModal').classList.add('active');
 }
@@ -920,19 +928,24 @@ function closeSetup() {
 
 async function setupConnect() {
   const token = document.getElementById('inputToken').value.trim();
-  const gid = document.getElementById('inputGistId').value.trim();
+  const pid = document.getElementById('inputGistId').value.trim();
+  const tid = document.getElementById('inputTestGistId').value.trim();
   if (!token) { alert('Please enter a Personal Access Token.'); return; }
 
   gistToken = token;
+  prodGistId = pid;
+  testGistId = tid;
+  gistId = testMode ? testGistId : prodGistId;
+  saveCredentials();
   setSyncStatus('syncing', 'Connecting...');
 
-  if (!gid) {
+  if (!gistId) {
     try {
       const res = await fetch('https://api.github.com/gists', {
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          description: 'tts data',
+          description: testMode ? 'tts test data' : 'tts data',
           public: false,
           files: { 'tt_data.json': { content: JSON.stringify(state) } }
         })
@@ -940,17 +953,16 @@ async function setupConnect() {
       if (!res.ok) throw new Error('GitHub API error: ' + res.status);
       const data = await res.json();
       gistId = data.id;
+      if (testMode) { testGistId = data.id; } else { prodGistId = data.id; }
       saveCredentials();
-      document.getElementById('createdGistId').textContent = 'Gist ID: ' + gistId;
+      document.getElementById('createdGistId').textContent = (testMode ? 'Test ' : '') + 'Gist ID: ' + gistId;
       setSyncStatus('synced', 'Synced');
     } catch(e) {
       setSyncStatus('error', 'Error: ' + e.message);
     }
   } else {
-    gistId = gid;
     try {
       await pullFromGist();
-      saveCredentials();
       setSyncStatus('synced', 'Synced');
       closeSetup();
       renderAll();
@@ -1329,15 +1341,76 @@ function resetAllEntries() {
   renderProjectsMgr();
 }
 
-function toggleTestMode() {
+async function toggleTestMode() {
   if (state.timerRunning) { alert('Stop the timer before toggling test mode.'); return; }
+
+  // Flush current state to whichever gist is active before switching.
+  if (gistToken && gistId) {
+    clearTimeout(syncTimeout);
+    await pushToGist();
+  }
+
   testMode = !testMode;
   localStorage.setItem('tt_testmode', testMode ? '1' : '0');
+  gistId = testMode ? testGistId : prodGistId;
+
   const btn = document.getElementById('testModeBtn');
   btn.textContent = 'TEST MODE: ' + (testMode ? 'ON' : 'OFF');
   btn.style.color = testMode ? '#ffd56b' : '#555';
   btn.style.borderColor = testMode ? '#ffd56b' : '#1e1e1e';
   document.getElementById('timerDisplay').classList.toggle('test', testMode);
+
+  const blankState = function() {
+    return {
+      // Copy projects from current state so test mode has the same project list.
+      projects: state.projects.map(function(p) { return Object.assign({}, p); }),
+      entries: [], timerRunning: false, timerStart: null,
+      activeProjectId: null, activeSegmentStart: null, reportMode: state.reportMode
+    };
+  };
+
+  if (gistToken && !gistId) {
+    // No gist configured for this mode yet — auto-create one.
+    setSyncStatus('syncing', testMode ? 'Creating test gist...' : 'Loading...');
+    try {
+      const fresh = blankState();
+      const res = await fetch('https://api.github.com/gists', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + gistToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: testMode ? 'tts test data' : 'tts data',
+          public: false,
+          files: { 'tt_data.json': { content: JSON.stringify(fresh) } }
+        })
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      gistId = data.id;
+      if (testMode) { testGistId = data.id; } else { prodGistId = data.id; }
+      saveCredentials();
+      state = fresh;
+      setSyncStatus('synced', testMode ? 'Test gist created' : 'Gist created');
+      setTimeout(function() { setSyncStatus('', 'Ready'); }, 2000);
+    } catch(e) {
+      setSyncStatus('error', 'Could not create gist');
+      state = blankState();
+    }
+  } else if (gistToken && gistId) {
+    setSyncStatus('syncing', 'Loading...');
+    try {
+      await pullFromGist();
+      setSyncStatus('synced', 'Synced');
+      setTimeout(function() { setSyncStatus('', 'Ready'); }, 2000);
+    } catch(e) {
+      setSyncStatus('error', 'Sync failed');
+      state = blankState();
+    }
+  } else {
+    state = blankState();
+    setSyncStatus('', testMode ? 'Test mode (not connected)' : 'Not connected');
+  }
+
+  renderAll();
 }
 
 // ---- REPORT ----
