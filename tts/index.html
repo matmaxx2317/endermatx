@@ -482,6 +482,15 @@ width: 18px;
 height: 8px;
 }
 
+/* ADJUST MODAL */
+.adjust-project-label {
+font-size: 13px;
+color: #f0f0f0;
+margin-bottom: 16px;
+}
+
+.adjust-project-label strong { font-weight: normal; }
+
 /* SWITCHES */
 .switches-row {
 display: flex;
@@ -728,6 +737,21 @@ letter-spacing: 0.05em;
   </div>
 </div>
 
+<!-- ADJUST SWITCH TIME MODAL -->
+
+<div class="modal-overlay" id="adjustModal">
+  <div class="modal">
+    <h2>Adjust Switch Time</h2>
+    <div class="adjust-project-label" id="adjustModalDesc"></div>
+    <label>Segment started at</label>
+    <input type="time" id="adjustTimeInput">
+    <div class="modal-btns">
+      <button class="btn-primary" onclick="confirmAdjust()">Apply</button>
+      <button class="btn-ghost" onclick="closeAdjustModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <!-- APP -->
 
 <h1>tts<span style="font-size:10px;color:#bbb;margin-left:8px;letter-spacing:0.05em;text-transform:none;font-weight:normal">v1.0</span></h1>
@@ -955,13 +979,67 @@ function stopAll() {
 
 function selectProject(id) {
   if (!state.timerRunning) return;
-  if (state.activeProjectId === id) return;
+  if (state.activeProjectId === id) { openAdjustModal(); return; }
   flushSegment();
   state.activeProjectId = id;
   state.activeSegmentStart = Date.now();
   schedulePush();
   updateIndicator();
   renderGrid();
+}
+
+function openAdjustModal() {
+  const p = getProject(state.activeProjectId);
+  const t = new Date(state.activeSegmentStart);
+  const timeStr = pad(t.getHours()) + ':' + pad(t.getMinutes());
+  document.getElementById('adjustTimeInput').value = timeStr;
+  document.getElementById('adjustModalDesc').innerHTML =
+    'Tracking <strong style="color:' + p.color + '">' + escHtml(p.name) + '</strong> since ' + timeStr +
+    '. Set the actual start time of this segment.';
+  document.getElementById('adjustModal').classList.add('active');
+}
+
+function closeAdjustModal() {
+  document.getElementById('adjustModal').classList.remove('active');
+}
+
+function confirmAdjust() {
+  const input = document.getElementById('adjustTimeInput').value;
+  if (!input) return;
+  const [h, m] = input.split(':').map(Number);
+  const now = new Date();
+  const newTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0, 0).getTime();
+
+  if (newTime >= Date.now()) { alert('Time must be in the past.'); return; }
+  if (state.timerStart && newTime < state.timerStart) { alert('Time cannot be before the timer started.'); return; }
+
+  const oldSegmentStart = state.activeSegmentStart;
+  const deltaSec = Math.round((newTime - oldSegmentStart) / 1000);
+
+  // Patch the preceding entry: its effective end time was oldSegmentStart
+  const tolerance = 5000;
+  const preceding = state.entries
+    .filter(function(e) {
+      return Math.abs((e.start + e.duration * 1000) - oldSegmentStart) <= tolerance;
+    })
+    .sort(function(a, b) {
+      return Math.abs((a.start + a.duration * 1000) - oldSegmentStart) -
+             Math.abs((b.start + b.duration * 1000) - oldSegmentStart);
+    })[0];
+
+  if (preceding) {
+    const newDuration = preceding.duration + deltaSec;
+    if (newDuration <= 0) { alert('Time too early — would make the previous segment duration zero or negative.'); return; }
+    preceding.duration = newDuration;
+  }
+
+  state.activeSegmentStart = newTime;
+  closeAdjustModal();
+  schedulePush();
+  updateIndicator();
+  renderGrid();
+  renderLog();
+  renderReport();
 }
 
 function flushSegment() {
