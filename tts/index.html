@@ -1297,12 +1297,14 @@ function deleteEntry(id) {
 }
 
 function resetAllEntries() {
-  if (!confirm('Delete all logged time entries? This cannot be undone.')) return;
+  if (!confirm('Delete all logged time entries and remove archived projects? This cannot be undone.')) return;
   state.entries = [];
+  state.projects = state.projects.filter(function(p) { return !p.archived; });
   schedulePush();
   renderLog();
   renderReport();
   renderGrid();
+  renderProjectsMgr();
 }
 
 function toggleTestMode() {
