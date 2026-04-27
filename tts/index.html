@@ -1225,8 +1225,8 @@ function renderGrid() {
       '<div class="proj-btn-name">' + escHtml(p.name) + '</div>' +
       '<div class="proj-times">' +
         '<div class="proj-time-row"><span class="proj-time-label">ctx</span><span class="proj-time-val proj-time-ctx" id="pgctx_' + p.id + '">' + ctxStr + '</span></div>' +
-        '<div class="proj-time-row"><span class="proj-time-label">day</span><span class="proj-time-val">' + dayStr + '</span></div>' +
-        '<div class="proj-time-row"><span class="proj-time-label">all</span><span class="proj-time-val">' + allStr + '</span></div>' +
+        '<div class="proj-time-row"><span class="proj-time-label">day</span><span class="proj-time-val" id="pgday_' + p.id + '">' + dayStr + '</span></div>' +
+        '<div class="proj-time-row"><span class="proj-time-label">all</span><span class="proj-time-val" id="pgall_' + p.id + '">' + allStr + '</span></div>' +
       '</div>' +
       '</button>';
   }).join('');
@@ -1234,10 +1234,20 @@ function renderGrid() {
 
 function updateGridTimes() {
   if (!state.timerRunning || !state.activeProjectId || !state.activeSegmentStart) return;
-  const el = document.getElementById('pgctx_' + state.activeProjectId);
-  if (!el) return;
   const realSec = (Date.now() - state.activeSegmentStart) / 1000;
-  el.textContent = formatDurationShort(Math.floor(testMode ? realSec * TEST_MULTIPLIER : realSec));
+  const liveSec = Math.floor(testMode ? realSec * TEST_MULTIPLIER : realSec);
+  state.projects.forEach(function(p) {
+    if (p.archived) return;
+    const isActive = p.id === state.activeProjectId;
+    const ctxEl = document.getElementById('pgctx_' + p.id);
+    const dayEl = document.getElementById('pgday_' + p.id);
+    const allEl = document.getElementById('pgall_' + p.id);
+    if (ctxEl) ctxEl.textContent = isActive ? formatDurationShort(liveSec) : (ctxEl.textContent || '--');
+    const daySec = getDayTotal(p.id) + (isActive ? liveSec : 0);
+    const allSec = getOverallTotal(p.id) + (isActive ? liveSec : 0);
+    if (dayEl) dayEl.textContent = daySec > 0 ? formatDurationShort(daySec) : '--';
+    if (allEl) allEl.textContent = allSec > 0 ? formatDurationShort(allSec) : '--';
+  });
 }
 
 function getSegmentTime(id) {
