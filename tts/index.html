@@ -203,6 +203,7 @@ transition: color 0.3s;
 }
 
 .timer-display.running { color: #f0f0f0; }
+.timer-display.running.test { color: #ffd56b; }
 
 .btn-control {
 padding: 10px 22px;
@@ -1045,7 +1046,7 @@ function stopAll() {
   schedulePush();
   updateControlBtn();
   updateIndicator();
-  document.getElementById('timerDisplay').classList.remove('running');
+  document.getElementById('timerDisplay').classList.remove('running', 'test');
   document.getElementById('timerDisplay').textContent = '00:00:00';
   document.getElementById('fictionalClock').style.display = 'none';
   renderGrid();
@@ -1144,6 +1145,7 @@ function tick() {
   const el = document.getElementById('timerDisplay');
   el.textContent = formatDuration(elapsed);
   el.classList.add('running');
+  el.classList.toggle('test', testMode);
   const fc = document.getElementById('fictionalClock');
   if (testMode) {
     const fd = new Date(fictionalNow());
