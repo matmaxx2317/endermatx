@@ -29,12 +29,23 @@ html, body {
   padding: 0 16px;
   z-index: 100;
 }
+#barLeft { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 #barTitle {
   font-size: 0.6rem;
   letter-spacing: 0.25em;
   text-transform: uppercase;
   color: #cc00ee;
 }
+#syncDot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: #2a2a2a;
+  flex-shrink: 0;
+  transition: background 0.3s, box-shadow 0.3s;
+}
+#syncDot.syncing { background: #ffcc00; }
+#syncDot.ok  { background: #cc00ee; box-shadow: 0 0 5px #cc00ee; }
+#syncDot.err { background: #ee4444; }
 #barRight { display: flex; align-items: center; gap: 14px; }
 #livesWrap { display: flex; gap: 6px; }
 .life-dot {
@@ -223,6 +234,22 @@ html, body {
   text-decoration: none;
   text-transform: uppercase;
 }
+.btn-ghost { border-color: #333; color: #555; }
+.inp {
+  width: 260px;
+  max-width: 100%;
+  padding: 10px 12px;
+  background: #1a1a1a;
+  border: 1px solid #2e2e2e;
+  color: #e0e0e0;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  outline: none;
+  -webkit-appearance: none;
+  border-radius: 0;
+}
+.inp:focus { border-color: #cc00ee; }
 
 /* particles */
 .ptcl {
@@ -237,7 +264,10 @@ html, body {
 
 <div id="flash"></div>
 <div id="bar">
-  <div id="barTitle">TELEPORT TAP</div>
+  <div id="barLeft">
+    <div id="barTitle">TELEPORT TAP</div>
+    <div id="syncDot"></div>
+  </div>
   <div id="barRight">
     <div id="livesWrap"></div>
     <div id="scoreDisplay">0</div>
@@ -251,17 +281,19 @@ html, body {
 'use strict';
 
 var LIVES_MAX  = 3;
-var TW         = 64;   // target width
-var TH         = 150;  // target height (figure + timer)
+var TW         = 64;
+var TH         = 150;
 var BAR_H      = 50;
 var PAD        = 14;
 var PTCL_COL   = ['#cc00ee','#dd44ff','#9900bb','#ee88ff','#aa00dd'];
+var GIST_FILE  = 'tap_data.json';
 
-var arena    = document.getElementById('arena');
-var overlay  = document.getElementById('overlay');
-var livesWrap= document.getElementById('livesWrap');
-var scoreDom = document.getElementById('scoreDisplay');
-var flashEl  = document.getElementById('flash');
+var arena     = document.getElementById('arena');
+var overlay   = document.getElementById('overlay');
+var livesWrap = document.getElementById('livesWrap');
+var scoreDom  = document.getElementById('scoreDisplay');
+var flashEl   = document.getElementById('flash');
+var syncDotEl = document.getElementById('syncDot');
 
 var g = {
   phase   : 'menu',
@@ -272,7 +304,9 @@ var g = {
   spawnTmr: null,
   uid     : 0,
   rafId   : null,
-  lastTs  : null
+  lastTs  : null,
+  token   : localStorage.getItem('tap_token')   || '',
+  gistId  : localStorage.getItem('tap_gist_id') || ''
 };
 
 function diff(score) {
@@ -347,6 +381,72 @@ function renderHud() {
     d.className = 'life-dot' + (i < g.lives ? '' : ' lost');
     livesWrap.appendChild(d);
   }
+}
+
+/* ── gist sync ── */
+function setSyncStatus(s) {
+  syncDotEl.className = (s === 'idle') ? '' : s;
+}
+
+function saveCreds(token, gistId) {
+  g.token  = token;
+  g.gistId = gistId;
+  localStorage.setItem('tap_token',   token);
+  localStorage.setItem('tap_gist_id', gistId);
+}
+
+function pullFromGist() {
+  if (!g.token || !g.gistId) return;
+  setSyncStatus('syncing');
+  fetch('https://api.github.com/gists/' + g.gistId, {
+    headers: { Authorization: 'token ' + g.token }
+  })
+  .then(function (r) { return r.json(); })
+  .then(function (data) {
+    var f = data.files && data.files[GIST_FILE];
+    if (f && f.content) {
+      try {
+        var remote = JSON.parse(f.content);
+        if (remote.highScore > g.best) {
+          g.best = remote.highScore;
+          localStorage.setItem('ender_tap_hs', g.best);
+        }
+      } catch (e) {}
+    }
+    setSyncStatus('ok');
+  })
+  .catch(function () { setSyncStatus('err'); });
+}
+
+function pushToGist() {
+  if (!g.token) return;
+  setSyncStatus('syncing');
+  var payload = { files: {} };
+  payload.files[GIST_FILE] = { content: JSON.stringify({ highScore: g.best }) };
+  var url, method;
+  if (g.gistId) {
+    url    = 'https://api.github.com/gists/' + g.gistId;
+    method = 'PATCH';
+  } else {
+    url                 = 'https://api.github.com/gists';
+    method              = 'POST';
+    payload.description = 'endermatx teleport tap';
+    payload.public      = false;
+  }
+  fetch(url, {
+    method  : method,
+    headers : { Authorization: 'token ' + g.token, 'Content-Type': 'application/json' },
+    body    : JSON.stringify(payload)
+  })
+  .then(function (r) { return r.json(); })
+  .then(function (data) {
+    if (data.id && !g.gistId) {
+      g.gistId = data.id;
+      localStorage.setItem('tap_gist_id', g.gistId);
+    }
+    setSyncStatus('ok');
+  })
+  .catch(function () { setSyncStatus('err'); });
 }
 
 /* ── enderman figure HTML ── */
@@ -485,6 +585,7 @@ function onHit(id) {
   if (g.score > g.best) {
     g.best = g.score;
     localStorage.setItem('ender_tap_hs', g.best);
+    pushToGist();
   }
   renderHud();
   resetSpawnTimer();
@@ -538,6 +639,33 @@ function hideOverlay() {
 }
 
 /* ── game states ── */
+function escVal(s) { return s.replace(/"/g, '&quot;'); }
+
+function showSetup() {
+  var prev = g.phase;
+  showOverlay(
+    '<div class="ov-title">SYNC<br><span class="hl">SETUP</span></div>' +
+    '<div class="ov-sub">github PAT with gist scope<br>leave gist ID blank on first device</div>' +
+    '<input id="inpToken"  class="inp" type="password" placeholder="ghp_··· (PAT)" value="' + escVal(g.token) + '">' +
+    '<input id="inpGistId" class="inp" type="text"     placeholder="gist ID (optional)" value="' + escVal(g.gistId) + '">' +
+    '<button class="btn" id="btnSave">SAVE &amp; SYNC</button>' +
+    '<button class="btn btn-ghost" id="btnCancel">CANCEL</button>'
+  );
+  document.getElementById('btnSave').addEventListener('pointerdown', function (e) {
+    e.preventDefault();
+    saveCreds(
+      document.getElementById('inpToken').value.trim(),
+      document.getElementById('inpGistId').value.trim()
+    );
+    pullFromGist();
+    if (prev === 'menu') showMenu(); else showDead();
+  });
+  document.getElementById('btnCancel').addEventListener('pointerdown', function (e) {
+    e.preventDefault();
+    if (prev === 'menu') showMenu(); else showDead();
+  });
+}
+
 function showMenu() {
   g.phase = 'menu';
   showOverlay(
@@ -545,11 +673,36 @@ function showMenu() {
     '<div class="ov-sub">endermen appear and vanish<br>tap them before they escape<br>3 misses &mdash; game over</div>' +
     '<button class="btn" id="btnStart">START</button>' +
     (g.best > 0 ? '<div class="ov-hs">best &nbsp;' + g.best + '</div>' : '') +
+    '<button class="btn btn-ghost" id="btnSetup">SYNC SETUP</button>' +
     '<a class="ov-back" href="../">&larr; back</a>'
   );
   document.getElementById('btnStart').addEventListener('pointerdown', function (e) {
     e.preventDefault();
     startGame();
+  });
+  document.getElementById('btnSetup').addEventListener('pointerdown', function (e) {
+    e.preventDefault();
+    showSetup();
+  });
+}
+
+function showDead() {
+  g.phase = 'dead';
+  showOverlay(
+    '<div class="ov-sub">GAME OVER</div>' +
+    '<div class="ov-score">' + g.score + '</div>' +
+    '<div class="ov-hs">best &nbsp;' + g.best + '</div>' +
+    '<button class="btn" id="btnRetry">TRY AGAIN</button>' +
+    '<button class="btn btn-ghost" id="btnSetup">SYNC SETUP</button>' +
+    '<a class="ov-back" href="../">&larr; back</a>'
+  );
+  document.getElementById('btnRetry').addEventListener('pointerdown', function (e) {
+    e.preventDefault();
+    startGame();
+  });
+  document.getElementById('btnSetup').addEventListener('pointerdown', function (e) {
+    e.preventDefault();
+    showSetup();
   });
 }
 
@@ -572,24 +725,20 @@ function gameOver() {
   stopTimers();
   setTimeout(function () {
     clearArena();
-    g.phase = 'dead';
-    showOverlay(
-      '<div class="ov-sub">GAME OVER</div>' +
-      '<div class="ov-score">' + g.score + '</div>' +
-      '<div class="ov-hs">best &nbsp;' + g.best + '</div>' +
-      '<button class="btn" id="btnRetry">TRY AGAIN</button>' +
-      '<a class="ov-back" href="../">&larr; back</a>'
-    );
-    document.getElementById('btnRetry').addEventListener('pointerdown', function (e) {
-      e.preventDefault();
-      startGame();
-    });
+    showDead();
   }, 380);
 }
 
 /* ── init ── */
+pullFromGist();
 renderHud();
 showMenu();
+
+syncDotEl.addEventListener('pointerdown', function (e) {
+  if (g.phase === 'playing') return;
+  e.preventDefault();
+  showSetup();
+});
 
 })();
 </script>
