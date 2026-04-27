@@ -270,7 +270,9 @@ var g = {
   best    : +(localStorage.getItem('ender_tap_hs') || 0),
   enders  : [],
   spawnTmr: null,
-  uid     : 0
+  uid     : 0,
+  rafId   : null,
+  lastTs  : null
 };
 
 function diff(score) {
@@ -278,8 +280,19 @@ function diff(score) {
   return {
     interval  : Math.max(750,  2000 - lv * 160),
     lifespan  : Math.max(850,  2500 - lv * 180),
-    maxActive : Math.min(5, 2 + Math.floor(lv / 2))
+    maxActive : Math.min(5, 2 + Math.floor(lv / 2)),
+    speed     : Math.min(150, 20 + score * 2.5)   // px/s
   };
+}
+
+function batchCount(score) {
+  var lv = Math.floor(score / 5);
+  var r  = Math.random();
+  var p3 = Math.min(0.40, lv * 0.05);
+  var p2 = Math.min(0.45, lv * 0.06);
+  if (r < p3) return 3;
+  if (r < p3 + p2) return 2;
+  return 1;
 }
 
 function findIdx(id) {
@@ -367,6 +380,31 @@ function overlaps(x, y) {
   return false;
 }
 
+/* ── game loop (movement) ── */
+function gameLoop(ts) {
+  if (g.phase !== 'playing') return;
+  var dt = g.lastTs !== null ? ts - g.lastTs : 0;
+  g.lastTs = ts;
+
+  var aW = window.innerWidth;
+  var aH = window.innerHeight - BAR_H;
+
+  for (var i = 0; i < g.enders.length; i++) {
+    var e = g.enders[i];
+    if (e.hit) continue;
+    e.x += e.vx * dt;
+    e.y += e.vy * dt;
+    if (e.x < 0)       { e.x = 0;       e.vx =  Math.abs(e.vx); }
+    if (e.x + TW > aW) { e.x = aW - TW; e.vx = -Math.abs(e.vx); }
+    if (e.y < 0)       { e.y = 0;       e.vy =  Math.abs(e.vy); }
+    if (e.y + TH > aH) { e.y = aH - TH; e.vy = -Math.abs(e.vy); }
+    e.el.style.left = e.x + 'px';
+    e.el.style.top  = e.y + 'px';
+  }
+
+  g.rafId = requestAnimationFrame(gameLoop);
+}
+
 /* ── spawn ── */
 function spawn() {
   if (g.phase !== 'playing') return;
@@ -393,11 +431,18 @@ function spawn() {
   var bar  = el.querySelector('.tb');
   bar.style.animation = 'tb-drain ' + life + 'ms linear forwards';
 
-  var mid = { x: x + TW / 2, y: BAR_H + y + 18 };
-  burst(mid.x, mid.y, 10);
+  burst(x + TW / 2, BAR_H + y + 18, 10);
+
+  var speedPxMs = (d.speed / 1000) * (0.8 + Math.random() * 0.4);
+  var angle     = Math.random() * Math.PI * 2;
 
   var tId   = setTimeout(function () { onMiss(id); }, life);
-  var ender = { id: id, x: x, y: y, el: el, timerId: tId, hit: false, mid: mid };
+  var ender = {
+    id: id, el: el, timerId: tId, hit: false,
+    x: x, y: y,
+    vx: Math.cos(angle) * speedPxMs,
+    vy: Math.sin(angle) * speedPxMs
+  };
   g.enders.push(ender);
   arena.appendChild(el);
 
@@ -405,6 +450,14 @@ function spawn() {
     e.preventDefault();
     onHit(id);
   }, { passive: false });
+}
+
+function spawnBatch() {
+  if (g.phase !== 'playing') return;
+  var n = batchCount(g.score);
+  spawn();
+  if (n >= 2) setTimeout(spawn, 220);
+  if (n >= 3) setTimeout(spawn, 440);
 }
 
 /* ── hit / miss ── */
@@ -424,7 +477,7 @@ function onHit(id) {
   e.hit = true;
   clearTimeout(e.timerId);
 
-  burst(e.mid.x, e.mid.y, 20);
+  burst(e.x + TW / 2, BAR_H + e.y + 18, 20);
   doFlash('#cc00ee');
   removeEnder(idx);
 
@@ -458,12 +511,14 @@ function onMiss(id) {
 /* ── timers ── */
 function resetSpawnTimer() {
   clearInterval(g.spawnTmr);
-  g.spawnTmr = setInterval(spawn, diff(g.score).interval);
+  g.spawnTmr = setInterval(spawnBatch, diff(g.score).interval);
 }
 
 function stopTimers() {
   clearInterval(g.spawnTmr);
   g.spawnTmr = null;
+  if (g.rafId) { cancelAnimationFrame(g.rafId); g.rafId = null; }
+  g.lastTs = null;
   g.enders.forEach(function (e) { clearTimeout(e.timerId); e.hit = true; });
 }
 
@@ -507,8 +562,10 @@ function startGame() {
   g.uid   = 0;
   hideOverlay();
   renderHud();
+  g.lastTs = null;
+  g.rafId  = requestAnimationFrame(gameLoop);
   resetSpawnTimer();
-  spawn();
+  spawnBatch();
 }
 
 function gameOver() {
