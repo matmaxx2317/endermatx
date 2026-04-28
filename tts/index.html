@@ -387,6 +387,9 @@ font-family: inherit;
 
 .log-delete:hover { color: #ff6b6b; }
 
+.log-live { border-left: 2px solid #7effa0; padding-left: 8px; }
+.log-live .log-duration { color: #7effa0; }
+
 .report-tabs { display: flex; gap: 2px; margin-bottom: 14px; flex-wrap: wrap; }
 
 .report-tab {
@@ -1434,6 +1437,8 @@ function updateGridTimes() {
   if (!state.timerRunning || !state.activeProjectId || !state.activeSegmentStart) return;
   const realSec = (Date.now() - state.activeSegmentStart) / 1000;
   const liveSec = Math.floor(testMode ? realSec * TEST_MULTIPLIER : realSec);
+
+  // Update project cards
   state.projects.forEach(function(p) {
     if (p.archived) return;
     const isActive = p.id === state.activeProjectId;
@@ -1446,6 +1451,55 @@ function updateGridTimes() {
     if (dayEl) dayEl.textContent = daySec > 0 ? formatDurationShort(daySec) : '--';
     if (allEl) allEl.textContent = allSec > 0 ? formatDurationShort(allSec) : '--';
   });
+
+  // Update Today's Log live entry duration
+  const logLiveDurEl = document.getElementById('logLiveDur');
+  if (logLiveDurEl) logLiveDurEl.textContent = formatDurationShort(liveSec);
+
+  // Update Weekly Overview live cells (only if current week is shown and today is Mon-Fri)
+  const todayDate = new Date();
+  const todayDow = (todayDate.getDay() + 6) % 7; // 0=Mon … 4=Fri, 5=Sat, 6=Sun
+  if (todayDow < 5 && isSameDay(getMondayOf(todayDate), weekOverviewMonday)) {
+    const pid = state.activeProjectId;
+
+    // Active project's today cell
+    const cellEl = document.getElementById('wk_c_' + pid + '_' + todayDow);
+    if (cellEl) {
+      const total = getDayEntries(pid, todayDate) + liveSec;
+      cellEl.textContent = formatCell(total);
+      cellEl.classList.toggle('weekly-cell-empty', roundTo15(total) === 0);
+    }
+
+    // Active project's row total (all 5 committed days + live)
+    const rtEl = document.getElementById('wk_rt_' + pid);
+    if (rtEl) {
+      var rowTotal = liveSec;
+      for (var ri = 0; ri < 5; ri++) {
+        var rd = new Date(weekOverviewMonday); rd.setDate(rd.getDate() + ri);
+        rowTotal += getDayEntries(pid, rd);
+      }
+      rtEl.textContent = formatCell(rowTotal);
+    }
+
+    // Today's column total (all projects committed + live)
+    const dtEl = document.getElementById('wk_dt_' + todayDow);
+    if (dtEl) {
+      var dayTotal = liveSec;
+      state.projects.forEach(function(p) { if (!p.archived) dayTotal += getDayEntries(p.id, todayDate); });
+      dtEl.textContent = formatCell(dayTotal);
+    }
+
+    // Grand total (all projects, all 5 days committed + live)
+    const gtEl = document.getElementById('wk_gt');
+    if (gtEl) {
+      var grand = liveSec;
+      for (var gi = 0; gi < 5; gi++) {
+        var gd = new Date(weekOverviewMonday); gd.setDate(gd.getDate() + gi);
+        state.projects.forEach(function(p) { if (!p.archived) grand += getDayEntries(p.id, gd); });
+      }
+      gtEl.textContent = formatCell(grand);
+    }
+  }
 }
 
 function getSegmentTime(id) {
@@ -1495,8 +1549,22 @@ function renderLog() {
   const list = document.getElementById('logList');
   if (!list) return;
   const today = state.entries.filter(function(e) { return isToday(e.start); }).slice().reverse();
-  if (today.length === 0) { list.innerHTML = '<div class="empty-state">No entries today yet.</div>'; return; }
-  list.innerHTML = today.map(function(e) {
+
+  let liveHtml = '';
+  if (state.timerRunning && state.activeProjectId && state.activeSegmentStart) {
+    const p = getProject(state.activeProjectId);
+    const realSec = (Date.now() - state.activeSegmentStart) / 1000;
+    const liveSec = Math.floor(testMode ? realSec * TEST_MULTIPLIER : realSec);
+    liveHtml = '<div class="log-entry log-live">' +
+      '<div class="log-dot" style="background:' + p.color + '"></div>' +
+      '<div class="log-info"><div class="log-project">' + escHtml(p.name) + '</div>' +
+      '<div class="log-meta">' + formatTimeDisplay(state.activeSegmentStart) + '</div></div>' +
+      '<div class="log-duration"><span id="logLiveDur">' + formatDurationShort(liveSec) + '</span></div>' +
+      '</div>';
+  }
+
+  if (today.length === 0 && !liveHtml) { list.innerHTML = '<div class="empty-state">No entries today yet.</div>'; return; }
+  list.innerHTML = liveHtml + today.map(function(e) {
     const p = getProject(e.projectId);
     return '<div class="log-entry">' +
       '<div class="log-dot" style="background:' + p.color + '"></div>' +
@@ -2056,18 +2124,18 @@ function renderWeeklyOverview() {
       dayTotals[i] += sec;
       rowTotal += sec;
       var cellStr = formatCell(sec);
-      html += '<td class="weekly-cell' + (sec === 0 ? ' weekly-cell-empty' : '') + '">' + cellStr + '</td>';
+      html += '<td id="wk_c_' + p.id + '_' + i + '" class="weekly-cell' + (sec === 0 ? ' weekly-cell-empty' : '') + '">' + cellStr + '</td>';
     });
     grandTotal += rowTotal;
-    html += '<td class="weekly-cell weekly-row-total">' + formatCell(rowTotal) + '</td>';
+    html += '<td id="wk_rt_' + p.id + '" class="weekly-cell weekly-row-total">' + formatCell(rowTotal) + '</td>';
     html += '</tr>';
   });
 
   html += '<tr class="weekly-total-row"><td class="weekly-proj-name">Total</td>';
-  dayTotals.forEach(function(sec) {
-    html += '<td class="weekly-cell">' + formatCell(sec) + '</td>';
+  dayTotals.forEach(function(sec, i) {
+    html += '<td id="wk_dt_' + i + '" class="weekly-cell">' + formatCell(sec) + '</td>';
   });
-  html += '<td class="weekly-cell weekly-row-total">' + formatCell(grandTotal) + '</td>';
+  html += '<td id="wk_gt" class="weekly-cell weekly-row-total">' + formatCell(grandTotal) + '</td>';
   html += '</tr>';
 
   html += '</tbody></table></div>';
