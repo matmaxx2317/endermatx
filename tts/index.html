@@ -737,6 +737,181 @@ text-align: center;
 padding: 20px 0;
 letter-spacing: 0.05em;
 }
+
+/* WEEKLY OVERVIEW */
+.weekly-nav {
+display: flex;
+align-items: center;
+justify-content: center;
+gap: 14px;
+margin-bottom: 14px;
+}
+
+.weekly-nav-btn {
+background: none;
+border: 1px solid #2a2a2a;
+color: #ccc;
+font-size: 14px;
+width: 28px; height: 28px;
+cursor: pointer;
+font-family: inherit;
+display: flex; align-items: center; justify-content: center;
+transition: border-color 0.15s;
+}
+
+.weekly-nav-btn:hover { border-color: #ccc; }
+
+.weekly-cw {
+font-size: 11px;
+letter-spacing: 0.2em;
+color: #ccc;
+cursor: pointer;
+text-transform: uppercase;
+padding: 4px 10px;
+border: 1px solid #222;
+min-width: 130px;
+text-align: center;
+display: inline-block;
+transition: border-color 0.15s;
+}
+
+.weekly-cw:hover { border-color: #ccc; }
+
+.weekly-table-wrap { overflow-x: auto; }
+
+.weekly-table {
+width: 100%;
+border-collapse: collapse;
+font-size: 11px;
+}
+
+.weekly-table thead th {
+color: #bbb;
+font-weight: normal;
+padding: 4px 6px;
+text-align: center;
+letter-spacing: 0.08em;
+border-bottom: 1px solid #222;
+}
+
+.weekly-proj-col { width: 110px; text-align: left !important; }
+.weekly-day-col { min-width: 56px; }
+.weekly-total-col { min-width: 52px; border-left: 1px solid #222; }
+
+.weekly-day-date {
+display: block;
+font-size: 9px;
+color: #555;
+letter-spacing: 0;
+}
+
+.weekly-today .weekly-day-date { color: #7effa0; }
+.weekly-today { color: #7effa0 !important; }
+
+.weekly-table tbody td {
+padding: 6px 6px;
+border-bottom: 1px solid #181818;
+text-align: center;
+color: #ccc;
+font-variant-numeric: tabular-nums;
+}
+
+.weekly-proj-name {
+text-align: left !important;
+color: #d0d0d0;
+white-space: nowrap;
+overflow: hidden;
+text-overflow: ellipsis;
+max-width: 110px;
+}
+
+.weekly-proj-dot {
+display: inline-block;
+width: 6px; height: 6px;
+border-radius: 50%;
+margin-right: 5px;
+vertical-align: middle;
+flex-shrink: 0;
+}
+
+.weekly-cell-empty { color: #333 !important; }
+
+.weekly-row-total { border-left: 1px solid #222; color: #bbb !important; }
+
+.weekly-total-row td {
+border-top: 1px solid #2a2a2a;
+color: #bbb !important;
+font-size: 11px;
+}
+
+/* CALENDAR POPUP */
+.cal-popup {
+display: none;
+position: fixed;
+background: #1e1e1e;
+border: 1px solid #333;
+padding: 12px;
+width: 226px;
+z-index: 300;
+}
+
+.cal-popup.visible { display: block; }
+
+.cal-popup-header {
+display: flex;
+justify-content: space-between;
+align-items: center;
+margin-bottom: 8px;
+font-size: 11px;
+letter-spacing: 0.1em;
+color: #ccc;
+}
+
+.cal-nav-btn {
+background: none;
+border: 1px solid #333;
+color: #ccc;
+font-size: 12px;
+width: 24px; height: 24px;
+cursor: pointer;
+font-family: inherit;
+display: flex; align-items: center; justify-content: center;
+transition: border-color 0.15s;
+}
+
+.cal-nav-btn:hover { border-color: #ccc; }
+
+.cal-popup-grid {
+display: grid;
+grid-template-columns: repeat(7, 1fr);
+gap: 2px;
+}
+
+.cal-day-header {
+text-align: center;
+font-size: 9px;
+color: #555;
+letter-spacing: 0.05em;
+padding: 2px 0 4px;
+}
+
+.cal-day-empty { padding: 4px 2px; }
+
+.cal-day {
+text-align: center;
+font-size: 11px;
+color: #ccc;
+cursor: pointer;
+padding: 4px 2px;
+border-radius: 2px;
+transition: background 0.1s;
+}
+
+.cal-day:hover { background: #2a2a2a; }
+.cal-day.cal-in-week { background: #161e16; color: #bbb; }
+.cal-day.cal-in-week:hover { background: #1e2a1e; }
+.cal-day.cal-today { color: #7effa0; }
+.cal-day.cal-selected { background: #0d1a10 !important; color: #7effa0 !important; }
 </style>
 
 </head>
@@ -822,6 +997,13 @@ letter-spacing: 0.05em;
   </div>
   <div id="reportContent"></div>
 </div>
+
+<div class="section">
+  <div class="section-title">Weekly Overview</div>
+  <div id="weeklyOverview"></div>
+</div>
+
+<div id="calPopup" class="cal-popup"></div>
 
 <div class="section">
   <div class="section-title">Projects</div>
@@ -1064,6 +1246,7 @@ function stopAll() {
   renderGrid();
   renderLog();
   renderReport();
+  renderWeeklyOverview();
 }
 
 function selectProject(id) {
@@ -1133,6 +1316,7 @@ function confirmAdjust() {
   renderGrid();
   renderLog();
   renderReport();
+  renderWeeklyOverview();
 }
 
 function flushSegment() {
@@ -1294,6 +1478,7 @@ function renderAll() {
   renderGrid();
   renderLog();
   renderReport();
+  renderWeeklyOverview();
   renderProjectsMgr();
   updateControlBtn();
   updateIndicator();
@@ -1328,6 +1513,7 @@ function deleteEntry(id) {
   schedulePush();
   renderLog();
   renderReport();
+  renderWeeklyOverview();
 }
 
 function resetAllEntries() {
@@ -1766,7 +1952,205 @@ function closeColorPicker() { document.getElementById('colorPopup').classList.re
 
 document.addEventListener('click', function(e) {
   if (!e.target.classList.contains('proj-color-dot') && !e.target.classList.contains('color-swatch')) closeColorPicker();
+  var inCalPopup = e.target.closest && e.target.closest('#calPopup');
+  var isCalTrigger = e.target.classList.contains('weekly-cw') || e.target.classList.contains('cal-nav-btn');
+  if (!inCalPopup && !isCalTrigger) document.getElementById('calPopup').classList.remove('visible');
 });
+
+// ---- WEEKLY OVERVIEW ----
+
+var weekOverviewMonday = getMondayOf(new Date());
+var calPopupMonth = new Date();
+
+function getMondayOf(date) {
+  var d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  var dow = (d.getDay() + 6) % 7;
+  d.setDate(d.getDate() - dow);
+  return d;
+}
+
+function getISOWeek(date) {
+  var d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
+  var w1 = new Date(d.getFullYear(), 0, 4);
+  return 1 + Math.round(((d - w1) / 86400000 - 3 + (w1.getDay() + 6) % 7) / 7);
+}
+
+function getISOWeekYear(date) {
+  var d = new Date(date);
+  d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
+  return d.getFullYear();
+}
+
+function isSameDay(a, b) {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+function getDayEntries(projectId, dayDate) {
+  return state.entries
+    .filter(function(e) {
+      var d = new Date(e.start);
+      return e.projectId === projectId && isSameDay(d, dayDate);
+    })
+    .reduce(function(s, e) { return s + e.duration; }, 0);
+}
+
+function roundTo15(sec) { return Math.round(sec / 900) * 900; }
+
+function formatCell(sec) {
+  var r = roundTo15(sec);
+  if (r === 0) return '--';
+  var h = Math.floor(r / 3600), m = Math.floor((r % 3600) / 60);
+  if (h > 0 && m > 0) return h + 'h ' + m + 'm';
+  if (h > 0) return h + 'h';
+  return m + 'm';
+}
+
+function renderWeeklyOverview() {
+  var el = document.getElementById('weeklyOverview');
+  if (!el) return;
+
+  var mon = weekOverviewMonday;
+  var cw = getISOWeek(mon);
+  var cwYear = getISOWeekYear(mon);
+  var today = new Date();
+
+  var days = [];
+  for (var i = 0; i < 5; i++) {
+    var d = new Date(mon);
+    d.setDate(d.getDate() + i);
+    days.push(d);
+  }
+
+  var DAY_SHORT = ['Mon','Tue','Wed','Thu','Fri'];
+
+  var html = '<div class="weekly-nav">' +
+    '<button class="weekly-nav-btn" onclick="weekNavPrev()">&#8592;</button>' +
+    '<span class="weekly-cw" onclick="openCalPopup(event)">CW ' + cw + ' · ' + cwYear + '</span>' +
+    '<button class="weekly-nav-btn" onclick="weekNavNext()">&#8594;</button>' +
+    '</div>';
+
+  var projects = state.projects.filter(function(p) { return !p.archived; });
+
+  html += '<div class="weekly-table-wrap"><table class="weekly-table"><thead><tr>';
+  html += '<th class="weekly-proj-col"></th>';
+  days.forEach(function(d, i) {
+    var isT = isSameDay(d, today);
+    html += '<th class="weekly-day-col' + (isT ? ' weekly-today' : '') + '">' +
+      DAY_SHORT[i] + '<span class="weekly-day-date">' + pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '</span></th>';
+  });
+  html += '<th class="weekly-total-col">Total</th>';
+  html += '</tr></thead><tbody>';
+
+  var dayTotals = [0, 0, 0, 0, 0];
+  var grandTotal = 0;
+
+  projects.forEach(function(p) {
+    html += '<tr>';
+    html += '<td class="weekly-proj-name"><span class="weekly-proj-dot" style="background:' + p.color + '"></span>' + escHtml(p.name) + '</td>';
+    var rowTotal = 0;
+    days.forEach(function(d, i) {
+      var sec = getDayEntries(p.id, d);
+      dayTotals[i] += sec;
+      rowTotal += sec;
+      var cellStr = formatCell(sec);
+      html += '<td class="weekly-cell' + (sec === 0 ? ' weekly-cell-empty' : '') + '">' + cellStr + '</td>';
+    });
+    grandTotal += rowTotal;
+    html += '<td class="weekly-cell weekly-row-total">' + formatCell(rowTotal) + '</td>';
+    html += '</tr>';
+  });
+
+  html += '<tr class="weekly-total-row"><td class="weekly-proj-name">Total</td>';
+  dayTotals.forEach(function(sec) {
+    html += '<td class="weekly-cell">' + formatCell(sec) + '</td>';
+  });
+  html += '<td class="weekly-cell weekly-row-total">' + formatCell(grandTotal) + '</td>';
+  html += '</tr>';
+
+  html += '</tbody></table></div>';
+  el.innerHTML = html;
+}
+
+function weekNavPrev() {
+  var d = new Date(weekOverviewMonday);
+  d.setDate(d.getDate() - 7);
+  weekOverviewMonday = d;
+  renderWeeklyOverview();
+}
+
+function weekNavNext() {
+  var d = new Date(weekOverviewMonday);
+  d.setDate(d.getDate() + 7);
+  weekOverviewMonday = d;
+  renderWeeklyOverview();
+}
+
+function openCalPopup(event) {
+  var popup = document.getElementById('calPopup');
+  if (popup.classList.contains('visible')) { popup.classList.remove('visible'); return; }
+  calPopupMonth = new Date(weekOverviewMonday.getFullYear(), weekOverviewMonday.getMonth(), 1);
+  renderCalPopup();
+  var rect = event.target.getBoundingClientRect();
+  popup.style.left = Math.max(4, Math.min(rect.left, window.innerWidth - 234)) + 'px';
+  popup.style.top = (rect.bottom + 6) + 'px';
+  popup.classList.add('visible');
+}
+
+function renderCalPopup() {
+  var popup = document.getElementById('calPopup');
+  var year = calPopupMonth.getFullYear();
+  var month = calPopupMonth.getMonth();
+  var MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+  var html = '<div class="cal-popup-header">' +
+    '<button class="cal-nav-btn" onclick="calPopupPrev()">&#8592;</button>' +
+    '<span>' + MONTHS[month] + ' ' + year + '</span>' +
+    '<button class="cal-nav-btn" onclick="calPopupNext()">&#8594;</button>' +
+    '</div><div class="cal-popup-grid">';
+
+  ['Mo','Tu','We','Th','Fr','Sa','Su'].forEach(function(d) {
+    html += '<div class="cal-day-header">' + d + '</div>';
+  });
+
+  var firstDow = (new Date(year, month, 1).getDay() + 6) % 7;
+  var daysInMonth = new Date(year, month + 1, 0).getDate();
+  var monTime = weekOverviewMonday.getTime();
+  var today = new Date();
+
+  for (var i = 0; i < firstDow; i++) html += '<div class="cal-day-empty"></div>';
+
+  for (var day = 1; day <= daysInMonth; day++) {
+    var date = new Date(year, month, day);
+    var dayTime = date.getTime();
+    var inWeek = dayTime >= monTime && dayTime < monTime + 5 * 86400000;
+    var isSelected = isSameDay(getMondayOf(date), weekOverviewMonday);
+    var isTodayDay = isSameDay(date, today);
+    var cls = 'cal-day' + (isSelected ? ' cal-selected' : (inWeek ? ' cal-in-week' : '')) + (isTodayDay ? ' cal-today' : '');
+    html += '<div class="' + cls + '" onclick="calSelectDate(' + dayTime + ')">' + day + '</div>';
+  }
+
+  html += '</div>';
+  popup.innerHTML = html;
+}
+
+function calPopupPrev() {
+  calPopupMonth.setMonth(calPopupMonth.getMonth() - 1);
+  renderCalPopup();
+}
+
+function calPopupNext() {
+  calPopupMonth.setMonth(calPopupMonth.getMonth() + 1);
+  renderCalPopup();
+}
+
+function calSelectDate(ts) {
+  weekOverviewMonday = getMondayOf(new Date(ts));
+  document.getElementById('calPopup').classList.remove('visible');
+  renderWeeklyOverview();
+}
 
 // ---- HELPERS ----
 
