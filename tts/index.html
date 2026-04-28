@@ -981,7 +981,7 @@ transition: background 0.1s;
 
 <!-- APP -->
 
-<h1>tts<span style="font-size:10px;color:#bbb;margin-left:8px;letter-spacing:0.05em;text-transform:none;font-weight:normal">v1.0</span></h1>
+<h1>tts<span style="font-size:10px;color:#bbb;margin-left:8px;letter-spacing:0.05em;text-transform:none;font-weight:normal">v1.1</span></h1>
 
 <div class="top-bar">
   <div class="timer-display" id="timerDisplay">00:00:00</div>
@@ -1061,6 +1061,7 @@ let testGistId = '';
 let gistId = ''; // always reflects active mode: testMode ? testGistId : prodGistId
 let tickInterval = null;
 let syncTimeout = null;
+let pushInProgress = false;
 let testMode = localStorage.getItem('tt_testmode') === '1';
 let cardOrder = null; // frozen project ID order while timer is running
 
@@ -1171,6 +1172,30 @@ async function setupConnect() {
 
 // ---- GIST SYNC ----
 
+// Merge two states without data loss: entries and projects are unioned by ID.
+// Local timer state always wins (the active device knows its own recording state).
+function mergeStates(local, remote) {
+  const entryById = {};
+  (remote.entries || []).forEach(function(e) { entryById[e.id] = e; });
+  (local.entries || []).forEach(function(e) { entryById[e.id] = e; });
+  const entries = Object.values(entryById).sort(function(a, b) { return a.start - b.start; });
+
+  const projById = {};
+  (remote.projects || []).forEach(function(p) { projById[p.id] = p; });
+  (local.projects || []).forEach(function(p) { projById[p.id] = p; });
+  const projects = Object.values(projById).sort(function(a, b) { return a.name.localeCompare(b.name); });
+
+  return {
+    projects: projects,
+    entries: entries,
+    timerRunning: local.timerRunning,
+    timerStart: local.timerStart,
+    activeProjectId: local.activeProjectId,
+    activeSegmentStart: local.activeSegmentStart,
+    reportMode: local.reportMode || remote.reportMode || 'week'
+  };
+}
+
 async function pullFromGist() {
   const res = await fetch('https://api.github.com/gists/' + gistId, {
     headers: { 'Authorization': 'Bearer ' + gistToken }
@@ -1178,20 +1203,27 @@ async function pullFromGist() {
   if (!res.ok) throw new Error('Pull failed: ' + res.status);
   const data = await res.json();
   const content = data.files['tt_data.json'] && data.files['tt_data.json'].content;
-  if (content) {
-    const remote = JSON.parse(content);
-    state = Object.assign({
-      projects: [], entries: [], timerRunning: false,
-      timerStart: null, activeProjectId: null,
-      activeSegmentStart: null, reportMode: 'week'
-    }, remote);
-  }
+  if (content) state = mergeStates(state, JSON.parse(content));
 }
 
 async function pushToGist() {
   if (!gistToken || !gistId) return;
+  pushInProgress = true;
   setSyncStatus('syncing', 'Syncing...');
   try {
+    // Read remote first so we never clobber concurrent changes from the other device.
+    const fetchRes = await fetch('https://api.github.com/gists/' + gistId, {
+      headers: { 'Authorization': 'Bearer ' + gistToken }
+    });
+    if (fetchRes.ok) {
+      const data = await fetchRes.json();
+      const content = data.files['tt_data.json'] && data.files['tt_data.json'].content;
+      if (content) {
+        const prevLen = state.entries.length;
+        state = mergeStates(state, JSON.parse(content));
+        if (state.entries.length !== prevLen) renderAll();
+      }
+    }
     const res = await fetch('https://api.github.com/gists/' + gistId, {
       method: 'PATCH',
       headers: { 'Authorization': 'Bearer ' + gistToken, 'Content-Type': 'application/json' },
@@ -1206,6 +1238,8 @@ async function pushToGist() {
     }, 2000);
   } catch(e) {
     setSyncStatus('error', 'Sync failed');
+  } finally {
+    pushInProgress = false;
   }
 }
 
@@ -2323,6 +2357,17 @@ async function init() {
     tick();
   }
 }
+
+// Background sync: pull remote changes every 30s so the other device's entries
+// appear without requiring a page reload or local change to trigger a push.
+setInterval(async function() {
+  if (!gistToken || !gistId || pushInProgress) return;
+  try {
+    const prevLen = state.entries.length;
+    await pullFromGist();
+    if (state.entries.length !== prevLen) renderAll();
+  } catch(e) { /* silent — status bar only shows errors from explicit push */ }
+}, 30000);
 
 init();
 </script>
