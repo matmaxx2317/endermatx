@@ -981,7 +981,7 @@ transition: background 0.1s;
 
 <!-- APP -->
 
-<h1>tts<span style="font-size:10px;color:#bbb;margin-left:8px;letter-spacing:0.05em;text-transform:none;font-weight:normal">v1.0</span></h1>
+<h1>tts<span style="font-size:10px;color:#bbb;margin-left:8px;letter-spacing:0.05em;text-transform:none;font-weight:normal">v1.2</span></h1>
 
 <div class="top-bar">
   <div class="timer-display" id="timerDisplay">00:00:00</div>
@@ -1061,6 +1061,8 @@ let testGistId = '';
 let gistId = ''; // always reflects active mode: testMode ? testGistId : prodGistId
 let tickInterval = null;
 let syncTimeout = null;
+let pushInProgress = false;
+let switchingMode = false;
 let testMode = localStorage.getItem('tt_testmode') === '1';
 let cardOrder = null; // frozen project ID order while timer is running
 
@@ -1171,6 +1173,34 @@ async function setupConnect() {
 
 // ---- GIST SYNC ----
 
+// Merge two states without data loss.
+// Entries and projects are unioned by ID.
+// Timer state: most recently changed (timerUpdatedAt) wins, so both devices
+// see whichever device last started/stopped/switched the recording.
+function mergeStates(local, remote) {
+  const entryById = {};
+  (remote.entries || []).forEach(function(e) { entryById[e.id] = e; });
+  (local.entries || []).forEach(function(e) { entryById[e.id] = e; });
+  const entries = Object.values(entryById).sort(function(a, b) { return a.start - b.start; });
+
+  const projById = {};
+  (remote.projects || []).forEach(function(p) { projById[p.id] = p; });
+  (local.projects || []).forEach(function(p) { projById[p.id] = p; });
+  const projects = Object.values(projById).sort(function(a, b) { return a.name.localeCompare(b.name); });
+
+  const useRemote = (remote.timerUpdatedAt || 0) > (local.timerUpdatedAt || 0);
+  return {
+    projects: projects,
+    entries: entries,
+    timerRunning: useRemote ? remote.timerRunning : local.timerRunning,
+    timerStart: useRemote ? remote.timerStart : local.timerStart,
+    timerUpdatedAt: Math.max(local.timerUpdatedAt || 0, remote.timerUpdatedAt || 0) || null,
+    activeProjectId: useRemote ? remote.activeProjectId : local.activeProjectId,
+    activeSegmentStart: useRemote ? remote.activeSegmentStart : local.activeSegmentStart,
+    reportMode: local.reportMode || remote.reportMode || 'week'
+  };
+}
+
 async function pullFromGist() {
   const res = await fetch('https://api.github.com/gists/' + gistId, {
     headers: { 'Authorization': 'Bearer ' + gistToken }
@@ -1178,24 +1208,69 @@ async function pullFromGist() {
   if (!res.ok) throw new Error('Pull failed: ' + res.status);
   const data = await res.json();
   const content = data.files['tt_data.json'] && data.files['tt_data.json'].content;
-  if (content) {
-    const remote = JSON.parse(content);
-    state = Object.assign({
-      projects: [], entries: [], timerRunning: false,
-      timerStart: null, activeProjectId: null,
-      activeSegmentStart: null, reportMode: 'week'
-    }, remote);
+  if (!content) return;
+  const remote = JSON.parse(content);
+
+  // Propagate test gist ID discovered from the other device.
+  if (remote.testGistId && remote.testGistId !== testGistId) {
+    testGistId = remote.testGistId;
+    saveCredentials();
+  }
+
+  state = mergeStates(state, remote);
+
+  // Auto-switch test mode if the remote signals a different mode and we are idle.
+  if (!switchingMode && typeof remote.testMode === 'boolean' &&
+      remote.testMode !== testMode && !state.timerRunning) {
+    const targetId = remote.testMode ? testGistId : prodGistId;
+    if (targetId) {
+      switchingMode = true;
+      await applyTestModeSync(remote.testMode);
+      switchingMode = false;
+    }
   }
 }
 
-async function pushToGist() {
+// Apply a test-mode switch that originated from the remote (not from user action).
+async function applyTestModeSync(newMode) {
+  testMode = newMode;
+  localStorage.setItem('tt_testmode', testMode ? '1' : '0');
+  gistId = testMode ? testGistId : prodGistId;
+  const btn = document.getElementById('testModeBtn');
+  if (btn) {
+    btn.textContent = 'TEST MODE: ' + (testMode ? 'ON' : 'OFF');
+    btn.style.color = testMode ? '#ffd56b' : '#888';
+    btn.style.borderColor = testMode ? '#ffd56b' : '#888';
+  }
+  const timerEl = document.getElementById('timerDisplay');
+  if (timerEl) timerEl.classList.toggle('test', testMode);
+  if (gistId) { await pullFromGist(); renderAll(); }
+}
+
+async function pushToGist(extra) {
   if (!gistToken || !gistId) return;
+  pushInProgress = true;
   setSyncStatus('syncing', 'Syncing...');
   try {
+    // Read remote first so we never clobber concurrent changes from the other device.
+    const fetchRes = await fetch('https://api.github.com/gists/' + gistId, {
+      headers: { 'Authorization': 'Bearer ' + gistToken }
+    });
+    if (fetchRes.ok) {
+      const data = await fetchRes.json();
+      const content = data.files['tt_data.json'] && data.files['tt_data.json'].content;
+      if (content) {
+        const prevLen = state.entries.length;
+        state = mergeStates(state, JSON.parse(content));
+        if (state.entries.length !== prevLen) renderAll();
+      }
+    }
+    // Always include testMode metadata so the other device can auto-switch.
+    const toSave = Object.assign({}, state, { testMode: testMode, testGistId: testGistId }, extra || {});
     const res = await fetch('https://api.github.com/gists/' + gistId, {
       method: 'PATCH',
       headers: { 'Authorization': 'Bearer ' + gistToken, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ files: { 'tt_data.json': { content: JSON.stringify(state) } } })
+      body: JSON.stringify({ files: { 'tt_data.json': { content: JSON.stringify(toSave) } } })
     });
     if (!res.ok) throw new Error('Push failed');
     setSyncStatus('synced', 'Synced');
@@ -1206,6 +1281,8 @@ async function pushToGist() {
     }, 2000);
   } catch(e) {
     setSyncStatus('error', 'Sync failed');
+  } finally {
+    pushInProgress = false;
   }
 }
 
@@ -1233,6 +1310,7 @@ function startAll() {
   cardOrder = active.slice().sort(function(a, b) { return getOverallTotal(b.id) - getOverallTotal(a.id); }).map(function(p) { return p.id; });
   state.timerRunning = true;
   state.timerStart = Date.now();
+  state.timerUpdatedAt = Date.now();
   state.activeProjectId = null;
   state.activeSegmentStart = null;
   schedulePush();
@@ -1248,6 +1326,7 @@ function stopAll() {
   cardOrder = null;
   state.timerRunning = false;
   state.timerStart = null;
+  state.timerUpdatedAt = Date.now();
   state.activeProjectId = null;
   state.activeSegmentStart = null;
   clearInterval(tickInterval);
@@ -1270,6 +1349,7 @@ function selectProject(id) {
   flushSegment();
   state.activeProjectId = id;
   state.activeSegmentStart = Date.now();
+  state.timerUpdatedAt = Date.now();
   schedulePush();
   updateIndicator();
   renderGrid();
@@ -1610,13 +1690,15 @@ function resetAllEntries() {
 async function toggleTestMode() {
   if (state.timerRunning) { alert('Stop the timer before toggling test mode.'); return; }
 
-  // Flush current state to whichever gist is active before switching.
+  const nextMode = !testMode;
+  // Push to current gist with the UPCOMING testMode value so the other device
+  // sees the mode switch and can follow automatically.
   if (gistToken && gistId) {
     clearTimeout(syncTimeout);
-    await pushToGist();
+    await pushToGist({ testMode: nextMode, testGistId: testGistId });
   }
 
-  testMode = !testMode;
+  testMode = nextMode;
   localStorage.setItem('tt_testmode', testMode ? '1' : '0');
   gistId = testMode ? testGistId : prodGistId;
 
@@ -2323,6 +2405,38 @@ async function init() {
     tick();
   }
 }
+
+// Background sync every 10 s: pulls remote changes (new entries, timer state,
+// test-mode switches) so the idle device stays current without a page reload.
+setInterval(async function() {
+  if (!gistToken || !gistId || pushInProgress) return;
+  try {
+    const wasRunning = state.timerRunning;
+    const wasProjId  = state.activeProjectId;
+    const prevLen    = state.entries.length;
+
+    await pullFromGist();
+
+    const nowRunning = state.timerRunning;
+
+    // Keep tick interval in sync with timer state changes from the remote.
+    if (!wasRunning && nowRunning) {
+      clearInterval(tickInterval);
+      tickInterval = setInterval(tick, 1000);
+      tick();
+    } else if (wasRunning && !nowRunning) {
+      clearInterval(tickInterval);
+      tickInterval = null;
+      document.getElementById('timerDisplay').classList.remove('running', 'test');
+      document.getElementById('timerDisplay').textContent = '00:00:00';
+      document.getElementById('fictionalClock').style.display = 'none';
+    }
+
+    if (prevLen !== state.entries.length || wasRunning !== nowRunning || wasProjId !== state.activeProjectId) {
+      renderAll();
+    }
+  } catch(e) { /* silent */ }
+}, 10000);
 
 init();
 </script>
