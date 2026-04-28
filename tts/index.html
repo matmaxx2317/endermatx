@@ -981,7 +981,7 @@ transition: background 0.1s;
 
 <!-- APP -->
 
-<h1>tts<span style="font-size:10px;color:#bbb;margin-left:8px;letter-spacing:0.05em;text-transform:none;font-weight:normal">v1.3</span></h1>
+<h1>tts<span style="font-size:10px;color:#bbb;margin-left:8px;letter-spacing:0.05em;text-transform:none;font-weight:normal">v1.4</span></h1>
 
 <div class="top-bar">
   <div class="timer-display" id="timerDisplay">00:00:00</div>
@@ -1041,7 +1041,6 @@ const COLORS = [
   '#ff9f6b','#6bfff0','#ff6bd6','#b5ff6b','#6b7fff'
 ];
 
-const DEFAULTS = ['orga','docs','meet','offs','code'];
 
 const DAY_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
@@ -2400,24 +2399,11 @@ async function init() {
     btn.style.borderColor = '#ffd56b';
     document.getElementById('timerDisplay').classList.add('test');
   }
-  // Only seed defaults when there's no gist to pull from; if a gist is
-  // configured we wait for the pull so defaults don't get merged with remote.
-  if (state.projects.length === 0 && (!gistToken || !gistId)) {
-    DEFAULTS.forEach(function(name, i) {
-      state.projects.push({ id: Date.now() + i, name: name, color: COLORS[i % COLORS.length] });
-    });
-  }
   renderAll();
   if (gistToken && gistId) {
     setSyncStatus('syncing', 'Loading...');
     try {
       await pullFromGist();
-      // If the gist was empty (new setup), seed defaults now.
-      if (state.projects.length === 0) {
-        DEFAULTS.forEach(function(name, i) {
-          state.projects.push({ id: Date.now() + i, name: name, color: COLORS[i % COLORS.length] });
-        });
-      }
       setSyncStatus('synced', 'Synced');
       setTimeout(function() { setSyncStatus('', 'Ready'); }, 2000);
       renderAll();
