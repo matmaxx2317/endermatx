@@ -610,6 +610,20 @@ transition: border-color 0.15s;
 
 .proj-color-dot:hover { border-color: #ccc; }
 
+.proj-name-label {
+flex: 1;
+color: #f0f0f0;
+font-size: 13px;
+font-family: inherit;
+padding: 2px 0;
+cursor: text;
+border-bottom: 1px solid transparent;
+transition: border-color 0.15s;
+user-select: none;
+}
+
+.proj-name-label:hover { border-bottom-color: #444; }
+
 .proj-name-input {
 flex: 1;
 background: none;
@@ -618,12 +632,10 @@ color: #f0f0f0;
 font-size: 13px;
 font-family: inherit;
 outline: none;
-border-bottom: 1px solid transparent;
+border-bottom: 1px solid #7effa0;
 padding: 2px 0;
 transition: border-color 0.15s;
 }
-
-.proj-name-input:focus { border-bottom-color: #7effa0; }
 
 .proj-delete {
 background: none;
@@ -1019,8 +1031,8 @@ transition: background 0.1s;
 </div>
 
 <div style="width:100%;max-width:560px;margin-top:48px;padding-top:24px;border-top:1px solid #1a1a1a;display:flex;flex-direction:column;align-items:center;gap:10px;">
-  <button class="btn-ghost" style="font-size:10px;letter-spacing:0.15em;color:#555;border-color:#1e1e1e;" onclick="resetAllEntries()">RESET ALL LOGGED TIMES</button>
-  <button class="btn-ghost" id="testModeBtn" style="font-size:10px;letter-spacing:0.15em;color:#555;border-color:#1e1e1e;" onclick="toggleTestMode()">TEST MODE: OFF</button>
+  <button class="btn-ghost" style="font-size:10px;letter-spacing:0.15em;color:#e06060;border-color:#e06060;" onclick="resetAllEntries()">RESET ALL LOGGED TIMES</button>
+  <button class="btn-ghost" id="testModeBtn" style="font-size:10px;letter-spacing:0.15em;color:#888;border-color:#888;" onclick="toggleTestMode()">TEST MODE: OFF</button>
 </div>
 
 <script>
@@ -1610,8 +1622,8 @@ async function toggleTestMode() {
 
   const btn = document.getElementById('testModeBtn');
   btn.textContent = 'TEST MODE: ' + (testMode ? 'ON' : 'OFF');
-  btn.style.color = testMode ? '#ffd56b' : '#555';
-  btn.style.borderColor = testMode ? '#ffd56b' : '#1e1e1e';
+  btn.style.color = testMode ? '#ffd56b' : '#888';
+  btn.style.borderColor = testMode ? '#ffd56b' : '#888';
   document.getElementById('timerDisplay').classList.toggle('test', testMode);
 
   const blankState = function() {
@@ -1935,7 +1947,7 @@ function renderProjectsMgr() {
     html += active.map(function(p) {
       return '<div class="proj-item">' +
         '<div class="proj-color-dot" style="background:' + p.color + '" onclick="openColorPicker(' + p.id + ',this)"></div>' +
-        '<input class="proj-name-input" value="' + escHtml(p.name) + '" onblur="renameProject(' + p.id + ',this.value)" onkeydown="if(event.key===\'Enter\')this.blur()">' +
+        '<span class="proj-name-label" data-id="' + p.id + '" onclick="startRenameProject(' + p.id + ')">' + escHtml(p.name) + '</span>' +
         '<button class="proj-archive" onclick="archiveOrDeleteProject(' + p.id + ')" title="Archive or delete">&#8212;</button>' +
         '</div>';
     }).join('');
@@ -1965,6 +1977,31 @@ function addProject() {
   schedulePush();
   renderProjectsMgr();
   renderGrid();
+}
+
+function startRenameProject(id) {
+  var span = document.querySelector('.proj-name-label[data-id="' + id + '"]');
+  if (!span) return;
+  var currentName = span.textContent;
+  var input = document.createElement('input');
+  input.className = 'proj-name-input';
+  input.value = currentName;
+  span.parentNode.replaceChild(input, span);
+  input.focus();
+  input.select();
+  var committed = false;
+  function commit() {
+    if (committed) return;
+    committed = true;
+    var val = input.value.trim();
+    if (val && val !== currentName) renameProject(id, val);
+    else renderProjectsMgr();
+  }
+  input.addEventListener('blur', commit);
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { input.blur(); }
+    if (e.key === 'Escape') { committed = true; renderProjectsMgr(); }
+  });
 }
 
 function renameProject(id, name) {
