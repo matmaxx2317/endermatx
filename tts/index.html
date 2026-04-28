@@ -981,7 +981,7 @@ transition: background 0.1s;
 
 <!-- APP -->
 
-<h1>tts<span style="font-size:10px;color:#bbb;margin-left:8px;letter-spacing:0.05em;text-transform:none;font-weight:normal">v1.2</span></h1>
+<h1>tts<span style="font-size:10px;color:#bbb;margin-left:8px;letter-spacing:0.05em;text-transform:none;font-weight:normal">v1.4</span></h1>
 
 <div class="top-bar">
   <div class="timer-display" id="timerDisplay">00:00:00</div>
@@ -1041,7 +1041,6 @@ const COLORS = [
   '#ff9f6b','#6bfff0','#ff6bd6','#b5ff6b','#6b7fff'
 ];
 
-const DEFAULTS = ['orga','docs','meet','offs','code'];
 
 const DAY_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
@@ -1174,28 +1173,43 @@ async function setupConnect() {
 // ---- GIST SYNC ----
 
 // Merge two states without data loss.
-// Entries and projects are unioned by ID.
-// Timer state: most recently changed (timerUpdatedAt) wins, so both devices
-// see whichever device last started/stopped/switched the recording.
+// Entries and projects are unioned by ID, with tombstones and a clearedAt
+// timestamp to honour intentional deletions on either device.
 function mergeStates(local, remote) {
+  // Combine tombstones from both sides so deletions propagate everywhere.
+  const delEntries  = new Set([...(local.deletedEntryIds  || []), ...(remote.deletedEntryIds  || [])]);
+  const delProjects = new Set([...(local.deletedProjectIds || []), ...(remote.deletedProjectIds || [])]);
+  const clearedAt   = Math.max(local.clearedAt || 0, remote.clearedAt || 0);
+
+  // Entries: union by ID, skip tombstoned and pre-clear entries.
   const entryById = {};
-  (remote.entries || []).forEach(function(e) { entryById[e.id] = e; });
-  (local.entries || []).forEach(function(e) { entryById[e.id] = e; });
+  (remote.entries || []).forEach(function(e) {
+    if (!delEntries.has(e.id) && e.start > clearedAt) entryById[e.id] = e;
+  });
+  (local.entries || []).forEach(function(e) {
+    if (!delEntries.has(e.id) && e.start > clearedAt) entryById[e.id] = e;
+  });
   const entries = Object.values(entryById).sort(function(a, b) { return a.start - b.start; });
 
+  // Projects: union by ID, skip tombstoned. Local wins on conflict (preserves
+  // renames, colour changes, archived status set on this device).
   const projById = {};
-  (remote.projects || []).forEach(function(p) { projById[p.id] = p; });
-  (local.projects || []).forEach(function(p) { projById[p.id] = p; });
+  (remote.projects || []).forEach(function(p) { if (!delProjects.has(p.id)) projById[p.id] = p; });
+  (local.projects  || []).forEach(function(p) { if (!delProjects.has(p.id)) projById[p.id] = p; });
   const projects = Object.values(projById).sort(function(a, b) { return a.name.localeCompare(b.name); });
 
+  // Timer: most recently changed wins.
   const useRemote = (remote.timerUpdatedAt || 0) > (local.timerUpdatedAt || 0);
   return {
     projects: projects,
     entries: entries,
-    timerRunning: useRemote ? remote.timerRunning : local.timerRunning,
-    timerStart: useRemote ? remote.timerStart : local.timerStart,
-    timerUpdatedAt: Math.max(local.timerUpdatedAt || 0, remote.timerUpdatedAt || 0) || null,
-    activeProjectId: useRemote ? remote.activeProjectId : local.activeProjectId,
+    deletedEntryIds:  Array.from(delEntries),
+    deletedProjectIds: Array.from(delProjects),
+    clearedAt: clearedAt || null,
+    timerRunning:       useRemote ? remote.timerRunning       : local.timerRunning,
+    timerStart:         useRemote ? remote.timerStart         : local.timerStart,
+    timerUpdatedAt:     Math.max(local.timerUpdatedAt || 0, remote.timerUpdatedAt || 0) || null,
+    activeProjectId:    useRemote ? remote.activeProjectId    : local.activeProjectId,
     activeSegmentStart: useRemote ? remote.activeSegmentStart : local.activeSegmentStart,
     reportMode: local.reportMode || remote.reportMode || 'week'
   };
@@ -1670,6 +1684,7 @@ function renderLog() {
 
 function deleteEntry(id) {
   state.entries = state.entries.filter(function(e) { return e.id !== id; });
+  state.deletedEntryIds = (state.deletedEntryIds || []).concat([id]);
   schedulePush();
   renderLog();
   renderReport();
@@ -1678,7 +1693,11 @@ function deleteEntry(id) {
 
 function resetAllEntries() {
   if (!confirm('Delete all logged time entries and remove archived projects? This cannot be undone.')) return;
+  state.deletedEntryIds = (state.deletedEntryIds || []).concat(state.entries.map(function(e) { return e.id; }));
   state.entries = [];
+  state.clearedAt = Date.now();
+  const archivedIds = state.projects.filter(function(p) { return p.archived; }).map(function(p) { return p.id; });
+  state.deletedProjectIds = (state.deletedProjectIds || []).concat(archivedIds);
   state.projects = state.projects.filter(function(p) { return !p.archived; });
   schedulePush();
   renderLog();
@@ -2102,6 +2121,7 @@ function archiveOrDeleteProject(id) {
     var p = state.projects.find(function(p) { return p.id === id; });
     if (p) { p.archived = true; }
   } else {
+    state.deletedProjectIds = (state.deletedProjectIds || []).concat([id]);
     state.projects = state.projects.filter(function(p) { return p.id !== id; });
   }
   schedulePush();
@@ -2378,11 +2398,6 @@ async function init() {
     btn.style.color = '#ffd56b';
     btn.style.borderColor = '#ffd56b';
     document.getElementById('timerDisplay').classList.add('test');
-  }
-  if (state.projects.length === 0) {
-    DEFAULTS.forEach(function(name, i) {
-      state.projects.push({ id: Date.now() + i, name: name, color: COLORS[i % COLORS.length] });
-    });
   }
   renderAll();
   if (gistToken && gistId) {
