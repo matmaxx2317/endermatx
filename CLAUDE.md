@@ -86,6 +86,10 @@ Placeholder, currently empty ("coming soon").
 3. Add a `.card` entry to the appropriate category page (`productivity/index.html`, `personal/index.html`, or `games/index.html`) with the next sequential label number.
 4. The root `index.html` only lists categories — no changes needed there unless a new category is added.
 
+## Versioning (tts)
+
+The `tts` tool displays a version in its `<h1>` title bar (e.g. `v1.0`). **With every PR created for tts, increment the minor version** (e.g. `v1.0` → `v1.1` → `v1.2`). Increment the major version only when the user explicitly asks. The current version is whatever is in `tts/index.html` at the time — read it before creating a PR and bump it then.
+
 ## No build, lint, or test commands
 
 There are no npm scripts, no linters, and no automated tests. Preview by opening any `index.html` directly in a browser or serving with any static file server (e.g. `python3 -m http.server` from the repo root).
