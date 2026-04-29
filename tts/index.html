@@ -37,6 +37,7 @@ z-index: 50;
 #syncBar span { letter-spacing: 0.15em; }
 
 #syncStatus { display: flex; align-items: center; }
+#syncText { cursor: pointer; }
 #syncBar .dot {
 width: 7px; height: 7px;
 border-radius: 50%;
@@ -936,7 +937,7 @@ transition: background 0.1s;
 
 <div id="syncBar">
   <span>tts</span>
-  <div id="syncStatus"><span class="dot" id="syncDot"></span><span id="syncText">not connected</span></div>
+  <div id="syncStatus"><span class="dot" id="syncDot"></span><span id="syncText" onclick="bgSync()" title="Click to sync now">not connected</span></div>
   <button id="setupBtn" onclick="openSetup()">setup</button>
 </div>
 
@@ -981,7 +982,7 @@ transition: background 0.1s;
 
 <!-- APP -->
 
-<h1>tts<span style="font-size:10px;color:#bbb;margin-left:8px;letter-spacing:0.05em;text-transform:none;font-weight:normal">v1.7</span></h1>
+<h1>tts<span style="font-size:10px;color:#bbb;margin-left:8px;letter-spacing:0.05em;text-transform:none;font-weight:normal">v1.8</span></h1>
 
 <div class="top-bar">
   <div class="timer-display" id="timerDisplay">00:00:00</div>
