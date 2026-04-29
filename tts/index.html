@@ -937,7 +937,7 @@ transition: background 0.1s;
 
 <div id="syncBar">
   <span>tts</span>
-  <div id="syncStatus"><span class="dot" id="syncDot"></span><span id="syncText" onclick="pushToGist()" title="Click to sync now">not connected</span></div>
+  <div id="syncStatus"><span class="dot" id="syncDot"></span><span id="syncText" onclick="manualSync()" title="Click to sync now">not connected</span></div>
   <button id="setupBtn" onclick="openSetup()">setup</button>
 </div>
 
@@ -2441,6 +2441,20 @@ async function bgSync() {
       renderAll();
     }
   } catch(e) { /* silent */ }
+}
+
+async function manualSync() {
+  if (!gistToken || !gistId || pushInProgress) return;
+  setSyncStatus('syncing', 'Syncing...');
+  try {
+    await bgSync();
+    setSyncStatus('synced', 'Synced');
+    setTimeout(function() {
+      if (document.getElementById('syncText').textContent === 'Synced') setSyncStatus('', 'Ready');
+    }, 2000);
+  } catch(e) {
+    setSyncStatus('error', 'Sync failed');
+  }
 }
 
 setInterval(bgSync, 10000);
