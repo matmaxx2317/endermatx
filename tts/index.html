@@ -284,6 +284,7 @@ display: flex;
 flex-direction: column;
 justify-content: space-between;
 overflow: hidden;
+-webkit-appearance: none;
 }
 
 .proj-btn:hover:not(.inactive) { border-color: #bbb; background: #222; }
@@ -982,7 +983,7 @@ transition: background 0.1s;
 
 <!-- APP -->
 
-<h1>tts<span style="font-size:10px;color:#bbb;margin-left:8px;letter-spacing:0.05em;text-transform:none;font-weight:normal">v2.1</span></h1>
+<h1>tts<span style="font-size:10px;color:#bbb;margin-left:8px;letter-spacing:0.05em;text-transform:none;font-weight:normal">v2.2</span></h1>
 
 <div class="top-bar">
   <div class="timer-display" id="timerDisplay">00:00:00</div>
@@ -1512,7 +1513,7 @@ function renderGrid() {
   grid.innerHTML = sorted.map(function(p) {
     const isActive = state.timerRunning && state.activeProjectId === p.id;
     const isInactive = !state.timerRunning;
-    const borderStyle = isActive ? 'border-color:' + p.color + ';' : state.timerRunning ? 'border-color:#1e1e1e;' : '';
+    const borderStyle = isActive ? 'border-color:' + p.color + ';' : state.timerRunning ? 'border-color:transparent;' : '';
     const ctxSec = getSegmentTime(p.id);
     const daySec = getDayTotal(p.id);
     const allSec = getOverallTotal(p.id);
