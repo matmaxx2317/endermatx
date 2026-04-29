@@ -981,7 +981,7 @@ transition: background 0.1s;
 
 <!-- APP -->
 
-<h1>tts<span style="font-size:10px;color:#bbb;margin-left:8px;letter-spacing:0.05em;text-transform:none;font-weight:normal">v1.6</span></h1>
+<h1>tts<span style="font-size:10px;color:#bbb;margin-left:8px;letter-spacing:0.05em;text-transform:none;font-weight:normal">v1.7</span></h1>
 
 <div class="top-bar">
   <div class="timer-display" id="timerDisplay">00:00:00</div>
@@ -2412,7 +2412,7 @@ async function init() {
 
 // Background sync every 10 s: pulls remote changes (new entries, timer state,
 // test-mode switches) so the idle device stays current without a page reload.
-setInterval(async function() {
+async function bgSync() {
   if (!gistToken || !gistId || pushInProgress) return;
   try {
     const wasRunning = state.timerRunning;
@@ -2440,7 +2440,15 @@ setInterval(async function() {
       renderAll();
     }
   } catch(e) { /* silent */ }
-}, 10000);
+}
+
+setInterval(bgSync, 10000);
+
+// Browsers throttle timers in background tabs. Fire a sync immediately when
+// the user switches back to this tab so the UI is always fresh on return.
+document.addEventListener('visibilitychange', function() {
+  if (document.visibilityState === 'visible') bgSync();
+});
 
 init();
 </script>
