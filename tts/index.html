@@ -981,7 +981,7 @@ transition: background 0.1s;
 
 <!-- APP -->
 
-<h1>tts<span style="font-size:10px;color:#bbb;margin-left:8px;letter-spacing:0.05em;text-transform:none;font-weight:normal">v1.4</span></h1>
+<h1>tts<span style="font-size:10px;color:#bbb;margin-left:8px;letter-spacing:0.05em;text-transform:none;font-weight:normal">v1.5</span></h1>
 
 <div class="top-bar">
   <div class="timer-display" id="timerDisplay">00:00:00</div>
@@ -1063,7 +1063,7 @@ let syncTimeout = null;
 let pushInProgress = false;
 let switchingMode = false;
 let testMode = localStorage.getItem('tt_testmode') === '1';
-let cardOrder = null; // frozen project ID order while timer is running
+let gistEtag = null; // ETag of the last known Gist version for conditional writes
 
 const TEST_MULTIPLIER = 600; // 1 real second = 10 fictional minutes
 
@@ -1220,6 +1220,7 @@ async function pullFromGist() {
     headers: { 'Authorization': 'Bearer ' + gistToken }
   });
   if (!res.ok) throw new Error('Pull failed: ' + res.status);
+  gistEtag = res.headers.get('ETag') || gistEtag;
   const data = await res.json();
   const content = data.files['tt_data.json'] && data.files['tt_data.json'].content;
   if (!content) return;
@@ -1266,33 +1267,43 @@ async function pushToGist(extra) {
   pushInProgress = true;
   setSyncStatus('syncing', 'Syncing...');
   try {
-    // Read remote first so we never clobber concurrent changes from the other device.
-    const fetchRes = await fetch('https://api.github.com/gists/' + gistId, {
-      headers: { 'Authorization': 'Bearer ' + gistToken }
-    });
-    if (fetchRes.ok) {
-      const data = await fetchRes.json();
-      const content = data.files['tt_data.json'] && data.files['tt_data.json'].content;
-      if (content) {
-        const prevLen = state.entries.length;
-        state = mergeStates(state, JSON.parse(content));
-        if (state.entries.length !== prevLen) renderAll();
+    const MAX_RETRIES = 3;
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      // Read-modify-write: always fetch remote and merge before writing.
+      const fetchRes = await fetch('https://api.github.com/gists/' + gistId, {
+        headers: { 'Authorization': 'Bearer ' + gistToken }
+      });
+      if (fetchRes.ok) {
+        gistEtag = fetchRes.headers.get('ETag') || gistEtag;
+        const data = await fetchRes.json();
+        const content = data.files['tt_data.json'] && data.files['tt_data.json'].content;
+        if (content) {
+          const prevLen = state.entries.length;
+          state = mergeStates(state, JSON.parse(content));
+          if (state.entries.length !== prevLen) renderAll();
+        }
       }
+      // Always include testMode metadata so the other device can auto-switch.
+      const toSave = Object.assign({}, state, { testMode: testMode, testGistId: testGistId }, extra || {});
+      const patchHeaders = { 'Authorization': 'Bearer ' + gistToken, 'Content-Type': 'application/json' };
+      if (gistEtag) patchHeaders['If-Match'] = gistEtag;
+      const res = await fetch('https://api.github.com/gists/' + gistId, {
+        method: 'PATCH',
+        headers: patchHeaders,
+        body: JSON.stringify({ files: { 'tt_data.json': { content: JSON.stringify(toSave) } } })
+      });
+      if (res.status === 412) continue; // concurrent write detected — re-read and retry
+      if (!res.ok) throw new Error('Push failed');
+      gistEtag = res.headers.get('ETag') || gistEtag;
+      setSyncStatus('synced', 'Synced');
+      setTimeout(function() {
+        if (document.getElementById('syncStatus').textContent === 'Synced') {
+          setSyncStatus('', 'Ready');
+        }
+      }, 2000);
+      return;
     }
-    // Always include testMode metadata so the other device can auto-switch.
-    const toSave = Object.assign({}, state, { testMode: testMode, testGistId: testGistId }, extra || {});
-    const res = await fetch('https://api.github.com/gists/' + gistId, {
-      method: 'PATCH',
-      headers: { 'Authorization': 'Bearer ' + gistToken, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ files: { 'tt_data.json': { content: JSON.stringify(toSave) } } })
-    });
-    if (!res.ok) throw new Error('Push failed');
-    setSyncStatus('synced', 'Synced');
-    setTimeout(function() {
-      if (document.getElementById('syncStatus').textContent === 'Synced') {
-        setSyncStatus('', 'Ready');
-      }
-    }, 2000);
+    throw new Error('Push failed after retries');
   } catch(e) {
     setSyncStatus('error', 'Sync failed');
   } finally {
@@ -1321,7 +1332,6 @@ function toggleTimer() {
 
 function startAll() {
   const active = state.projects.filter(function(p) { return !p.archived; });
-  cardOrder = active.slice().sort(function(a, b) { return getOverallTotal(b.id) - getOverallTotal(a.id); }).map(function(p) { return p.id; });
   state.timerRunning = true;
   state.timerStart = Date.now();
   state.timerUpdatedAt = Date.now();
@@ -1337,7 +1347,6 @@ function startAll() {
 
 function stopAll() {
   flushSegment();
-  cardOrder = null;
   state.timerRunning = false;
   state.timerStart = null;
   state.timerUpdatedAt = Date.now();
@@ -1506,15 +1515,7 @@ function renderGrid() {
     grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1">Add projects below to get started.</div>';
     return;
   }
-  var sorted;
-  if (cardOrder) {
-    const activeById = {};
-    active.forEach(function(p) { activeById[p.id] = p; });
-    sorted = cardOrder.filter(function(id) { return activeById[id]; }).map(function(id) { return activeById[id]; });
-    active.forEach(function(p) { if (cardOrder.indexOf(p.id) === -1) sorted.push(p); });
-  } else {
-    sorted = active.slice().sort(function(a,b) { return getOverallTotal(b.id) - getOverallTotal(a.id); });
-  }
+  var sorted = active.slice().sort(function(a, b) { return a.name.localeCompare(b.name); });
   grid.innerHTML = sorted.map(function(p) {
     const isActive = state.timerRunning && state.activeProjectId === p.id;
     const isInactive = !state.timerRunning;
