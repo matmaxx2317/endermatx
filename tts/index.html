@@ -1063,7 +1063,6 @@ let syncTimeout = null;
 let pushInProgress = false;
 let switchingMode = false;
 let testMode = localStorage.getItem('tt_testmode') === '1';
-let gistEtag = null; // ETag of the last known Gist version for conditional writes
 
 const TEST_MULTIPLIER = 600; // 1 real second = 10 fictional minutes
 
@@ -1220,7 +1219,6 @@ async function pullFromGist() {
     headers: { 'Authorization': 'Bearer ' + gistToken }
   });
   if (!res.ok) throw new Error('Pull failed: ' + res.status);
-  gistEtag = res.headers.get('ETag') || gistEtag;
   const data = await res.json();
   const content = data.files['tt_data.json'] && data.files['tt_data.json'].content;
   if (!content) return;
@@ -1267,43 +1265,33 @@ async function pushToGist(extra) {
   pushInProgress = true;
   setSyncStatus('syncing', 'Syncing...');
   try {
-    const MAX_RETRIES = 3;
-    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-      // Read-modify-write: always fetch remote and merge before writing.
-      const fetchRes = await fetch('https://api.github.com/gists/' + gistId, {
-        headers: { 'Authorization': 'Bearer ' + gistToken }
-      });
-      if (fetchRes.ok) {
-        gistEtag = fetchRes.headers.get('ETag') || gistEtag;
-        const data = await fetchRes.json();
-        const content = data.files['tt_data.json'] && data.files['tt_data.json'].content;
-        if (content) {
-          const prevLen = state.entries.length;
-          state = mergeStates(state, JSON.parse(content));
-          if (state.entries.length !== prevLen) renderAll();
-        }
+    // Read-modify-write: always fetch remote and merge before writing.
+    const fetchRes = await fetch('https://api.github.com/gists/' + gistId, {
+      headers: { 'Authorization': 'Bearer ' + gistToken }
+    });
+    if (fetchRes.ok) {
+      const data = await fetchRes.json();
+      const content = data.files['tt_data.json'] && data.files['tt_data.json'].content;
+      if (content) {
+        const prevLen = state.entries.length;
+        state = mergeStates(state, JSON.parse(content));
+        if (state.entries.length !== prevLen) renderAll();
       }
-      // Always include testMode metadata so the other device can auto-switch.
-      const toSave = Object.assign({}, state, { testMode: testMode, testGistId: testGistId }, extra || {});
-      const patchHeaders = { 'Authorization': 'Bearer ' + gistToken, 'Content-Type': 'application/json' };
-      if (gistEtag) patchHeaders['If-Match'] = gistEtag;
-      const res = await fetch('https://api.github.com/gists/' + gistId, {
-        method: 'PATCH',
-        headers: patchHeaders,
-        body: JSON.stringify({ files: { 'tt_data.json': { content: JSON.stringify(toSave) } } })
-      });
-      if (res.status === 412) continue; // concurrent write detected — re-read and retry
-      if (!res.ok) throw new Error('Push failed');
-      gistEtag = res.headers.get('ETag') || gistEtag;
-      setSyncStatus('synced', 'Synced');
-      setTimeout(function() {
-        if (document.getElementById('syncStatus').textContent === 'Synced') {
-          setSyncStatus('', 'Ready');
-        }
-      }, 2000);
-      return;
     }
-    throw new Error('Push failed after retries');
+    // Always include testMode metadata so the other device can auto-switch.
+    const toSave = Object.assign({}, state, { testMode: testMode, testGistId: testGistId }, extra || {});
+    const res = await fetch('https://api.github.com/gists/' + gistId, {
+      method: 'PATCH',
+      headers: { 'Authorization': 'Bearer ' + gistToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ files: { 'tt_data.json': { content: JSON.stringify(toSave) } } })
+    });
+    if (!res.ok) throw new Error('Push failed');
+    setSyncStatus('synced', 'Synced');
+    setTimeout(function() {
+      if (document.getElementById('syncStatus').textContent === 'Synced') {
+        setSyncStatus('', 'Ready');
+      }
+    }, 2000);
   } catch(e) {
     setSyncStatus('error', 'Sync failed');
   } finally {
