@@ -981,9 +981,23 @@ transition: background 0.1s;
   </div>
 </div>
 
+<div class="modal-overlay" id="stopModal">
+  <div class="modal">
+    <h2>Stop Timer</h2>
+    <div class="adjust-project-label">Set the actual time you stopped working.</div>
+    <label>Stopped at</label>
+    <input type="time" id="stopTimeInput">
+    <div class="modal-btns">
+      <button class="btn-primary" onclick="confirmStop()">Stop at this time</button>
+      <button class="btn-ghost" onclick="stopNow()">Stop now</button>
+      <button class="btn-ghost" onclick="closeStopModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <!-- APP -->
 
-<h1>tts<span style="font-size:10px;color:#bbb;margin-left:8px;letter-spacing:0.05em;text-transform:none;font-weight:normal">v2.3</span></h1>
+<h1>tts<span style="font-size:10px;color:#bbb;margin-left:8px;letter-spacing:0.05em;text-transform:none;font-weight:normal">v2.4</span></h1>
 
 <div class="top-bar">
   <div class="timer-display" id="timerDisplay">00:00:00</div>
@@ -1321,7 +1335,7 @@ function setSyncStatus(type, text) {
 // ---- TIMER ----
 
 function toggleTimer() {
-  if (state.timerRunning) stopAll(); else startAll();
+  if (state.timerRunning) openStopModal(); else startAll();
 }
 
 function startAll() {
@@ -1339,8 +1353,38 @@ function startAll() {
   renderGrid();
 }
 
-function stopAll() {
-  flushSegment();
+function openStopModal() {
+  const now = new Date();
+  document.getElementById('stopTimeInput').value = pad(now.getHours()) + ':' + pad(now.getMinutes());
+  document.getElementById('stopModal').classList.add('active');
+}
+
+function closeStopModal() {
+  document.getElementById('stopModal').classList.remove('active');
+}
+
+function stopNow() {
+  closeStopModal();
+  stopAll();
+}
+
+function confirmStop() {
+  const input = document.getElementById('stopTimeInput').value;
+  if (!input) return;
+  const [h, m] = input.split(':').map(Number);
+  const now = new Date();
+  const entered = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0, 0).getTime();
+  if (entered >= Date.now()) { alert('Stop time must be in the past.'); return; }
+  if (state.activeSegmentStart && entered <= state.activeSegmentStart) {
+    alert('Stop time must be after the current segment started.');
+    return;
+  }
+  closeStopModal();
+  stopAll(entered);
+}
+
+function stopAll(endTime) {
+  flushSegment(endTime);
   state.timerRunning = false;
   state.timerStart = null;
   state.timerUpdatedAt = Date.now();
@@ -1437,13 +1481,14 @@ function confirmAdjust() {
   renderWeeklyOverview();
 }
 
-function flushSegment() {
+function flushSegment(endTime) {
+  const now = endTime || Date.now();
   if (state.activeProjectId && state.activeSegmentStart) {
-    const realSec = (Date.now() - state.activeSegmentStart) / 1000;
+    const realSec = (now - state.activeSegmentStart) / 1000;
     const dur = Math.floor(testMode ? realSec * TEST_MULTIPLIER : realSec);
     if (dur >= 2) {
       state.entries.push({
-        id: Date.now() + Math.random(),
+        id: now + Math.random(),
         projectId: state.activeProjectId,
         start: state.activeSegmentStart,
         duration: dur

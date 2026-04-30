@@ -1,0 +1,74 @@
+name: tts — auto-stop timer at 23:00
+
+# Runs at 21:00 UTC = 23:00 CEST (summer) / 22:00 CET (winter).
+# Adjust the cron hour by one when switching between summer and winter time.
+on:
+  schedule:
+    - cron: '0 21 * * *'
+  workflow_dispatch: # allow manual trigger for testing
+
+jobs:
+  auto-stop:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Stop running timer
+        env:
+          TT_TOKEN: ${{ secrets.TT_TOKEN }}
+          TT_GIST_ID: ${{ secrets.TT_GIST_ID }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${TT_TOKEN:-}" ] || [ -z "${TT_GIST_ID:-}" ]; then
+            echo "TT_TOKEN or TT_GIST_ID secret not configured — skipping."
+            exit 0
+          fi
+
+          FILE_CONTENT=$(curl -sf \
+            -H "Authorization: Bearer $TT_TOKEN" \
+            "https://api.github.com/gists/$TT_GIST_ID" \
+            | jq -r '.files["tt_data.json"].content')
+
+          TIMER_RUNNING=$(echo "$FILE_CONTENT" | jq -r '.timerRunning // false')
+          TEST_MODE=$(echo "$FILE_CONTENT" | jq -r '.testMode // false')
+
+          if [ "$TEST_MODE" = "true" ]; then
+            echo "Test mode is active — skipping auto-stop."
+            exit 0
+          fi
+
+          if [ "$TIMER_RUNNING" != "true" ]; then
+            echo "Timer not running — nothing to do."
+            exit 0
+          fi
+
+          STOP_MS=$(( $(date -u +%s) * 1000 ))
+
+          UPDATED=$(echo "$FILE_CONTENT" | jq --argjson stopMs "$STOP_MS" '
+            if (.activeProjectId != null) and (.activeSegmentStart != null) then
+              (($stopMs - .activeSegmentStart) / 1000 | floor) as $dur |
+              if $dur >= 2 then
+                .entries += [{
+                  "id": $stopMs,
+                  "projectId": .activeProjectId,
+                  "start": .activeSegmentStart,
+                  "duration": $dur
+                }]
+              else . end
+            else . end |
+            .timerRunning = false |
+            .timerStart = null |
+            .timerUpdatedAt = $stopMs |
+            .activeProjectId = null |
+            .activeSegmentStart = null
+          ')
+
+          CONTENT_JSON=$(echo "$UPDATED" | jq -Rs '.')
+
+          curl -sf -X PATCH \
+            -H "Authorization: Bearer $TT_TOKEN" \
+            -H "Content-Type: application/json" \
+            "https://api.github.com/gists/$TT_GIST_ID" \
+            --data "{\"files\":{\"tt_data.json\":{\"content\":$CONTENT_JSON}}}" \
+            > /dev/null
+
+          echo "Timer auto-stopped at $(date -u '+%H:%M UTC')."
