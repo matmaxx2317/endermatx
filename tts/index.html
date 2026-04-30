@@ -983,7 +983,7 @@ transition: background 0.1s;
 
 <!-- APP -->
 
-<h1>tts<span style="font-size:10px;color:#bbb;margin-left:8px;letter-spacing:0.05em;text-transform:none;font-weight:normal">v2.2</span></h1>
+<h1>tts<span style="font-size:10px;color:#bbb;margin-left:8px;letter-spacing:0.05em;text-transform:none;font-weight:normal">v2.3</span></h1>
 
 <div class="top-bar">
   <div class="timer-display" id="timerDisplay">00:00:00</div>
@@ -1396,7 +1396,6 @@ function confirmAdjust() {
   const newTime = fictionalHMToReal(h, m);
 
   if (newTime >= Date.now()) { alert('Time must be in the past.'); return; }
-  if (state.timerStart && newTime < state.timerStart) { alert('Time cannot be before the timer started.'); return; }
 
   const oldSegmentStart = state.activeSegmentStart;
   const deltaRealMs = newTime - oldSegmentStart;
@@ -1416,12 +1415,19 @@ function confirmAdjust() {
     })[0];
 
   if (preceding) {
+    if (state.timerStart && newTime < state.timerStart) { alert('Time cannot be before the timer started.'); return; }
     const newDuration = preceding.duration + deltaStoredSec;
     if (newDuration <= 0) { alert('Time too early — would make the previous segment duration zero or negative.'); return; }
     preceding.duration = newDuration;
+  } else {
+    // First segment of the session — pulling back past timerStart also adjusts the global timer.
+    if (state.timerStart && newTime < state.timerStart) {
+      state.timerStart = newTime;
+    }
   }
 
   state.activeSegmentStart = newTime;
+  state.timerUpdatedAt = Date.now();
   closeAdjustModal();
   schedulePush();
   updateIndicator();
