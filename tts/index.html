@@ -519,18 +519,6 @@ margin-bottom: 16px;
 .adjust-project-label strong { font-weight: normal; }
 
 /* FICTIONAL CLOCK */
-#fictionalClock {
-font-size: 12px;
-letter-spacing: 0.2em;
-color: #888;
-margin-bottom: 12px;
-font-variant-numeric: tabular-nums;
-text-align: center;
-display: none;
-}
-
-#fictionalClock .fclock-time { color: #ffd56b; }
-
 /* SWITCHES */
 .switches-row {
 display: flex;
@@ -938,7 +926,7 @@ transition: background 0.1s;
 
 <div id="syncBar">
   <span>tts</span>
-  <div id="syncStatus"><span class="dot" id="syncDot"></span><span id="syncText" onclick="manualSync()" title="Click to sync now">not connected</span></div>
+  <div id="syncStatus"><span class="dot" id="syncDot"></span><span id="syncText">not connected</span></div>
   <button id="setupBtn" onclick="openSetup()">setup</button>
 </div>
 
@@ -946,22 +934,19 @@ transition: background 0.1s;
 
 <div class="modal-overlay" id="setupModal">
   <div class="modal">
-    <h2>Gist Sync Setup</h2>
-    <p>Your data syncs across all devices via a private GitHub Gist. Token stays on this device only.</p>
+    <h2>Gist Setup</h2>
+    <p>Data is saved to a private GitHub Gist. Token stays on this device only.</p>
     <label>Personal Access Token</label>
     <input type="password" id="inputToken" placeholder="github_pat_...">
-    <label>Production Gist ID <span style="color: #bbb;font-size:10px">(leave blank to create new)</span></label>
+    <label>Gist ID <span style="color: #bbb;font-size:10px">(leave blank to create new)</span></label>
     <input type="text" id="inputGistId" placeholder="optional">
-    <label>Test Gist ID <span style="color: #bbb;font-size:10px">(leave blank to create new)</span></label>
-    <input type="text" id="inputTestGistId" placeholder="optional">
     <div class="modal-gist-id" id="createdGistId"></div>
     <div class="modal-btns">
       <button class="btn-primary" onclick="setupConnect()">Connect</button>
       <button class="btn-ghost" onclick="closeSetup()">Cancel</button>
     </div>
     <div class="modal-hint">
-      Create token at github.com/settings/tokens (classic), scope: gist<br>
-      First device: leave Gist IDs blank. Copy the IDs shown and enter them on other devices.
+      Create token at github.com/settings/tokens (classic), scope: gist
     </div>
   </div>
 </div>
@@ -997,14 +982,13 @@ transition: background 0.1s;
 
 <!-- APP -->
 
-<h1>tts<span style="font-size:10px;color:#bbb;margin-left:8px;letter-spacing:0.05em;text-transform:none;font-weight:normal">v2.4</span></h1>
+<h1>tts<span style="font-size:10px;color:#bbb;margin-left:8px;letter-spacing:0.05em;text-transform:none;font-weight:normal">v2.5</span></h1>
 
 <div class="top-bar">
   <div class="timer-display" id="timerDisplay">00:00:00</div>
   <button class="btn-control start" id="btnControl" onclick="toggleTimer()">START</button>
 </div>
 
-<div id="fictionalClock">fictional &nbsp;<span class="fclock-time" id="fclockTime">00:00</span></div>
 
 <div class="active-indicator" id="activeIndicator">&#8212;</div>
 
@@ -1048,7 +1032,6 @@ transition: background 0.1s;
 
 <div style="width:100%;max-width:560px;margin-top:48px;padding-top:24px;border-top:1px solid #1a1a1a;display:flex;flex-direction:column;align-items:center;gap:10px;">
   <button class="btn-ghost" style="font-size:10px;letter-spacing:0.15em;color:#e06060;border-color:#e06060;" onclick="resetAllEntries()">RESET ALL LOGGED TIMES</button>
-  <button class="btn-ghost" id="testModeBtn" style="font-size:10px;letter-spacing:0.15em;color:#888;border-color:#888;" onclick="toggleTestMode()">TEST MODE: OFF</button>
 </div>
 
 <script>
@@ -1071,67 +1054,26 @@ let state = {
 };
 
 let gistToken = '';
-let prodGistId = '';
-let testGistId = '';
-let gistId = ''; // always reflects active mode: testMode ? testGistId : prodGistId
+let gistId = '';
 let tickInterval = null;
 let syncTimeout = null;
 let pushInProgress = false;
-let switchingMode = false;
-let gistEtag = null; // ETag from last GET; sent as If-None-Match to skip unchanged responses
-let testMode = localStorage.getItem('tt_testmode') === '1';
-
-const TEST_MULTIPLIER = 600; // 1 real second = 10 fictional minutes
-
-function fictionalNow() {
-  if (!testMode || !state.timerStart) return Date.now();
-  return state.timerStart + (Date.now() - state.timerStart) * TEST_MULTIPLIER;
-}
-
-function fictionalTs(realTs) {
-  if (!testMode || !state.timerStart) return realTs;
-  return state.timerStart + (realTs - state.timerStart) * TEST_MULTIPLIER;
-}
-
-function realFromFictional(fictTs) {
-  if (!testMode || !state.timerStart) return fictTs;
-  return state.timerStart + (fictTs - state.timerStart) / TEST_MULTIPLIER;
-}
-
-// Converts fictional HH:MM entered by the user into a real timestamp.
-function fictionalHMToReal(h, m) {
-  if (!testMode || !state.timerStart) {
-    const n = new Date();
-    return new Date(n.getFullYear(), n.getMonth(), n.getDate(), h, m, 0, 0).getTime();
-  }
-  const fd = new Date(fictionalNow());
-  const fictTs = new Date(fd.getFullYear(), fd.getMonth(), fd.getDate(), h, m, 0, 0).getTime();
-  return realFromFictional(fictTs);
-}
-
-function formatTimeDisplay(ts) {
-  return formatTime(testMode && state.timerStart ? fictionalTs(ts) : ts);
-}
 
 function loadCredentials() {
   gistToken = localStorage.getItem('tt_token') || '';
-  prodGistId = localStorage.getItem('tt_gist_id') || '';
-  testGistId = localStorage.getItem('tt_gist_id_test') || '';
-  gistId = testMode ? testGistId : prodGistId;
+  gistId = localStorage.getItem('tt_gist_id') || '';
 }
 
 function saveCredentials() {
   localStorage.setItem('tt_token', gistToken);
-  localStorage.setItem('tt_gist_id', prodGistId);
-  localStorage.setItem('tt_gist_id_test', testGistId);
+  localStorage.setItem('tt_gist_id', gistId);
 }
 
 // ---- SETUP MODAL ----
 
 function openSetup() {
   document.getElementById('inputToken').value = gistToken;
-  document.getElementById('inputGistId').value = prodGistId;
-  document.getElementById('inputTestGistId').value = testGistId;
+  document.getElementById('inputGistId').value = gistId;
   document.getElementById('createdGistId').textContent = '';
   document.getElementById('setupModal').classList.add('active');
 }
@@ -1143,13 +1085,10 @@ function closeSetup() {
 async function setupConnect() {
   const token = document.getElementById('inputToken').value.trim();
   const pid = document.getElementById('inputGistId').value.trim();
-  const tid = document.getElementById('inputTestGistId').value.trim();
   if (!token) { alert('Please enter a Personal Access Token.'); return; }
 
   gistToken = token;
-  prodGistId = pid;
-  testGistId = tid;
-  gistId = testMode ? testGistId : prodGistId;
+  gistId = pid;
   saveCredentials();
   setSyncStatus('syncing', 'Connecting...');
 
@@ -1159,7 +1098,7 @@ async function setupConnect() {
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          description: testMode ? 'tts test data' : 'tts data',
+          description: 'tts data',
           public: false,
           files: { 'tt_data.json': { content: JSON.stringify(state) } }
         })
@@ -1167,17 +1106,16 @@ async function setupConnect() {
       if (!res.ok) throw new Error('GitHub API error: ' + res.status);
       const data = await res.json();
       gistId = data.id;
-      if (testMode) { testGistId = data.id; } else { prodGistId = data.id; }
       saveCredentials();
-      document.getElementById('createdGistId').textContent = (testMode ? 'Test ' : '') + 'Gist ID: ' + gistId;
-      setSyncStatus('synced', 'Synced');
+      document.getElementById('createdGistId').textContent = 'Gist ID: ' + gistId;
+      setSyncStatus('synced', 'Saved');
     } catch(e) {
       setSyncStatus('error', 'Error: ' + e.message);
     }
   } else {
     try {
       await pullFromGist();
-      setSyncStatus('synced', 'Synced');
+      setSyncStatus('synced', 'Loaded');
       closeSetup();
       renderAll();
     } catch(e) {
@@ -1186,134 +1124,36 @@ async function setupConnect() {
   }
 }
 
-// ---- GIST SYNC ----
-
-// Merge two states without data loss.
-// Entries and projects are unioned by ID, with tombstones and a clearedAt
-// timestamp to honour intentional deletions on either device.
-function mergeStates(local, remote) {
-  // Combine tombstones from both sides so deletions propagate everywhere.
-  const delEntries  = new Set([...(local.deletedEntryIds  || []), ...(remote.deletedEntryIds  || [])]);
-  const delProjects = new Set([...(local.deletedProjectIds || []), ...(remote.deletedProjectIds || [])]);
-  const clearedAt   = Math.max(local.clearedAt || 0, remote.clearedAt || 0);
-
-  // Entries: union by ID, skip tombstoned and pre-clear entries.
-  const entryById = {};
-  (remote.entries || []).forEach(function(e) {
-    if (!delEntries.has(e.id) && e.start > clearedAt) entryById[e.id] = e;
-  });
-  (local.entries || []).forEach(function(e) {
-    if (!delEntries.has(e.id) && e.start > clearedAt) entryById[e.id] = e;
-  });
-  const entries = Object.values(entryById).sort(function(a, b) { return a.start - b.start; });
-
-  // Projects: union by ID, skip tombstoned. Local wins on conflict (preserves
-  // renames, colour changes, archived status set on this device).
-  const projById = {};
-  (remote.projects || []).forEach(function(p) { if (!delProjects.has(p.id)) projById[p.id] = p; });
-  (local.projects  || []).forEach(function(p) { if (!delProjects.has(p.id)) projById[p.id] = p; });
-  const projects = Object.values(projById).sort(function(a, b) { return a.name.localeCompare(b.name); });
-
-  // Timer: most recently changed wins.
-  const useRemote = (remote.timerUpdatedAt || 0) > (local.timerUpdatedAt || 0);
-  return {
-    projects: projects,
-    entries: entries,
-    deletedEntryIds:  Array.from(delEntries),
-    deletedProjectIds: Array.from(delProjects),
-    clearedAt: clearedAt || null,
-    timerRunning:       useRemote ? remote.timerRunning       : local.timerRunning,
-    timerStart:         useRemote ? remote.timerStart         : local.timerStart,
-    timerUpdatedAt:     Math.max(local.timerUpdatedAt || 0, remote.timerUpdatedAt || 0) || null,
-    activeProjectId:    useRemote ? remote.activeProjectId    : local.activeProjectId,
-    activeSegmentStart: useRemote ? remote.activeSegmentStart : local.activeSegmentStart,
-    reportMode: local.reportMode || remote.reportMode || 'week'
-  };
-}
+// ---- GIST STORAGE ----
 
 async function pullFromGist() {
-  const headers = { 'Authorization': 'Bearer ' + gistToken };
-  if (gistEtag) headers['If-None-Match'] = gistEtag;
-  const res = await fetch('https://api.github.com/gists/' + gistId, { headers });
-  if (res.status === 304) return; // nothing changed, skip processing
-  if (!res.ok) throw new Error('Pull failed: ' + res.status);
-  gistEtag = res.headers.get('ETag') || gistEtag;
+  const res = await fetch('https://api.github.com/gists/' + gistId, {
+    headers: { 'Authorization': 'Bearer ' + gistToken }
+  });
+  if (!res.ok) throw new Error('Load failed: ' + res.status);
   const data = await res.json();
   const content = data.files['tt_data.json'] && data.files['tt_data.json'].content;
   if (!content) return;
-  const remote = JSON.parse(content);
-
-  // Propagate test gist ID discovered from the other device.
-  if (remote.testGistId && remote.testGistId !== testGistId) {
-    testGistId = remote.testGistId;
-    saveCredentials();
-  }
-
-  state = mergeStates(state, remote);
-
-  // Auto-switch test mode if the remote signals a different mode and we are idle.
-  if (!switchingMode && typeof remote.testMode === 'boolean' &&
-      remote.testMode !== testMode && !state.timerRunning) {
-    const targetId = remote.testMode ? testGistId : prodGistId;
-    if (targetId) {
-      switchingMode = true;
-      await applyTestModeSync(remote.testMode);
-      switchingMode = false;
-    }
-  }
+  state = JSON.parse(content);
 }
 
-// Apply a test-mode switch that originated from the remote (not from user action).
-async function applyTestModeSync(newMode) {
-  testMode = newMode;
-  localStorage.setItem('tt_testmode', testMode ? '1' : '0');
-  gistId = testMode ? testGistId : prodGistId;
-  gistEtag = null;
-  const btn = document.getElementById('testModeBtn');
-  if (btn) {
-    btn.textContent = 'TEST MODE: ' + (testMode ? 'ON' : 'OFF');
-    btn.style.color = testMode ? '#ffd56b' : '#888';
-    btn.style.borderColor = testMode ? '#ffd56b' : '#888';
-  }
-  const timerEl = document.getElementById('timerDisplay');
-  if (timerEl) timerEl.classList.toggle('test', testMode);
-  if (gistId) { await pullFromGist(); renderAll(); }
-}
-
-async function pushToGist(extra) {
+async function pushToGist() {
   if (!gistToken || !gistId) return;
   pushInProgress = true;
-  setSyncStatus('syncing', 'Syncing...');
+  setSyncStatus('syncing', 'Saving...');
   try {
-    // Read-modify-write: always fetch remote and merge before writing.
-    const fetchRes = await fetch('https://api.github.com/gists/' + gistId, {
-      headers: { 'Authorization': 'Bearer ' + gistToken }
-    });
-    if (fetchRes.ok) {
-      const data = await fetchRes.json();
-      const content = data.files['tt_data.json'] && data.files['tt_data.json'].content;
-      if (content) {
-        const prevLen = state.entries.length;
-        state = mergeStates(state, JSON.parse(content));
-        if (state.entries.length !== prevLen) renderAll();
-      }
-    }
-    // Always include testMode metadata so the other device can auto-switch.
-    const toSave = Object.assign({}, state, { testMode: testMode, testGistId: testGistId }, extra || {});
     const res = await fetch('https://api.github.com/gists/' + gistId, {
       method: 'PATCH',
       headers: { 'Authorization': 'Bearer ' + gistToken, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ files: { 'tt_data.json': { content: JSON.stringify(toSave) } } })
+      body: JSON.stringify({ files: { 'tt_data.json': { content: JSON.stringify(state) } } })
     });
-    if (!res.ok) throw new Error('Push failed');
-    setSyncStatus('synced', 'Synced');
+    if (!res.ok) throw new Error('Save failed');
+    setSyncStatus('synced', 'Saved');
     setTimeout(function() {
-      if (document.getElementById('syncStatus').textContent === 'Synced') {
-        setSyncStatus('', 'Ready');
-      }
+      if (document.getElementById('syncText').textContent === 'Saved') setSyncStatus('', 'Ready');
     }, 2000);
   } catch(e) {
-    setSyncStatus('error', 'Sync failed');
+    setSyncStatus('error', 'Save failed');
   } finally {
     pushInProgress = false;
   }
@@ -1342,7 +1182,6 @@ function startAll() {
   const active = state.projects.filter(function(p) { return !p.archived; });
   state.timerRunning = true;
   state.timerStart = Date.now();
-  state.timerUpdatedAt = Date.now();
   state.activeProjectId = null;
   state.activeSegmentStart = null;
   schedulePush();
@@ -1387,7 +1226,6 @@ function stopAll(endTime) {
   flushSegment(endTime);
   state.timerRunning = false;
   state.timerStart = null;
-  state.timerUpdatedAt = Date.now();
   state.activeProjectId = null;
   state.activeSegmentStart = null;
   clearInterval(tickInterval);
@@ -1395,9 +1233,8 @@ function stopAll(endTime) {
   schedulePush();
   updateControlBtn();
   updateIndicator();
-  document.getElementById('timerDisplay').classList.remove('running', 'test');
+  document.getElementById('timerDisplay').classList.remove('running');
   document.getElementById('timerDisplay').textContent = '00:00:00';
-  document.getElementById('fictionalClock').style.display = 'none';
   renderGrid();
   renderLog();
   renderReport();
@@ -1410,7 +1247,6 @@ function selectProject(id) {
   flushSegment();
   state.activeProjectId = id;
   state.activeSegmentStart = Date.now();
-  state.timerUpdatedAt = Date.now();
   schedulePush();
   updateIndicator();
   renderGrid();
@@ -1418,13 +1254,12 @@ function selectProject(id) {
 
 function openAdjustModal() {
   const p = getProject(state.activeProjectId);
-  const displayTs = testMode ? fictionalTs(state.activeSegmentStart) : state.activeSegmentStart;
-  const t = new Date(displayTs);
+  const t = new Date(state.activeSegmentStart);
   const timeStr = pad(t.getHours()) + ':' + pad(t.getMinutes());
   document.getElementById('adjustTimeInput').value = timeStr;
   document.getElementById('adjustModalDesc').innerHTML =
     'Tracking <strong style="color:' + p.color + '">' + escHtml(p.name) + '</strong> since ' +
-    (testMode ? 'fictional ' : '') + timeStr + '. Set the actual start time of this segment.';
+    timeStr + '. Set the actual start time of this segment.';
   document.getElementById('adjustModal').classList.add('active');
 }
 
@@ -1436,26 +1271,23 @@ function confirmAdjust() {
   const input = document.getElementById('adjustTimeInput').value;
   if (!input) return;
   const [h, m] = input.split(':').map(Number);
-  // Convert the entered time (fictional in test mode, real otherwise) to a real timestamp.
-  const newTime = fictionalHMToReal(h, m);
+  const n = new Date();
+  const newTime = new Date(n.getFullYear(), n.getMonth(), n.getDate(), h, m, 0, 0).getTime();
 
   if (newTime >= Date.now()) { alert('Time must be in the past.'); return; }
 
   const oldSegmentStart = state.activeSegmentStart;
   const deltaRealMs = newTime - oldSegmentStart;
-  // Duration units match whatever flushSegment stored (fictional secs in test mode, real secs otherwise).
-  const deltaStoredSec = Math.round(deltaRealMs / 1000) * (testMode ? TEST_MULTIPLIER : 1);
+  const deltaStoredSec = Math.round(deltaRealMs / 1000);
 
-  // Preceding entry's real end time = start + duration / multiplier * 1000
-  const mult = testMode ? TEST_MULTIPLIER : 1;
   const tolerance = 5000;
   const preceding = state.entries
     .filter(function(e) {
-      return Math.abs((e.start + (e.duration / mult) * 1000) - oldSegmentStart) <= tolerance;
+      return Math.abs((e.start + e.duration * 1000) - oldSegmentStart) <= tolerance;
     })
     .sort(function(a, b) {
-      return Math.abs((a.start + (a.duration / mult) * 1000) - oldSegmentStart) -
-             Math.abs((b.start + (b.duration / mult) * 1000) - oldSegmentStart);
+      return Math.abs((a.start + a.duration * 1000) - oldSegmentStart) -
+             Math.abs((b.start + b.duration * 1000) - oldSegmentStart);
     })[0];
 
   if (preceding) {
@@ -1471,7 +1303,6 @@ function confirmAdjust() {
   }
 
   state.activeSegmentStart = newTime;
-  state.timerUpdatedAt = Date.now();
   closeAdjustModal();
   schedulePush();
   updateIndicator();
@@ -1485,7 +1316,7 @@ function flushSegment(endTime) {
   const now = endTime || Date.now();
   if (state.activeProjectId && state.activeSegmentStart) {
     const realSec = (now - state.activeSegmentStart) / 1000;
-    const dur = Math.floor(testMode ? realSec * TEST_MULTIPLIER : realSec);
+    const dur = Math.floor(realSec);
     if (dur >= 2) {
       state.entries.push({
         id: now + Math.random(),
@@ -1500,19 +1331,10 @@ function flushSegment(endTime) {
 function tick() {
   if (!state.timerStart) return;
   const realElapsed = (Date.now() - state.timerStart) / 1000;
-  const elapsed = Math.floor(testMode ? realElapsed * TEST_MULTIPLIER : realElapsed);
+  const elapsed = Math.floor(realElapsed);
   const el = document.getElementById('timerDisplay');
   el.textContent = formatDuration(elapsed);
   el.classList.add('running');
-  el.classList.toggle('test', testMode);
-  const fc = document.getElementById('fictionalClock');
-  if (testMode) {
-    const fd = new Date(fictionalNow());
-    document.getElementById('fclockTime').textContent = pad(fd.getHours()) + ':' + pad(fd.getMinutes());
-    fc.style.display = 'block';
-  } else {
-    fc.style.display = 'none';
-  }
   updateGridTimes();
 }
 
@@ -1588,7 +1410,7 @@ function renderGrid() {
 function updateGridTimes() {
   if (!state.timerRunning || !state.activeProjectId || !state.activeSegmentStart) return;
   const realSec = (Date.now() - state.activeSegmentStart) / 1000;
-  const liveSec = Math.floor(testMode ? realSec * TEST_MULTIPLIER : realSec);
+  const liveSec = Math.floor(realSec);
 
   // Update project cards
   state.projects.forEach(function(p) {
@@ -1657,7 +1479,7 @@ function updateGridTimes() {
 function getSegmentTime(id) {
   if (state.timerRunning && state.activeProjectId === id && state.activeSegmentStart) {
     const realSec = (Date.now() - state.activeSegmentStart) / 1000;
-    return Math.floor(testMode ? realSec * TEST_MULTIPLIER : realSec);
+    return Math.floor(realSec);
   }
   const last = state.entries.filter(function(e) { return e.projectId === id && isToday(e.start); })
     .sort(function(a, b) { return a.start - b.start; });
@@ -1676,7 +1498,7 @@ function getOverallTotal(id) {
 
 function getProjectTotal(id) {
   return getOverallTotal(id) + (state.timerRunning && state.activeProjectId === id && state.activeSegmentStart
-    ? Math.floor((Date.now() - state.activeSegmentStart) / 1000 * (testMode ? TEST_MULTIPLIER : 1))
+    ? Math.floor((Date.now() - state.activeSegmentStart) / 1000)
     : 0);
 }
 
@@ -1706,11 +1528,11 @@ function renderLog() {
   if (state.timerRunning && state.activeProjectId && state.activeSegmentStart) {
     const p = getProject(state.activeProjectId);
     const realSec = (Date.now() - state.activeSegmentStart) / 1000;
-    const liveSec = Math.floor(testMode ? realSec * TEST_MULTIPLIER : realSec);
+    const liveSec = Math.floor(realSec);
     liveHtml = '<div class="log-entry log-live">' +
       '<div class="log-dot" style="background:' + p.color + '"></div>' +
       '<div class="log-info"><div class="log-project">' + escHtml(p.name) + '</div>' +
-      '<div class="log-meta">' + formatTimeDisplay(state.activeSegmentStart) + '</div></div>' +
+      '<div class="log-meta">' + formatTime(state.activeSegmentStart) + '</div></div>' +
       '<div class="log-duration"><span id="logLiveDur">' + formatDurationShort(liveSec) + '</span></div>' +
       '</div>';
   }
@@ -1721,7 +1543,7 @@ function renderLog() {
     return '<div class="log-entry">' +
       '<div class="log-dot" style="background:' + p.color + '"></div>' +
       '<div class="log-info"><div class="log-project">' + escHtml(p.name) + '</div>' +
-      '<div class="log-meta">' + formatTimeDisplay(e.start) + '</div></div>' +
+      '<div class="log-meta">' + formatTime(e.start) + '</div></div>' +
       '<div class="log-duration">' + formatDurationShort(e.duration) + '</div>' +
       '<button class="log-delete" onclick="deleteEntry(' + e.id + ')">&#215;</button>' +
       '</div>';
@@ -1730,7 +1552,6 @@ function renderLog() {
 
 function deleteEntry(id) {
   state.entries = state.entries.filter(function(e) { return e.id !== id; });
-  state.deletedEntryIds = (state.deletedEntryIds || []).concat([id]);
   schedulePush();
   renderLog();
   renderReport();
@@ -1739,92 +1560,13 @@ function deleteEntry(id) {
 
 function resetAllEntries() {
   if (!confirm('Delete all logged time entries and remove archived projects? This cannot be undone.')) return;
-  state.deletedEntryIds = (state.deletedEntryIds || []).concat(state.entries.map(function(e) { return e.id; }));
   state.entries = [];
-  state.clearedAt = Date.now();
-  const archivedIds = state.projects.filter(function(p) { return p.archived; }).map(function(p) { return p.id; });
-  state.deletedProjectIds = (state.deletedProjectIds || []).concat(archivedIds);
   state.projects = state.projects.filter(function(p) { return !p.archived; });
   schedulePush();
   renderLog();
   renderReport();
   renderGrid();
   renderProjectsMgr();
-}
-
-async function toggleTestMode() {
-  if (state.timerRunning) { alert('Stop the timer before toggling test mode.'); return; }
-
-  const nextMode = !testMode;
-  // Push to current gist with the UPCOMING testMode value so the other device
-  // sees the mode switch and can follow automatically.
-  if (gistToken && gistId) {
-    clearTimeout(syncTimeout);
-    await pushToGist({ testMode: nextMode, testGistId: testGistId });
-  }
-
-  testMode = nextMode;
-  localStorage.setItem('tt_testmode', testMode ? '1' : '0');
-  gistId = testMode ? testGistId : prodGistId;
-  gistEtag = null;
-
-  const btn = document.getElementById('testModeBtn');
-  btn.textContent = 'TEST MODE: ' + (testMode ? 'ON' : 'OFF');
-  btn.style.color = testMode ? '#ffd56b' : '#888';
-  btn.style.borderColor = testMode ? '#ffd56b' : '#888';
-  document.getElementById('timerDisplay').classList.toggle('test', testMode);
-
-  const blankState = function() {
-    return {
-      // Copy projects from current state so test mode has the same project list.
-      projects: state.projects.map(function(p) { return Object.assign({}, p); }),
-      entries: [], timerRunning: false, timerStart: null,
-      activeProjectId: null, activeSegmentStart: null, reportMode: state.reportMode
-    };
-  };
-
-  if (gistToken && !gistId) {
-    // No gist configured for this mode yet — auto-create one.
-    setSyncStatus('syncing', testMode ? 'Creating test gist...' : 'Loading...');
-    try {
-      const fresh = blankState();
-      const res = await fetch('https://api.github.com/gists', {
-        method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + gistToken, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          description: testMode ? 'tts test data' : 'tts data',
-          public: false,
-          files: { 'tt_data.json': { content: JSON.stringify(fresh) } }
-        })
-      });
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      gistId = data.id;
-      if (testMode) { testGistId = data.id; } else { prodGistId = data.id; }
-      saveCredentials();
-      state = fresh;
-      setSyncStatus('synced', testMode ? 'Test gist created' : 'Gist created');
-      setTimeout(function() { setSyncStatus('', 'Ready'); }, 2000);
-    } catch(e) {
-      setSyncStatus('error', 'Could not create gist');
-      state = blankState();
-    }
-  } else if (gistToken && gistId) {
-    setSyncStatus('syncing', 'Loading...');
-    try {
-      await pullFromGist();
-      setSyncStatus('synced', 'Synced');
-      setTimeout(function() { setSyncStatus('', 'Ready'); }, 2000);
-    } catch(e) {
-      setSyncStatus('error', 'Sync failed');
-      state = blankState();
-    }
-  } else {
-    state = blankState();
-    setSyncStatus('', testMode ? 'Test mode (not connected)' : 'Not connected');
-  }
-
-  renderAll();
 }
 
 // ---- REPORT ----
@@ -2168,7 +1910,6 @@ function archiveOrDeleteProject(id) {
     var p = state.projects.find(function(p) { return p.id === id; });
     if (p) { p.archived = true; }
   } else {
-    state.deletedProjectIds = (state.deletedProjectIds || []).concat([id]);
     state.projects = state.projects.filter(function(p) { return p.id !== id; });
   }
   schedulePush();
@@ -2438,24 +2179,16 @@ function escHtml(s) {
 
 async function init() {
   loadCredentials();
-  // Reflect persisted test mode state on button and timer display.
-  if (testMode) {
-    const btn = document.getElementById('testModeBtn');
-    btn.textContent = 'TEST MODE: ON';
-    btn.style.color = '#ffd56b';
-    btn.style.borderColor = '#ffd56b';
-    document.getElementById('timerDisplay').classList.add('test');
-  }
   renderAll();
   if (gistToken && gistId) {
     setSyncStatus('syncing', 'Loading...');
     try {
       await pullFromGist();
-      setSyncStatus('synced', 'Synced');
+      setSyncStatus('synced', 'Loaded');
       setTimeout(function() { setSyncStatus('', 'Ready'); }, 2000);
       renderAll();
     } catch(e) {
-      setSyncStatus('error', 'Sync failed');
+      setSyncStatus('error', 'Load failed');
     }
   } else {
     setSyncStatus('', 'Not connected');
@@ -2467,60 +2200,6 @@ async function init() {
     tick();
   }
 }
-
-// Background sync every 10 s: pulls remote changes (new entries, timer state,
-// test-mode switches) so the idle device stays current without a page reload.
-async function bgSync() {
-  if (!gistToken || !gistId || pushInProgress) return;
-  try {
-    const wasRunning = state.timerRunning;
-    const wasProjId  = state.activeProjectId;
-    const prevLen    = state.entries.length;
-
-    await pullFromGist();
-
-    const nowRunning = state.timerRunning;
-
-    // Keep tick interval in sync with timer state changes from the remote.
-    if (!wasRunning && nowRunning) {
-      clearInterval(tickInterval);
-      tickInterval = setInterval(tick, 1000);
-      tick();
-    } else if (wasRunning && !nowRunning) {
-      clearInterval(tickInterval);
-      tickInterval = null;
-      document.getElementById('timerDisplay').classList.remove('running', 'test');
-      document.getElementById('timerDisplay').textContent = '00:00:00';
-      document.getElementById('fictionalClock').style.display = 'none';
-    }
-
-    if (prevLen !== state.entries.length || wasRunning !== nowRunning || wasProjId !== state.activeProjectId) {
-      renderAll();
-    }
-  } catch(e) { /* silent */ }
-}
-
-async function manualSync() {
-  if (!gistToken || !gistId || pushInProgress) return;
-  setSyncStatus('syncing', 'Syncing...');
-  try {
-    await bgSync();
-    setSyncStatus('synced', 'Synced');
-    setTimeout(function() {
-      if (document.getElementById('syncText').textContent === 'Synced') setSyncStatus('', 'Ready');
-    }, 2000);
-  } catch(e) {
-    setSyncStatus('error', 'Sync failed');
-  }
-}
-
-setInterval(bgSync, 2000);
-
-// Browsers throttle timers in background tabs. Fire a sync immediately when
-// the user switches back to this tab so the UI is always fresh on return.
-document.addEventListener('visibilitychange', function() {
-  if (document.visibilityState === 'visible') bgSync();
-});
 
 init();
 </script>
