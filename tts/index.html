@@ -986,7 +986,7 @@ transition: background 0.1s;
 
 <!-- APP -->
 
-<h1>tts<span style="font-size:10px;color:#bbb;margin-left:8px;letter-spacing:0.05em;text-transform:none;font-weight:normal">v2.6</span></h1>
+<h1>tts<span style="font-size:10px;color:#bbb;margin-left:8px;letter-spacing:0.05em;text-transform:none;font-weight:normal">v2.7</span></h1>
 
 <div class="top-bar">
   <div class="timer-display" id="timerDisplay">00:00:00</div>
@@ -2063,6 +2063,11 @@ function renderWeeklyOverview() {
   var dayTotals = [0, 0, 0, 0, 0];
   var grandTotal = 0;
 
+  var dayLogged = [0, 0, 0, 0, 0];
+  projects.forEach(function(p) {
+    days.forEach(function(d, i) { dayLogged[i] += getDayEntries(p.id, d); });
+  });
+
   html += '<tr>';
   html += '<td class="weekly-proj-name weekly-bounds-label">start · end</td>';
   days.forEach(function(d) {
@@ -2074,6 +2079,21 @@ function renderWeeklyOverview() {
     }
   });
   html += '<td class="weekly-row-total"></td></tr>';
+
+  html += '<tr>';
+  html += '<td class="weekly-proj-name weekly-bounds-label">unassigned</td>';
+  var unassignedTotal = 0;
+  days.forEach(function(d, i) {
+    var b = getDayBounds(d);
+    if (b) {
+      var ua = Math.max(0, (b.end - b.start) / 1000 - dayLogged[i]);
+      unassignedTotal += ua;
+      html += '<td class="weekly-bounds-cell">' + formatCell(ua) + '</td>';
+    } else {
+      html += '<td class="weekly-cell weekly-cell-empty">--</td>';
+    }
+  });
+  html += '<td class="weekly-row-total weekly-bounds-cell">' + formatCell(unassignedTotal) + '</td></tr>';
 
   projects.forEach(function(p) {
     html += '<tr>';
