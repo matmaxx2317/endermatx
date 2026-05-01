@@ -852,6 +852,17 @@ font-size: 11px;
 
 .weekly-bounds-label { color: #444 !important; font-size: 10px; }
 .weekly-bounds-cell { color: #555 !important; font-size: 10px; line-height: 1.6; letter-spacing: 0; }
+.weekly-unassign-cell { cursor: pointer; }
+.weekly-unassign-cell:hover { color: #999 !important; background: #1a1a1a; }
+.unassign-proj-list { margin-bottom: 4px; }
+.unassign-proj-item {
+display: flex; align-items: center; gap: 8px;
+padding: 8px 10px; margin-bottom: 3px;
+cursor: pointer; border: 1px solid #2a2a2a;
+font-size: 11px; color: #bbb; background: #161616;
+}
+.unassign-proj-item:hover { border-color: #444; }
+.unassign-proj-item.selected { border-color: #7effa0; color: #7effa0; background: #0d1a10; }
 
 /* CALENDAR POPUP */
 .cal-popup {
@@ -970,6 +981,18 @@ transition: background 0.1s;
   </div>
 </div>
 
+<div class="modal-overlay" id="unassignModal">
+  <div class="modal">
+    <h2>Assign Time</h2>
+    <p id="unassignDesc"></p>
+    <div class="unassign-proj-list" id="unassignProjectList"></div>
+    <div class="modal-btns">
+      <button class="btn-primary" id="unassignConfirmBtn" onclick="confirmUnassign()">Assign</button>
+      <button class="btn-ghost" onclick="closeUnassignModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="stopModal">
   <div class="modal">
     <h2>Stop Timer</h2>
@@ -986,7 +1009,7 @@ transition: background 0.1s;
 
 <!-- APP -->
 
-<h1>tts<span style="font-size:10px;color:#bbb;margin-left:8px;letter-spacing:0.05em;text-transform:none;font-weight:normal">v2.7</span></h1>
+<h1>tts<span style="font-size:10px;color:#bbb;margin-left:8px;letter-spacing:0.05em;text-transform:none;font-weight:normal">v2.8</span></h1>
 
 <div class="top-bar">
   <div class="timer-display" id="timerDisplay">00:00:00</div>
@@ -1269,6 +1292,61 @@ function openAdjustModal() {
 
 function closeAdjustModal() {
   document.getElementById('adjustModal').classList.remove('active');
+}
+
+function openUnassignModal(dayIndex) {
+  var d = new Date(weekOverviewMonday);
+  d.setDate(d.getDate() + dayIndex);
+  var b = getDayBounds(d);
+  if (!b) return;
+  var projects = state.projects.filter(function(p) { return !p.archived; });
+  var logged = 0;
+  projects.forEach(function(p) { logged += getDayEntries(p.id, d); });
+  var ua = Math.max(0, (b.end - b.start) / 1000 - logged);
+  unassignState = { dayDate: d, bounds: b, unassignedSec: ua };
+  unassignSelectedId = null;
+  document.getElementById('unassignDesc').textContent =
+    formatCell(ua) + ' unassigned on ' + pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '.';
+  renderUnassignProjectList();
+  document.getElementById('unassignModal').classList.add('active');
+}
+
+function renderUnassignProjectList() {
+  var projects = state.projects.filter(function(p) { return !p.archived; });
+  document.getElementById('unassignProjectList').innerHTML = projects.map(function(p) {
+    var sel = p.id === unassignSelectedId ? ' selected' : '';
+    return '<div class="unassign-proj-item' + sel + '" onclick="selectUnassignProject(' + p.id + ')">' +
+      '<span class="weekly-proj-dot" style="background:' + p.color + '"></span>' +
+      escHtml(p.name) + '</div>';
+  }).join('');
+  document.getElementById('unassignConfirmBtn').disabled = !unassignSelectedId;
+}
+
+function selectUnassignProject(pid) {
+  unassignSelectedId = pid;
+  renderUnassignProjectList();
+}
+
+function confirmUnassign() {
+  if (!unassignSelectedId || !unassignState) return;
+  var dur = Math.floor(unassignState.unassignedSec);
+  if (dur > 0) {
+    state.entries.push({
+      id: Date.now() + Math.random(),
+      projectId: unassignSelectedId,
+      start: unassignState.bounds.start,
+      duration: dur
+    });
+    schedulePush();
+  }
+  closeUnassignModal();
+  renderAll();
+}
+
+function closeUnassignModal() {
+  document.getElementById('unassignModal').classList.remove('active');
+  unassignState = null;
+  unassignSelectedId = null;
 }
 
 function confirmAdjust() {
@@ -1960,6 +2038,8 @@ document.addEventListener('click', function(e) {
 
 var weekOverviewMonday = getMondayOf(new Date());
 var calPopupMonth = new Date();
+var unassignState = null;
+var unassignSelectedId = null;
 
 function getMondayOf(date) {
   var d = new Date(date);
@@ -2088,7 +2168,9 @@ function renderWeeklyOverview() {
     if (b) {
       var ua = Math.max(0, (b.end - b.start) / 1000 - dayLogged[i]);
       unassignedTotal += ua;
-      html += '<td class="weekly-bounds-cell">' + formatCell(ua) + '</td>';
+      var clickable = roundTo15(ua) > 0;
+      html += '<td class="weekly-bounds-cell' + (clickable ? ' weekly-unassign-cell' : '') + '"' +
+        (clickable ? ' onclick="openUnassignModal(' + i + ')"' : '') + '>' + formatCell(ua) + '</td>';
     } else {
       html += '<td class="weekly-cell weekly-cell-empty">--</td>';
     }
