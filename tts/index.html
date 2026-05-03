@@ -1019,7 +1019,7 @@ transition: background 0.1s;
 
 <!-- APP -->
 
-<h1>tts<span style="font-size:10px;color:#bbb;margin-left:8px;letter-spacing:0.05em;text-transform:none;font-weight:normal">v2.9</span></h1>
+<h1>tts<span style="font-size:10px;color:#bbb;margin-left:8px;letter-spacing:0.05em;text-transform:none;font-weight:normal">v2.10</span></h1>
 
 <div class="top-bar">
   <div class="timer-display" id="timerDisplay">00:00:00</div>
@@ -2341,6 +2341,80 @@ function escHtml(s) {
 
 // ---- INIT ----
 
+// Deep-link actions (used by Stream Deck "Website" buttons):
+//   ?action=start
+//   ?action=stop
+//   ?action=project&n=1          (1-indexed, alphabetical order)
+//   ?action=adjust               (opens adjust modal)
+//   ?action=adjust&t=08:30       (sets start time directly)
+
+function deepLinkToast(msg) {
+  var el = document.createElement('div');
+  el.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);' +
+    'background:#1e1e1e;border:1px solid #7effa0;color:#7effa0;' +
+    'padding:18px 32px;font-size:12px;letter-spacing:0.15em;z-index:500;' +
+    'text-transform:uppercase;pointer-events:none;';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(function() { el.remove(); }, 2000);
+}
+
+function handleDeepLink(params) {
+  var action = params.get('action');
+  if (!action) return;
+  history.replaceState({}, '', window.location.pathname);
+
+  if (action === 'start') {
+    if (!state.timerRunning) { startAll(); deepLinkToast('Timer started'); }
+    else { deepLinkToast('Already running'); }
+
+  } else if (action === 'stop') {
+    if (state.timerRunning) { stopAll(); deepLinkToast('Timer stopped'); }
+    else { deepLinkToast('Already stopped'); }
+
+  } else if (action === 'project') {
+    var n = parseInt(params.get('n') || '1', 10) - 1;
+    var sorted = state.projects.filter(function(p) { return !p.archived; })
+      .sort(function(a, b) { return a.name.localeCompare(b.name); });
+    if (n >= 0 && n < sorted.length) {
+      if (!state.timerRunning) startAll();
+      selectProject(sorted[n].id);
+      deepLinkToast(sorted[n].name);
+    }
+
+  } else if (action === 'adjust') {
+    var t = params.get('t');
+    if (!state.timerRunning || !state.activeProjectId || !state.activeSegmentStart) {
+      deepLinkToast('No active project'); return;
+    }
+    if (!t) {
+      openAdjustModal(); return;
+    }
+    var parts = t.split(':');
+    var h = parseInt(parts[0], 10), m = parseInt(parts[1], 10);
+    var now = new Date();
+    var newTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0, 0).getTime();
+    if (newTime >= Date.now()) { deepLinkToast('Time must be in the past'); return; }
+    var oldStart = state.activeSegmentStart;
+    var deltaSec = Math.round((newTime - oldStart) / 1000);
+    var tolerance = 5000;
+    var preceding = state.entries
+      .filter(function(e) { return Math.abs((e.start + e.duration * 1000) - oldStart) < tolerance; })
+      .sort(function(a, b) { return b.start - a.start; })[0];
+    if (preceding) {
+      var newDur = preceding.duration + deltaSec;
+      if (newDur <= 0) { deepLinkToast('Invalid time'); return; }
+      preceding.duration = newDur;
+    } else {
+      if (state.timerStart && newTime < state.timerStart) state.timerStart = newTime;
+    }
+    state.activeSegmentStart = newTime;
+    schedulePush();
+    renderAll();
+    deepLinkToast('Start set to ' + t);
+  }
+}
+
 async function init() {
   loadCredentials();
   renderAll();
@@ -2363,6 +2437,7 @@ async function init() {
     tickInterval = setInterval(tick, 1000);
     tick();
   }
+  handleDeepLink(new URLSearchParams(window.location.search));
 }
 
 init();
