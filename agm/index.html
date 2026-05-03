@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>agm · anagram finder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #0d0d0d;
+  color: #f0ede6;
+  font-family: 'Courier New', Courier, monospace;
+  min-height: 100vh;
+  padding: 72px 20px 80px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+#syncBar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 12px;
+  background: #0a0a0a;
+  border-bottom: 1px solid #1a1a1a;
+  font-size: 11px;
+  color: #888;
+  z-index: 50;
+}
+
+#syncBar span { letter-spacing: 0.15em; }
+
+#setupBtn {
+  background: none;
+  border: 1px solid #2a2a2a;
+  color: #888;
+  font-size: 11px;
+  padding: 2px 8px;
+  cursor: pointer;
+  font-family: inherit;
+  border-radius: 2px;
+}
+#setupBtn:hover { border-color: #888; color: #f0ede6; }
+
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.88);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.modal-overlay.active { display: flex; }
+
+.modal {
+  background: #111;
+  border: 1px solid #222;
+  width: 100%;
+  max-width: 420px;
+  padding: 24px;
+}
+
+.modal h2 {
+  font-size: 11px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: #888;
+  margin-bottom: 16px;
+}
+
+.modal p.hint {
+  font-size: 10px;
+  color: #555;
+  letter-spacing: 0.05em;
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+
+.modal label {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.modal input[type="password"] {
+  width: 100%;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  color: #f0ede6;
+  font-family: inherit;
+  font-size: 12px;
+  padding: 7px 10px;
+  margin-bottom: 16px;
+  outline: none;
+}
+.modal input:focus { border-color: #c9a84c; }
+
+.modal-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.btn {
+  background: none;
+  border: 1px solid #2a2a2a;
+  color: #888;
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  padding: 6px 14px;
+  cursor: pointer;
+}
+.btn:hover { border-color: #888; color: #f0ede6; }
+.btn.primary { border-color: #c9a84c55; color: #c9a84c; }
+.btn.primary:hover { background: #c9a84c18; border-color: #c9a84c; }
+
+header {
+  text-align: center;
+  margin-bottom: 36px;
+  margin-top: 12px;
+}
+
+header h1 {
+  font-size: 2rem;
+  font-weight: normal;
+  letter-spacing: 0.2em;
+  color: #f0ede6;
+  text-transform: uppercase;
+  line-height: 1.15;
+  font-family: 'Courier New', Courier, monospace;
+}
+
+header p {
+  margin-top: 8px;
+  font-size: 0.7rem;
+  color: #555;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+}
+
+.input-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  width: 100%;
+  max-width: 540px;
+  margin-bottom: 20px;
+}
+
+.name-input {
+  flex: 1;
+  background: #111;
+  border: 1px solid #1e1e1e;
+  color: #f0ede6;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 16px;
+  padding: 10px 14px;
+  outline: none;
+  letter-spacing: 0.05em;
+}
+.name-input:focus { border-color: #c9a84c55; }
+.name-input::placeholder { color: #333; }
+
+.gen-btn {
+  background: none;
+  border: 1px solid #c9a84c55;
+  color: #c9a84c;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  padding: 10px 22px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+}
+.gen-btn:hover { background: #c9a84c14; border-color: #c9a84c; }
+.gen-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+#letterTiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  justify-content: center;
+  max-width: 540px;
+  margin-bottom: 36px;
+  min-height: 34px;
+}
+
+.tile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background: #131313;
+  border: 1px solid #222;
+  color: #c9a84c;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
+#errorMsg {
+  display: none;
+  color: #b04040;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-align: center;
+  padding: 12px 16px;
+  border: 1px solid #2a1515;
+  background: #130808;
+  max-width: 540px;
+  width: 100%;
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+#errorMsg.active { display: block; }
+
+#loadingState {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 32px 0;
+  color: #444;
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+#loadingState.active { display: flex; }
+
+.spinner {
+  width: 18px;
+  height: 18px;
+  border: 1px solid #222;
+  border-top-color: #c9a84c;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+#results {
+  width: 100%;
+  max-width: 540px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.anagram-card {
+  background: #0f0f0f;
+  border: 1px solid #1a1a1a;
+  border-left: 2px solid #1e1e1e;
+  padding: 16px 20px 22px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.12s;
+  opacity: 0;
+  transform: translateY(10px);
+  animation: cardIn 0.45s ease forwards;
+  position: relative;
+}
+.anagram-card:hover { background: #131313; border-color: #2a2a2a; border-left-color: #c9a84c; }
+.anagram-card.favorite { border-left-color: #c9a84c44; }
+.anagram-card.favorite:hover { border-left-color: #c9a84c; }
+
+@keyframes cardIn {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.anagram-text {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.3rem;
+  color: #f0ede6;
+  line-height: 1.3;
+}
+
+.star {
+  color: #c9a84c;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.anagram-meaning {
+  margin-top: 8px;
+  font-size: 11px;
+  color: #666;
+  letter-spacing: 0.06em;
+  line-height: 1.55;
+}
+
+.copy-hint {
+  position: absolute;
+  bottom: 6px;
+  right: 10px;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #2a2a2a;
+  transition: color 0.15s;
+}
+.anagram-card:hover .copy-hint { color: #555; }
+
+.copied-toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #111;
+  border: 1px solid #c9a84c33;
+  color: #c9a84c;
+  font-size: 10px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  padding: 8px 22px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+  z-index: 200;
+}
+.copied-toast.show { opacity: 1; }
+
+a.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #444;
+  text-decoration: none;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 32px;
+  transition: color 0.15s;
+}
+a.back-link:hover { color: #888; }
+</style>
+</head>
+<body>
+
+<div id="syncBar">
+  <span>AGM v1.0</span>
+  <button id="setupBtn" onclick="openSetup()">Setup</button>
+</div>
+
+<div class="modal-overlay" id="setupModal">
+  <div class="modal">
+    <h2>Setup</h2>
+    <p class="hint">Enter your Anthropic API key. It is stored only in your browser's localStorage and never sent anywhere except the Anthropic API.</p>
+    <label for="apiKeyInput">Anthropic API Key</label>
+    <input type="password" id="apiKeyInput" placeholder="sk-ant-...">
+    <div class="modal-buttons">
+      <button class="btn" onclick="closeSetup()">Cancel</button>
+      <button class="btn primary" onclick="saveSetup()">Save</button>
+    </div>
+  </div>
+</div>
+
+<a class="back-link" href="../personal/">&larr; personal</a>
+
+<header>
+  <h1>ANA<br>GRAM<br>FIND</h1>
+  <p>ai-powered letter rearrangement</p>
+</header>
+
+<div class="input-row">
+  <input class="name-input" id="nameInput" type="text" value="Matthias Weigel" placeholder="Enter a name..." autocomplete="off" spellcheck="false">
+  <button class="gen-btn" id="genBtn" onclick="generate()">Generate</button>
+</div>
+
+<div id="letterTiles"></div>
+
+<div id="errorMsg"></div>
+<div id="loadingState"><div class="spinner"></div><span>thinking...</span></div>
+<div id="results"></div>
+
+<div class="copied-toast" id="copiedToast">copied</div>
+
+<script>
+var apiKey = localStorage.getItem('agm_api_key') || '';
+
+function esc(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function openSetup() {
+  document.getElementById('apiKeyInput').value = apiKey;
+  document.getElementById('setupModal').classList.add('active');
+}
+
+function closeSetup() {
+  document.getElementById('setupModal').classList.remove('active');
+}
+
+function saveSetup() {
+  apiKey = document.getElementById('apiKeyInput').value.trim();
+  localStorage.setItem('agm_api_key', apiKey);
+  closeSetup();
+}
+
+document.getElementById('setupModal').addEventListener('click', function(e) {
+  if (e.target === this) closeSetup();
+});
+
+document.getElementById('apiKeyInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') saveSetup();
+});
+
+function renderTiles(name) {
+  var letters = name.replace(/\s/g, '').toUpperCase().split('');
+  document.getElementById('letterTiles').innerHTML = letters.map(function(l) {
+    return '<div class="tile">' + esc(l) + '</div>';
+  }).join('');
+}
+
+document.getElementById('nameInput').addEventListener('input', function() {
+  renderTiles(this.value);
+  document.getElementById('results').innerHTML = '';
+  document.getElementById('errorMsg').classList.remove('active');
+});
+
+function showError(msg) {
+  var el = document.getElementById('errorMsg');
+  el.textContent = msg;
+  el.classList.add('active');
+}
+
+function showCopied() {
+  var t = document.getElementById('copiedToast');
+  t.classList.add('show');
+  setTimeout(function() { t.classList.remove('show'); }, 1600);
+}
+
+function copyText(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(showCopied).catch(fallbackCopy.bind(null, text));
+  } else {
+    fallbackCopy(text);
+  }
+}
+
+function fallbackCopy(text) {
+  var ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  try { document.execCommand('copy'); showCopied(); } catch(e) {}
+  ta.remove();
+}
+
+function renderResults(items) {
+  document.getElementById('results').innerHTML = items.map(function(item, i) {
+    var delay = i * 90;
+    return '<div class="anagram-card' + (item.isFavorite ? ' favorite' : '') + '"' +
+      ' style="animation-delay:' + delay + 'ms"' +
+      ' onclick="copyText(' + JSON.stringify(item.text) + ')">' +
+      '<div class="card-top">' +
+        '<div class="anagram-text">' + esc(item.text) + '</div>' +
+        (item.isFavorite ? '<div class="star">&#9733;</div>' : '') +
+      '</div>' +
+      '<div class="anagram-meaning">' + esc(item.meaning) + '</div>' +
+      '<div class="copy-hint">click to copy</div>' +
+    '</div>';
+  }).join('');
+}
+
+async function generate() {
+  var name = document.getElementById('nameInput').value.trim();
+  if (!name) return;
+
+  if (!apiKey) {
+    showError('No API key set. Click Setup to add your Anthropic API key (scope: no special permissions needed, just a valid key).');
+    return;
+  }
+
+  document.getElementById('errorMsg').classList.remove('active');
+  document.getElementById('results').innerHTML = '';
+  document.getElementById('loadingState').classList.add('active');
+  document.getElementById('genBtn').disabled = true;
+
+  var letters = name.replace(/\s/g, '').toUpperCase().split('').sort().join('');
+
+  var systemPrompt = [
+    'You are an expert anagram generator.',
+    'Return ONLY a raw JSON array — no markdown, no code fences, no explanation before or after.',
+    'Each element: { "text": "...", "meaning": "...", "isFavorite": bool }.',
+    'Exactly one item must have isFavorite: true (pick the most creative or poetic one).',
+    'Use ALL letters from the input name exactly once. Spaces in the output are free; spaces in the input name are ignored.',
+    'The anagrams should be evocative, witty, or meaningful phrases — not just random word combinations.'
+  ].join(' ');
+
+  var userPrompt = 'Generate 5 creative anagrams for the name: ' + name + '\nLetters available (sorted): ' + letters;
+
+  try {
+    var resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1024,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }]
+      })
+    });
+
+    if (!resp.ok) {
+      var errData = {};
+      try { errData = await resp.json(); } catch(e) {}
+      var msg = errData.error && errData.error.message
+        ? errData.error.message
+        : 'API error ' + resp.status;
+      throw new Error(msg);
+    }
+
+    var data = await resp.json();
+    var content = data.content && data.content[0] && data.content[0].text;
+    if (!content) throw new Error('Empty response from API.');
+
+    var raw = content.trim();
+    // strip accidental code fences if model ignores instructions
+    raw = raw.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/i, '').trim();
+
+    var items = JSON.parse(raw);
+    if (!Array.isArray(items) || items.length === 0) throw new Error('Unexpected response format.');
+
+    renderResults(items);
+  } catch(e) {
+    showError(e.message || 'Something went wrong. Please try again.');
+  } finally {
+    document.getElementById('loadingState').classList.remove('active');
+    document.getElementById('genBtn').disabled = false;
+  }
+}
+
+document.getElementById('nameInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') generate();
+});
+
+renderTiles(document.getElementById('nameInput').value);
+</script>
+</body>
+</html>
