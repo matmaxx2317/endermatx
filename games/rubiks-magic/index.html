@@ -8,7 +8,7 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  background: #0d0d0d;
+  background: #2a2a2a;
   color: #e0e0e0;
   font-family: 'Courier New', Courier, monospace;
   min-height: 100vh;
@@ -24,7 +24,7 @@ body {
   top: 0; left: 0; right: 0;
   height: 40px;
   background: #111;
-  border-bottom: 1px solid #1e1e1e;
+  border-bottom: 1px solid #222;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -70,9 +70,9 @@ h1 {
   display: flex;
   align-items: center;
   padding: 13px 16px;
-  border: 1px solid #1e1e1e;
+  border: 1px solid #2a2a2a;
   border-left: 2px solid #6600aa;
-  background: #111;
+  background: #1e1e1e;
   color: #e0e0e0;
   cursor: pointer;
   transition: border-color 0.12s, background 0.12s;
@@ -81,7 +81,7 @@ h1 {
   font-family: 'Courier New', Courier, monospace;
   gap: 14px;
 }
-.card:hover { border-color: #ccc; border-left-color: #9900cc; background: #161616; }
+.card:hover { border-color: #ccc; border-left-color: #9900cc; background: #222; }
 .clabel { font-size: 0.6rem; letter-spacing: 0.2em; text-transform: uppercase; color: #888; width: 26px; flex-shrink: 0; }
 .cname  { flex: 1; font-size: 0.95rem; letter-spacing: 0.05em; color: #fff; }
 .carr   { font-size: 0.7rem; color: #666; }
@@ -138,8 +138,8 @@ h1 {
 .cell {
   width: 82px;
   height: 82px;
-  border: 1px solid #1c1c1c;
-  background: #0f0f0f;
+  border: 1px solid #333;
+  background: #1a1a1a;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -148,10 +148,10 @@ h1 {
   user-select: none;
 }
 .cell.clickable { cursor: pointer; }
-.cell.flip-target { border-color: #5500aa; background: #110018; }
-.cell.flip-target:hover { border-color: #9900cc; background: #1a0028; }
-.cell.place-target { border-color: #1f1f1f; }
-.cell.place-target:hover { background: #141414; border-color: #2e2e2e; }
+.cell.flip-target { border-color: #5500aa; background: #1e0030; }
+.cell.flip-target:hover { border-color: #9900cc; background: #260038; }
+.cell.place-target { border-color: #333; }
+.cell.place-target:hover { background: #222; border-color: #444; }
 
 /* ── tiles ── */
 .tile {
@@ -182,9 +182,9 @@ h1 {
 .slabel { color: #444; }
 .sbtn {
   padding: 5px 14px;
-  background: #111;
-  border: 1px solid #242424;
-  color: #555;
+  background: #1e1e1e;
+  border: 1px solid #333;
+  color: #666;
   font-family: 'Courier New', Courier, monospace;
   font-size: 0.6rem;
   letter-spacing: 0.1em;
@@ -201,8 +201,8 @@ h1 {
 .btn {
   padding: 8px 20px;
   background: transparent;
-  border: 1px solid #282828;
-  color: #666;
+  border: 1px solid #333;
+  color: #888;
   font-family: 'Courier New', Courier, monospace;
   font-size: 0.62rem;
   letter-spacing: 0.14em;
