@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rubik's Magic · endermatx</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #0d0d0d;
+  color: #e0e0e0;
+  font-family: 'Courier New', Courier, monospace;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 50px;
+  padding-bottom: 48px;
+}
+
+#syncBar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 40px;
+  background: #111;
+  border-bottom: 1px solid #1e1e1e;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  z-index: 100;
+}
+#syncLeft  { font-size: 0.7rem; letter-spacing: 0.18em; text-transform: uppercase; color: #ccc; }
+#syncRight { font-size: 0.62rem; letter-spacing: 0.12em; text-transform: uppercase; color: #555; }
+
+/* ── screens ── */
+.screen { display: none; flex-direction: column; align-items: center; width: 100%; }
+.screen.active { display: flex; }
+
+/* ── heading ── */
+h1 {
+  font-size: 1rem;
+  font-weight: normal;
+  letter-spacing: 0.25em;
+  color: #fff;
+  text-transform: uppercase;
+  text-align: center;
+  margin: 26px 0 4px;
+  line-height: 1.3;
+}
+.sub {
+  font-size: 0.6rem;
+  color: #555;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+/* ── menu cards ── */
+.grid {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  width: 300px;
+  margin-bottom: 24px;
+}
+.card {
+  display: flex;
+  align-items: center;
+  padding: 13px 16px;
+  border: 1px solid #1e1e1e;
+  border-left: 2px solid #6600aa;
+  background: #111;
+  color: #e0e0e0;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+  text-decoration: none;
+  user-select: none;
+  font-family: 'Courier New', Courier, monospace;
+  gap: 14px;
+}
+.card:hover { border-color: #ccc; border-left-color: #9900cc; background: #161616; }
+.clabel { font-size: 0.6rem; letter-spacing: 0.2em; text-transform: uppercase; color: #888; width: 26px; flex-shrink: 0; }
+.cname  { flex: 1; font-size: 0.95rem; letter-spacing: 0.05em; color: #fff; }
+.carr   { font-size: 0.7rem; color: #666; }
+
+/* ── game status bar ── */
+#statusBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 343px;
+  margin-bottom: 6px;
+}
+.pinfo {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.64rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.3;
+  transition: opacity 0.2s;
+}
+.pinfo.active { opacity: 1; }
+.pname  { color: #ccc; }
+.pscore { color: #555; font-size: 0.56rem; }
+#phaseLabel {
+  font-size: 0.57rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #9900cc;
+  text-align: center;
+  min-width: 72px;
+}
+
+/* ── AI indicator ── */
+#aiMsg {
+  height: 16px;
+  font-size: 0.58rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #44aa11;
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+/* ── board ── */
+#board {
+  display: grid;
+  grid-template-columns: repeat(4, 82px);
+  grid-template-rows: repeat(4, 82px);
+  gap: 5px;
+  margin-bottom: 16px;
+}
+.cell {
+  width: 82px;
+  height: 82px;
+  border: 1px solid #1c1c1c;
+  background: #0f0f0f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+  transition: border-color 0.1s, background 0.1s;
+  user-select: none;
+}
+.cell.clickable { cursor: pointer; }
+.cell.flip-target { border-color: #5500aa; background: #110018; }
+.cell.flip-target:hover { border-color: #9900cc; background: #1a0028; }
+.cell.place-target { border-color: #1f1f1f; }
+.cell.place-target:hover { background: #141414; border-color: #2e2e2e; }
+
+/* ── tiles ── */
+.tile {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.tile.e-d { background: #070707; }
+.tile.e-l { background: #cc00ee; }
+.tile.c-d { background: #070707; }
+.tile.c-l { background: #44aa11; }
+
+.tile.flip-src { outline: 2px solid #8800bb; outline-offset: -3px; }
+.tile.win-hi   { outline: 2px solid #ffd700; outline-offset: -3px; }
+
+/* ── side selector ── */
+#sideSel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.slabel { color: #444; }
+.sbtn {
+  padding: 5px 14px;
+  background: #111;
+  border: 1px solid #242424;
+  color: #555;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.1s;
+}
+.sbtn:hover { border-color: #444; color: #999; }
+.sbtn.on { border-color: #8800bb; color: #cc44ff; background: #0d0018; }
+.sbtn.on:hover { background: #140022; }
+
+/* ── action buttons ── */
+#btns { display: flex; gap: 10px; margin-bottom: 28px; }
+.btn {
+  padding: 8px 20px;
+  background: transparent;
+  border: 1px solid #282828;
+  color: #666;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.1s;
+}
+.btn:hover { border-color: #8800bb; color: #cc44ff; background: #0d0018; }
+
+/* ── howto ── */
+#howto {
+  max-width: 330px;
+  font-size: 0.58rem;
+  color: #333;
+  letter-spacing: 0.04em;
+  line-height: 1.95;
+  text-align: center;
+}
+
+/* ── win overlay ── */
+#winOverlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.88);
+  z-index: 200;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+#winOverlay.show { display: flex; }
+#winMsg {
+  font-size: 1.7rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-family: 'Courier New', Courier, monospace;
+  text-align: center;
+}
+#winSub {
+  font-size: 0.66rem;
+  color: #888;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.bigbtn {
+  padding: 12px 34px;
+  background: transparent;
+  border: 1px solid #8800bb;
+  color: #cc44ff;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.12s;
+  margin-top: 6px;
+}
+.bigbtn:hover { background: #150024; }
+</style>
+</head>
+<body>
+
+<div id="syncBar">
+  <div id="syncLeft">rubik's magic</div>
+  <div id="syncRight">minecraft edition</div>
+</div>
+
+<!-- ══ MENU ══ -->
+<div class="screen active" id="screenMenu">
+  <h1>RUBIK'S<br>MAGIC</h1>
+  <p class="sub">minecraft edition</p>
+  <nav class="grid">
+    <a class="card" href="../">
+      <div class="clabel">←</div>
+      <div class="cname">back</div>
+      <div class="carr"></div>
+    </a>
+    <div class="card" onclick="startMode('1p')">
+      <div class="clabel">1P</div>
+      <div class="cname">vs computer</div>
+      <div class="carr">→</div>
+    </div>
+    <div class="card" onclick="startMode('2p')">
+      <div class="clabel">2P</div>
+      <div class="cname">two players</div>
+      <div class="carr">→</div>
+    </div>
+  </nav>
+</div>
+
+<!-- ══ DIFFICULTY ══ -->
+<div class="screen" id="screenDiff">
+  <h1>RUBIK'S<br>MAGIC</h1>
+  <p class="sub">choose difficulty</p>
+  <nav class="grid">
+    <div class="card" onclick="startDiff('easy')">
+      <div class="clabel">01</div>
+      <div class="cname">easy</div>
+      <div class="carr">→</div>
+    </div>
+    <div class="card" onclick="startDiff('medium')">
+      <div class="clabel">02</div>
+      <div class="cname">medium</div>
+      <div class="carr">→</div>
+    </div>
+    <div class="card" onclick="startDiff('hard')">
+      <div class="clabel">03</div>
+      <div class="cname">hard</div>
+      <div class="carr">→</div>
+    </div>
+    <div class="card" onclick="showScreen('screenMenu')">
+      <div class="clabel">←</div>
+      <div class="cname">back</div>
+      <div class="carr"></div>
+    </div>
+  </nav>
+</div>
+
+<!-- ══ GAME ══ -->
+<div class="screen" id="screenGame">
+  <h1>RUBIK'S<br>MAGIC</h1>
+
+  <div id="statusBar">
+    <div class="pinfo active" id="p1info">
+      <span class="pname" id="p1name">enderman</span>
+      <span class="pscore" id="p1score">0</span>
+    </div>
+    <div id="phaseLabel">place</div>
+    <div class="pinfo" id="p2info">
+      <span class="pscore" id="p2score">0</span>
+      <span class="pname" id="p2name">creeper</span>
+    </div>
+  </div>
+
+  <div id="aiMsg"></div>
+  <div id="board"></div>
+
+  <div id="sideSel">
+    <span class="slabel">side:</span>
+    <button class="sbtn on" id="btnDark"     onclick="setSide('d')">dark</button>
+    <button class="sbtn"    id="btnInverted" onclick="setSide('l')">inverted</button>
+  </div>
+
+  <div id="btns">
+    <button class="btn" onclick="newRound()">new game</button>
+    <button class="btn" onclick="showScreen('screenMenu')">menu</button>
+  </div>
+
+  <p id="howto">
+    enderman places first · each turn: (1) flip opponent's last tile to an adjacent empty space — it inverts · (2) place your tile choosing dark or inverted side · win: 3 locked in a row — same player, same side, all neighbors occupied
+  </p>
+</div>
+
+<!-- ══ WIN OVERLAY ══ -->
+<div id="winOverlay">
+  <div id="winMsg"></div>
+  <div id="winSub"></div>
+  <button class="bigbtn" onclick="newRound()">play again</button>
+  <button class="btn" style="margin-top:2px;border-color:#333" onclick="showScreen('screenMenu')">menu</button>
+</div>
+
+<script>
+(function () {
+  var E = 'e', C = 'c', D = 'd', L = 'l';
+
+  var cfg = { mode: '2p', diff: 'easy' };
+  var g   = null;
+
+  // ── state factory ────────────────────────────────────
+  function fresh() {
+    return {
+      board:       Array(16).fill(null),
+      player:      E,
+      lastPlaced:  -1,
+      phase:       'place',
+      scores:      { e: 0, c: 0 },
+      over:        false,
+      winner:      null,
+      winLine:     null,
+      side:        D
+    };
+  }
+
+  // ── geometry ─────────────────────────────────────────
+  function nbrs(i) {
+    var r = (i / 4) | 0, c = i % 4, n = [];
+    if (r > 0) n.push(i - 4);
+    if (r < 3) n.push(i + 4);
+    if (c > 0) n.push(i - 1);
+    if (c < 3) n.push(i + 1);
+    return n;
+  }
+
+  var LINES = (function () {
+    var L = [];
+    for (var r = 0; r < 4; r++)
+      for (var s = 0; s < 2; s++)
+        L.push([r*4+s, r*4+s+1, r*4+s+2]);
+    for (var c = 0; c < 4; c++)
+      for (var s = 0; s < 2; s++)
+        L.push([s*4+c, (s+1)*4+c, (s+2)*4+c]);
+    for (var r = 0; r < 2; r++)
+      for (var c = 0; c < 2; c++)
+        L.push([r*4+c, (r+1)*4+c+1, (r+2)*4+c+2]);
+    for (var r = 0; r < 2; r++)
+      for (var c = 2; c < 4; c++)
+        L.push([r*4+c, (r+1)*4+c-1, (r+2)*4+c-2]);
+    return L;
+  })();
+
+  // ── win detection ─────────────────────────────────────
+  function checkWin(board) {
+    for (var i = 0; i < LINES.length; i++) {
+      var ln = LINES[i];
+      var a = board[ln[0]], b = board[ln[1]], c = board[ln[2]];
+      if (!a || !b || !c) continue;
+      if (a.p !== b.p || b.p !== c.p) continue;
+      if (a.s !== b.s || b.s !== c.s) continue;
+      var locked = true;
+      outer: for (var j = 0; j < 3; j++) {
+        var ns = nbrs(ln[j]);
+        for (var k = 0; k < ns.length; k++) {
+          if (!board[ns[k]]) { locked = false; break outer; }
+        }
+      }
+      if (locked) return { winner: a.p, line: ln };
+    }
+    return null;
+  }
+
+  function ft(board, last) {
+    if (last < 0) return [];
+    return nbrs(last).filter(function (n) { return !board[n]; });
+  }
+
+  // ── pure board ops ────────────────────────────────────
+  function bFlip(board, from, to) {
+    var b = board.slice();
+    b[to]   = { p: b[from].p, s: b[from].s === D ? L : D };
+    b[from] = null;
+    return b;
+  }
+
+  function bPlace(board, idx, player, side) {
+    var b  = board.slice();
+    b[idx] = { p: player, s: side };
+    return b;
+  }
+
+  // ── actions ───────────────────────────────────────────
+  function doFlip(target) {
+    g.board       = bFlip(g.board, g.lastPlaced, target);
+    g.lastPlaced  = target;
+    g.phase       = 'place';
+    if (!resolve()) render();
+  }
+
+  function doPlace(idx, side) {
+    side = (side !== undefined) ? side : g.side;
+    g.board      = bPlace(g.board, idx, g.player, side);
+    g.lastPlaced = idx;
+    if (resolve()) return;
+    g.player = g.player === E ? C : E;
+    var targets = ft(g.board, g.lastPlaced);
+    g.phase = targets.length ? 'flip' : 'place';
+    render();
+    if (cfg.mode === '1p' && g.player === C && !g.over) scheduleAI();
+  }
+
+  function resolve() {
+    var w    = checkWin(g.board);
+    var full = g.board.every(function (c) { return c !== null; });
+    if (w || full) {
+      g.over    = true;
+      g.winner  = w ? w.winner : null;
+      g.winLine = w ? w.line   : null;
+      if (w) g.scores[w.winner]++;
+      render();
+      showWin(g.winner);
+      return true;
+    }
+    return false;
+  }
+
+  // ── AI ────────────────────────────────────────────────
+  function scheduleAI() {
+    setAIMsg('creeper thinking…');
+    setTimeout(aiTurn, cfg.diff === 'hard' ? 650 : 420);
+  }
+
+  function aiTurn() {
+    if (g.over || g.player !== C) return;
+    if (g.phase === 'flip') {
+      var targets = ft(g.board, g.lastPlaced);
+      if (!targets.length) {
+        g.phase = 'place';
+        render();
+        setTimeout(aiTurn, 200);
+        return;
+      }
+      var target = pickFlip(targets);
+      doFlip(target);
+      if (!g.over) setTimeout(aiTurn, cfg.diff === 'hard' ? 500 : 320);
+    } else {
+      var move = pickPlace();
+      setAIMsg('');
+      doPlace(move.idx, move.side);
+    }
+  }
+
+  function setAIMsg(msg) {
+    var el = document.getElementById('aiMsg');
+    if (el) el.textContent = msg;
+  }
+
+  function pickFlip(targets) {
+    if (cfg.diff === 'easy') return targets[(Math.random() * targets.length) | 0];
+    var best = targets[0], bestSc = -Infinity;
+    for (var i = 0; i < targets.length; i++) {
+      var b  = bFlip(g.board, g.lastPlaced, targets[i]);
+      var sc = evalBoard(b, C);
+      if (sc > bestSc) { bestSc = sc; best = targets[i]; }
+    }
+    return best;
+  }
+
+  function pickPlace() {
+    var empty = [];
+    for (var i = 0; i < 16; i++) if (!g.board[i]) empty.push(i);
+    if (cfg.diff === 'easy') {
+      return { idx: empty[(Math.random() * empty.length) | 0], side: Math.random() < 0.5 ? D : L };
+    }
+    var best = null, bestSc = -Infinity;
+    for (var i = 0; i < empty.length; i++) {
+      for (var si = 0; si < 2; si++) {
+        var side = si === 0 ? D : L;
+        var b    = bPlace(g.board, empty[i], C, side);
+        var sc   = cfg.diff === 'hard' ? evalWithResponse(b, empty[i]) : evalBoard(b, C);
+        if (sc > bestSc) { bestSc = sc; best = { idx: empty[i], side: side }; }
+      }
+    }
+    return best || { idx: empty[0], side: D };
+  }
+
+  function evalWithResponse(board, lastIdx) {
+    var targets = ft(board, lastIdx);
+    if (!targets.length) return evalBoard(board, C);
+    var worst = Infinity;
+    for (var i = 0; i < targets.length; i++) {
+      var b2 = bFlip(board, lastIdx, targets[i]);
+      var sc = evalBoard(b2, C);
+      if (sc < worst) worst = sc;
+    }
+    return worst;
+  }
+
+  function evalBoard(board, forP) {
+    var w = checkWin(board);
+    if (w) return w.winner === forP ? 10000 : -10000;
+    var score = 0;
+    for (var i = 0; i < LINES.length; i++) {
+      var ln = LINES[i];
+      var mine = 0, opp = 0, mySide = null, oppSide = null, sideOk = true;
+      for (var j = 0; j < 3; j++) {
+        var cell = board[ln[j]];
+        if (!cell) continue;
+        if (cell.p === forP) {
+          if (mySide === null) mySide = cell.s;
+          else if (mySide !== cell.s) { sideOk = false; break; }
+          mine++;
+        } else {
+          if (oppSide === null) oppSide = cell.s;
+          else if (oppSide !== cell.s) { sideOk = false; break; }
+          opp++;
+        }
+      }
+      if (!sideOk || (mine && opp)) continue;
+      if (mine) score += mine === 2 ? 50 : 5;
+      if (opp)  score -= opp  === 2 ? 80 : 8;
+    }
+    return score;
+  }
+
+  // ── cell interaction ──────────────────────────────────
+  function cellClick(idx) {
+    if (g.over) return;
+    if (cfg.mode === '1p' && g.player === C) return;
+    if (g.phase === 'flip') {
+      if (ft(g.board, g.lastPlaced).indexOf(idx) >= 0) doFlip(idx);
+    } else {
+      if (!g.board[idx]) doPlace(idx);
+    }
+  }
+
+  function setSide(s) {
+    g.side = s;
+    document.getElementById('btnDark').classList.toggle('on',     s === D);
+    document.getElementById('btnInverted').classList.toggle('on', s === L);
+  }
+
+  // ── screens ───────────────────────────────────────────
+  function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(function (s) { s.classList.remove('active'); });
+    document.getElementById(id).classList.add('active');
+    document.getElementById('winOverlay').classList.remove('show');
+  }
+
+  function startMode(mode) {
+    cfg.mode = mode;
+    if (mode === '1p') { showScreen('screenDiff'); return; }
+    cfg.diff = null;
+    g = fresh();
+    showScreen('screenGame');
+    render();
+  }
+
+  function startDiff(diff) {
+    cfg.diff = diff;
+    g = fresh();
+    showScreen('screenGame');
+    render();
+  }
+
+  function newRound() {
+    var sc = g.scores;
+    g = fresh();
+    g.scores = sc;
+    document.getElementById('winOverlay').classList.remove('show');
+    document.getElementById('aiMsg').textContent = '';
+    render();
+  }
+
+  function showWin(winner) {
+    var msg = document.getElementById('winMsg');
+    var sub = document.getElementById('winSub');
+    document.getElementById('aiMsg').textContent = '';
+    if (winner === E) {
+      msg.textContent = 'ENDERMAN WINS';
+      msg.style.color = '#cc00ee';
+    } else if (winner === C) {
+      msg.textContent = 'CREEPER WINS';
+      msg.style.color = '#44aa11';
+    } else {
+      msg.textContent = 'DRAW';
+      msg.style.color = '#888';
+    }
+    sub.textContent = winner ? 'locked three in a row' : 'board full — no winner';
+    document.getElementById('winOverlay').classList.add('show');
+  }
+
+  // ── render ────────────────────────────────────────────
+  function render() {
+    renderBoard();
+    renderStatus();
+    var humanPlace = g.phase === 'place' && !g.over &&
+                     !(cfg.mode === '1p' && g.player === C);
+    document.getElementById('sideSel').style.visibility = humanPlace ? 'visible' : 'hidden';
+  }
+
+  function faceSVG(player, side) {
+    var inv = side === L;
+    if (player === E) {
+      var c   = inv ? '#220030' : '#cc00ee';
+      var fil = inv ? '' : ' style="filter:drop-shadow(0 0 2px #cc00ee)"';
+      return '<svg viewBox="0 0 10 10" width="40" height="40">' +
+        '<rect x="1.5" y="3" width="2.5" height="4.5" fill="' + c + '"' + fil + '/>' +
+        '<rect x="6"   y="3" width="2.5" height="4.5" fill="' + c + '"' + fil + '/>' +
+        '</svg>';
+    } else {
+      var c = inv ? '#0a2200' : '#55cc11';
+      return '<svg viewBox="0 0 10 10" width="40" height="40">' +
+        '<rect x="1.5" y="1.5" width="2.5" height="2.5" fill="' + c + '"/>' +
+        '<rect x="6"   y="1.5" width="2.5" height="2.5" fill="' + c + '"/>' +
+        '<rect x="1.5" y="5.5" width="2"   height="3"   fill="' + c + '"/>' +
+        '<rect x="6.5" y="5.5" width="2"   height="3"   fill="' + c + '"/>' +
+        '<rect x="3.5" y="5.5" width="3"   height="1.5" fill="' + c + '"/>' +
+        '</svg>';
+    }
+  }
+
+  function renderBoard() {
+    var boardEl  = document.getElementById('board');
+    var targets  = g.phase === 'flip' ? ft(g.board, g.lastPlaced) : [];
+    var wl       = g.winLine || [];
+    var aiTurn   = cfg.mode === '1p' && g.player === C;
+    boardEl.innerHTML = '';
+    for (var i = 0; i < 16; i++) {
+      var cell = document.createElement('div');
+      cell.className = 'cell';
+      var tile = g.board[i];
+      if (tile) {
+        var t = document.createElement('div');
+        t.className = 'tile ' + tile.p + '-' + tile.s;
+        if (i === g.lastPlaced && g.phase === 'flip') t.classList.add('flip-src');
+        if (wl.indexOf(i) >= 0) t.classList.add('win-hi');
+        t.innerHTML = faceSVG(tile.p, tile.s);
+        cell.appendChild(t);
+      } else if (!g.over && !aiTurn) {
+        if (targets.indexOf(i) >= 0) {
+          cell.classList.add('flip-target', 'clickable');
+        } else if (g.phase === 'place') {
+          cell.classList.add('place-target', 'clickable');
+        }
+      }
+      (function (idx) { cell.onclick = function () { cellClick(idx); }; })(i);
+      boardEl.appendChild(cell);
+    }
+  }
+
+  function renderStatus() {
+    var p1 = document.getElementById('p1info');
+    var p2 = document.getElementById('p2info');
+    p1.classList.toggle('active', g.player === E && !g.over);
+    p2.classList.toggle('active', g.player === C && !g.over);
+    document.getElementById('p1score').textContent = g.scores.e;
+    document.getElementById('p2score').textContent = g.scores.c;
+    var ph = document.getElementById('phaseLabel');
+    if      (g.over)          ph.textContent = 'game over';
+    else if (g.phase === 'flip') ph.textContent = '1. flip';
+    else                      ph.textContent = '2. place';
+  }
+
+  // ── boot ──────────────────────────────────────────────
+  showScreen('screenMenu');
+})();
+</script>
+</body>
+</html>
