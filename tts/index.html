@@ -306,6 +306,16 @@ transition: opacity 0.2s;
 
 .proj-btn.active-project .proj-btn-now { opacity: 1; }
 
+.proj-kbd {
+position: absolute;
+bottom: 6px; right: 8px;
+font-size: 9px;
+color: #2e2e2e;
+letter-spacing: 0;
+pointer-events: none;
+}
+.proj-btn.active-project .proj-kbd { color: #3a3a3a; }
+
 .proj-btn-name {
 font-size: 13px;
 color: #f0f0f0;
@@ -1009,7 +1019,7 @@ transition: background 0.1s;
 
 <!-- APP -->
 
-<h1>tts<span style="font-size:10px;color:#bbb;margin-left:8px;letter-spacing:0.05em;text-transform:none;font-weight:normal">v2.8</span></h1>
+<h1>tts<span style="font-size:10px;color:#bbb;margin-left:8px;letter-spacing:0.05em;text-transform:none;font-weight:normal">v2.9</span></h1>
 
 <div class="top-bar">
   <div class="timer-display" id="timerDisplay">00:00:00</div>
@@ -1465,7 +1475,7 @@ function renderGrid() {
     return;
   }
   var sorted = active.slice().sort(function(a, b) { return a.name.localeCompare(b.name); });
-  grid.innerHTML = sorted.map(function(p) {
+  grid.innerHTML = sorted.map(function(p, idx) {
     const isActive = state.timerRunning && state.activeProjectId === p.id;
     const isInactive = !state.timerRunning;
     const borderStyle = isActive ? 'border-color:' + p.color + ';' : state.timerRunning ? 'border-color:transparent;' : '';
@@ -1475,10 +1485,12 @@ function renderGrid() {
     const ctxStr = ctxSec !== null ? formatDurationShort(ctxSec) : '--';
     const dayStr = daySec > 0 ? formatDurationShort(daySec) : '--';
     const allStr = allSec > 0 ? formatDurationShort(allSec) : '--';
+    const kbdBadge = idx < 9 ? '<span class="proj-kbd">' + (idx + 1) + '</span>' : '';
     return '<button class="proj-btn' + (isActive ? ' active-project' : '') + (isInactive ? ' inactive' : '') +
       '" style="' + borderStyle + '" onclick="selectProject(' + p.id + ')" id="pgrid_' + p.id + '">' +
       '<div class="proj-btn-bar" style="background:' + p.color + '"></div>' +
       '<span class="proj-btn-now">NOW</span>' +
+      kbdBadge +
       '<div class="proj-btn-name">' + escHtml(p.name) + '</div>' +
       '<div class="proj-times">' +
         '<div class="proj-time-row"><span class="proj-time-label">ctx</span><span class="proj-time-val proj-time-ctx" id="pgctx_' + p.id + '">' + ctxStr + '</span></div>' +
@@ -2032,6 +2044,23 @@ document.addEventListener('click', function(e) {
   var inCalPopup = e.target.closest && e.target.closest('#calPopup');
   var isCalTrigger = e.target.classList.contains('weekly-cw') || e.target.classList.contains('cal-nav-btn');
   if (!inCalPopup && !isCalTrigger) document.getElementById('calPopup').classList.remove('visible');
+});
+
+document.addEventListener('keydown', function(e) {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.ctrlKey || e.altKey || e.metaKey) return;
+  if (document.querySelector('.modal-overlay.active')) return;
+  if (e.key === ' ') {
+    e.preventDefault();
+    toggleTimer();
+  } else if (e.key >= '1' && e.key <= '9') {
+    var idx = parseInt(e.key) - 1;
+    var sorted = state.projects.filter(function(p) { return !p.archived; })
+      .sort(function(a, b) { return a.name.localeCompare(b.name); });
+    if (idx < sorted.length) selectProject(sorted[idx].id);
+  } else if (e.key === 't' || e.key === 'T') {
+    if (state.timerRunning && state.activeProjectId && state.activeSegmentStart) openAdjustModal();
+  }
 });
 
 // ---- WEEKLY OVERVIEW ----
