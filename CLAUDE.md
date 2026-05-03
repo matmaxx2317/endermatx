@@ -14,6 +14,8 @@ Push to `main` → GitHub Pages deploys automatically. The root `index.html` pol
 deploy: <path/to/file> - DD.MM.YYYY HH:MM
 ```
 
+**Always push directly to `main`.** Do not use feature branches or PRs — commit and push straight to `main` every time.
+
 ## Site structure
 
 Navigation is three levels deep:
