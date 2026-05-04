@@ -676,15 +676,26 @@ h1 {
         }
       }
       if (!sideOk || (mine && opp)) continue;
-      if (mine) score += mine === 2 ? 90 : 10;
+      if (mine) {
+        var msc = mine === 2 ? 90 : 10;
+        if (witherCorner !== null && ln.indexOf(witherCorner) >= 0) msc *= 2;
+        score += msc;
+      }
       if (opp)  score -= opp  === 2 ? 70 : 7;
     }
     return score;
   }
 
   // ── MCTS (wither difficulty) ──────────────────────────
-  var MCTS_C = 1.414;
+  var MCTS_C  = 1.414;
   var MCTS_MS = 1100;
+  var witherCorner = null;
+
+  function pickWitherCorner() {
+    witherCorner = (cfg.diff === 'wither' && Math.random() < 0.5)
+      ? [0, 3, 12, 15][(Math.random() * 4) | 0]
+      : null;
+  }
 
   function mctsNode(board, player, phase, parent, action) {
     return { board: board, player: player, phase: phase,
@@ -891,6 +902,7 @@ h1 {
   function startDiff(diff) {
     cfg.diff = diff;
     g = fresh();
+    pickWitherCorner();
     showScreen('screenGame');
     render();
     rollDice(function (chosen) {
@@ -904,6 +916,7 @@ h1 {
     var sc = g.scores;
     g = fresh();
     g.scores = sc;
+    pickWitherCorner();
     document.getElementById('winOverlay').classList.remove('show');
     document.getElementById('aiMsg').textContent = '';
     render();
