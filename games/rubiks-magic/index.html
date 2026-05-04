@@ -265,6 +265,58 @@ h1 {
   margin-top: 6px;
 }
 .bigbtn:hover { background: #150024; }
+
+/* ── dice overlay ── */
+#diceOverlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.92);
+  z-index: 300;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+}
+#diceOverlay.show { display: flex; }
+
+#diceBox {
+  width: 148px;
+  height: 148px;
+  border: 2px solid #333;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: #111;
+  transition: background 0.08s, border-color 0.08s;
+}
+#diceBox.rolling {
+  animation: dshake 0.18s ease-in-out infinite;
+}
+@keyframes dshake {
+  0%   { transform: translate(-2px, -1px) rotate(-2deg); }
+  25%  { transform: translate(2px,  1px) rotate(2deg); }
+  50%  { transform: translate(-1px, 2px) rotate(-1deg); }
+  75%  { transform: translate(1px, -1px) rotate(1deg); }
+  100% { transform: translate(0,    0)   rotate(0deg); }
+}
+#diceName {
+  font-size: 0.72rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-family: 'Courier New', Courier, monospace;
+  color: #888;
+  transition: color 0.08s;
+}
+#diceMsg {
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-family: 'Courier New', Courier, monospace;
+  color: #555;
+}
 </style>
 </head>
 <body>
@@ -360,6 +412,14 @@ h1 {
   <div id="winSub"></div>
   <button class="bigbtn" onclick="newRound()">play again</button>
   <button class="btn" style="margin-top:2px;border-color:#333" onclick="showScreen('screenMenu')">menu</button>
+</div>
+
+<div id="diceOverlay">
+  <div id="diceBox">
+    <div id="diceFace"></div>
+    <div id="diceName">?</div>
+  </div>
+  <div id="diceMsg">deciding who goes first…</div>
 </div>
 
 <script>
@@ -648,6 +708,10 @@ h1 {
     g = fresh();
     showScreen('screenGame');
     render();
+    rollDice(function (chosen) {
+      g.player = chosen;
+      render();
+    });
   }
 
   function startDiff(diff) {
@@ -655,6 +719,11 @@ h1 {
     g = fresh();
     showScreen('screenGame');
     render();
+    rollDice(function (chosen) {
+      g.player = chosen;
+      render();
+      if (cfg.mode === '1p' && chosen === C) scheduleAI();
+    });
   }
 
   function newRound() {
@@ -664,6 +733,11 @@ h1 {
     document.getElementById('winOverlay').classList.remove('show');
     document.getElementById('aiMsg').textContent = '';
     render();
+    rollDice(function (chosen) {
+      g.player = chosen;
+      render();
+      if (cfg.mode === '1p' && chosen === C) scheduleAI();
+    });
   }
 
   function showWin(winner) {
@@ -690,18 +764,19 @@ h1 {
     renderStatus();
   }
 
-  function faceSVG(player, side) {
+  function faceSVG(player, side, sz) {
+    sz = sz || 40;
     var inv = side === L;
     if (player === E) {
       var c   = inv ? '#220030' : '#cc00ee';
       var fil = inv ? '' : ' style="filter:drop-shadow(0 0 2px #cc00ee)"';
-      return '<svg viewBox="0 0 10 10" width="40" height="40">' +
+      return '<svg viewBox="0 0 10 10" width="' + sz + '" height="' + sz + '">' +
         '<rect x="1.5" y="3" width="2.5" height="4.5" fill="' + c + '"' + fil + '/>' +
         '<rect x="6"   y="3" width="2.5" height="4.5" fill="' + c + '"' + fil + '/>' +
         '</svg>';
     } else {
       var c = inv ? '#0a2200' : '#55cc11';
-      return '<svg viewBox="0 0 10 10" width="40" height="40">' +
+      return '<svg viewBox="0 0 10 10" width="' + sz + '" height="' + sz + '">' +
         '<rect x="1.5" y="1.5" width="2.5" height="2.5" fill="' + c + '"/>' +
         '<rect x="6"   y="1.5" width="2.5" height="2.5" fill="' + c + '"/>' +
         '<rect x="1.5" y="5.5" width="2"   height="3"   fill="' + c + '"/>' +
@@ -709,6 +784,66 @@ h1 {
         '<rect x="3.5" y="5.5" width="3"   height="1.5" fill="' + c + '"/>' +
         '</svg>';
     }
+  }
+
+  // ── dice roll ─────────────────────────────────────────
+  function rollDice(onDone) {
+    var chosen = Math.random() < 0.5 ? E : C;
+    var flips  = 14 + ((Math.random() * 6) | 0); // 14–19
+    // adjust parity so we land on chosen (starting from E, even flips → E)
+    var endsOn = (flips % 2 === 0) ? E : C;
+    if (endsOn !== chosen) flips++;
+
+    var box   = document.getElementById('diceBox');
+    var msg   = document.getElementById('diceMsg');
+    var overlay = document.getElementById('diceOverlay');
+    overlay.classList.add('show');
+    msg.textContent = 'deciding who goes first…';
+    box.classList.add('rolling');
+
+    var current = E, count = 0, delay = 65;
+
+    function step() {
+      current = current === E ? C : E;
+      count++;
+      updateDiceFrame(current);
+      if (count < flips) {
+        if (count > flips - 5) {
+          box.classList.remove('rolling');
+          delay = Math.min(520, delay * 1.35);
+        }
+        setTimeout(step, delay);
+      } else {
+        msg.textContent = (current === E ? 'enderman' : 'creeper') + ' goes first!';
+        msg.style.color = current === E ? '#cc00ee' : '#44aa11';
+        setTimeout(function () {
+          overlay.classList.remove('show');
+          msg.style.color = '';
+          onDone(chosen);
+        }, 1100);
+      }
+    }
+
+    updateDiceFrame(E);
+    setTimeout(step, delay);
+  }
+
+  function updateDiceFrame(player) {
+    var box  = document.getElementById('diceBox');
+    var face = document.getElementById('diceFace');
+    var name = document.getElementById('diceName');
+    if (player === E) {
+      box.style.background   = '#160025';
+      box.style.borderColor  = '#8800bb';
+      name.style.color       = '#cc00ee';
+      name.textContent       = 'enderman';
+    } else {
+      box.style.background   = '#0a1800';
+      box.style.borderColor  = '#336600';
+      name.style.color       = '#55cc11';
+      name.textContent       = 'creeper';
+    }
+    face.innerHTML = faceSVG(player, D, 72);
   }
 
   function renderBoard() {
