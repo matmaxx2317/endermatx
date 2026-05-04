@@ -149,7 +149,10 @@ h1 {
 }
 .cell.clickable { cursor: pointer; }
 .cell.flip-target .tile { box-shadow: inset 0 0 0 2px #6600aa; }
-.cell.flip-target:hover .tile { box-shadow: inset 0 0 0 2px #bb00ff; }
+.cell.flip-target:hover .tile { box-shadow: inset 0 0 0 2px #9900cc; }
+.cell.roll-src .tile { box-shadow: inset 0 0 0 3px #cc00ff; }
+.cell.roll-dest { border-color: #5500aa; background: #1e0030; }
+.cell.roll-dest:hover { border-color: #9900cc; background: #260038; }
 .cell.place-target { border-color: #333; }
 .cell.place-target:hover { background: #222; border-color: #444; }
 
@@ -376,7 +379,8 @@ h1 {
       scores:      { e: 0, c: 0 },
       over:        false,
       winner:      null,
-      winLine:     null
+      winLine:     null,
+      flipSrc:     -1
     };
   }
 
@@ -427,50 +431,67 @@ h1 {
     return null;
   }
 
-  // opponent tiles on the board (flip targets)
-  function oppTiles(board, player) {
-    var opp = player === E ? C : E, t = [];
-    for (var i = 0; i < 16; i++) if (board[i] && board[i].p === opp) t.push(i);
-    return t;
+  // opponent tiles that have at least one empty orthogonal neighbour
+  function rollable(board, player) {
+    var opp = player === E ? C : E, result = [];
+    for (var i = 0; i < 16; i++) {
+      if (!board[i] || board[i].p !== opp) continue;
+      var ns = nbrs(i);
+      for (var k = 0; k < ns.length; k++) {
+        if (!board[ns[k]]) { result.push(i); break; }
+      }
+    }
+    return result;
+  }
+
+  // empty orthogonal neighbours of idx (valid roll destinations)
+  function rollDests(board, idx) {
+    return nbrs(idx).filter(function (n) { return !board[n]; });
   }
 
   // ── pure board ops ────────────────────────────────────
-  function bFlip(board, idx) {
-    var b = board.slice();
-    b[idx] = { p: b[idx].p, s: b[idx].s === D ? L : D };
+  // roll: move tile from src to dest and flip its side
+  function bRoll(board, src, dest) {
+    var b   = board.slice();
+    b[dest] = { p: b[src].p, s: b[src].s === D ? L : D };
+    b[src]  = null;
     return b;
   }
 
   function bPlace(board, idx, player) {
-    var b = board.slice();
+    var b  = board.slice();
     b[idx] = { p: player, s: D };
     return b;
   }
 
   // ── actions ───────────────────────────────────────────
-  // Phase order: place → flip → (next player) place → flip …
   function doPlace(idx) {
     g.board      = bPlace(g.board, idx, g.player);
     g.lastPlaced = idx;
     if (resolve()) return;
-    var targets = oppTiles(g.board, g.player);
-    g.phase = targets.length ? 'flip' : 'place-next';
-    if (g.phase === 'place-next') advancePlayer();
-    else {
+    var sources = rollable(g.board, g.player);
+    if (!sources.length) {
+      advancePlayer();
+    } else {
+      g.phase   = 'flip';
+      g.flipSrc = -1;
       render();
       if (cfg.mode === '1p' && g.player === C) scheduleAI();
     }
   }
 
-  function doFlip(idx) {
-    g.board = bFlip(g.board, idx);
+  function doRoll(src, dest) {
+    g.board   = bRoll(g.board, src, dest);
+    g.flipSrc = -1;
     if (resolve()) return;
     advancePlayer();
   }
 
   function advancePlayer() {
-    g.player = g.player === E ? C : E;
-    g.phase  = 'place';
+    g.player  = g.player === E ? C : E;
+    g.phase   = 'place';
+    g.flipSrc = -1;
+    if (cfg.mode === '1p' && g.player === E) setAIMsg('');
     render();
     if (cfg.mode === '1p' && g.player === C && !g.over) scheduleAI();
   }
@@ -493,21 +514,19 @@ h1 {
   // ── AI ────────────────────────────────────────────────
   function scheduleAI() {
     setAIMsg('creeper thinking…');
-    setTimeout(aiTurn, cfg.diff === 'hard' ? 600 : 400);
+    setTimeout(aiTurn, cfg.diff === 'hard' ? 600 : 420);
   }
 
   function aiTurn() {
     if (g.over || g.player !== C) return;
     if (g.phase === 'place') {
-      var idx = pickPlace();
-      setAIMsg('');
-      doPlace(idx);
-      // if now in flip phase, schedule flip step
-      if (!g.over && g.phase === 'flip' && g.player === C)
-        setTimeout(function () { aiTurn(); }, cfg.diff === 'hard' ? 500 : 350);
+      doPlace(pickPlace());
+      if (!g.over && g.phase === 'flip')
+        setTimeout(aiTurn, cfg.diff === 'hard' ? 500 : 340);
     } else if (g.phase === 'flip') {
-      var target = pickFlip();
-      doFlip(target);
+      var mv = pickRoll();
+      if (mv) doRoll(mv.src, mv.dest);
+      else    advancePlayer();
     }
   }
 
@@ -523,31 +542,41 @@ h1 {
     var best = empty[0], bestSc = -Infinity;
     for (var i = 0; i < empty.length; i++) {
       var b  = bPlace(g.board, empty[i], C);
-      var sc = cfg.diff === 'hard' ? evalAfterBestFlip(b, C) : evalBoard(b, C);
+      var sc = cfg.diff === 'hard' ? evalAfterBestRoll(b, C) : evalBoard(b, C);
       if (sc > bestSc) { bestSc = sc; best = empty[i]; }
     }
     return best;
   }
 
-  function pickFlip() {
-    var targets = oppTiles(g.board, g.player);
-    if (cfg.diff === 'easy') return targets[(Math.random() * targets.length) | 0];
-    var best = targets[0], bestSc = -Infinity;
-    for (var i = 0; i < targets.length; i++) {
-      var b  = bFlip(g.board, targets[i]);
-      var sc = evalBoard(b, C);
-      if (sc > bestSc) { bestSc = sc; best = targets[i]; }
+  function pickRoll() {
+    var sources = rollable(g.board, g.player);
+    if (!sources.length) return null;
+    if (cfg.diff === 'easy') {
+      var src   = sources[(Math.random() * sources.length) | 0];
+      var dests = rollDests(g.board, src);
+      return { src: src, dest: dests[(Math.random() * dests.length) | 0] };
+    }
+    var best = null, bestSc = -Infinity;
+    for (var i = 0; i < sources.length; i++) {
+      var dests = rollDests(g.board, sources[i]);
+      for (var j = 0; j < dests.length; j++) {
+        var sc = evalBoard(bRoll(g.board, sources[i], dests[j]), C);
+        if (sc > bestSc) { bestSc = sc; best = { src: sources[i], dest: dests[j] }; }
+      }
     }
     return best;
   }
 
-  function evalAfterBestFlip(board, player) {
-    var targets = oppTiles(board, player);
-    if (!targets.length) return evalBoard(board, player);
+  function evalAfterBestRoll(board, player) {
+    var sources = rollable(board, player);
+    if (!sources.length) return evalBoard(board, player);
     var best = -Infinity;
-    for (var i = 0; i < targets.length; i++) {
-      var sc = evalBoard(bFlip(board, targets[i]), player);
-      if (sc > best) best = sc;
+    for (var i = 0; i < sources.length; i++) {
+      var dests = rollDests(board, sources[i]);
+      for (var j = 0; j < dests.length; j++) {
+        var sc = evalBoard(bRoll(board, sources[i], dests[j]), player);
+        if (sc > best) best = sc;
+      }
     }
     return best;
   }
@@ -586,7 +615,22 @@ h1 {
     if (g.phase === 'place') {
       if (!g.board[idx]) doPlace(idx);
     } else if (g.phase === 'flip') {
-      if (g.board[idx] && g.board[idx].p !== g.player) doFlip(idx);
+      if (g.flipSrc < 0) {
+        // select a rollable opponent tile
+        if (rollable(g.board, g.player).indexOf(idx) >= 0) {
+          g.flipSrc = idx;
+          render();
+        }
+      } else {
+        var dests = rollDests(g.board, g.flipSrc);
+        if (dests.indexOf(idx) >= 0) {
+          doRoll(g.flipSrc, idx);
+        } else if (idx === g.flipSrc) {
+          g.flipSrc = -1; render();          // deselect
+        } else if (rollable(g.board, g.player).indexOf(idx) >= 0) {
+          g.flipSrc = idx; render();         // pick different tile
+        }
+      }
     }
   }
 
@@ -668,27 +712,38 @@ h1 {
   }
 
   function renderBoard() {
-    var boardEl = document.getElementById('board');
-    var isFlip  = g.phase === 'flip';
-    var flipSet = isFlip ? oppTiles(g.board, g.player) : [];
-    var wl      = g.winLine || [];
-    var aiMove  = cfg.mode === '1p' && g.player === C;
+    var boardEl   = document.getElementById('board');
+    var isFlip    = g.phase === 'flip';
+    var aiMove    = cfg.mode === '1p' && g.player === C;
+    var wl        = g.winLine || [];
+    var rollSrcs  = (!g.over && !aiMove && isFlip && g.flipSrc < 0)
+                    ? rollable(g.board, g.player) : [];
+    var rollDs    = (!g.over && !aiMove && isFlip && g.flipSrc >= 0)
+                    ? rollDests(g.board, g.flipSrc) : [];
+
     boardEl.innerHTML = '';
     for (var i = 0; i < 16; i++) {
       var cell = document.createElement('div');
       cell.className = 'cell';
       var tile = g.board[i];
+
       if (tile) {
         var t = document.createElement('div');
         t.className = 'tile ' + tile.p + '-' + tile.s;
         if (wl.indexOf(i) >= 0) t.classList.add('win-hi');
-        if (!g.over && !aiMove && isFlip && flipSet.indexOf(i) >= 0) {
+        t.innerHTML = faceSVG(tile.p, tile.s);
+        cell.appendChild(t);
+        if (i === g.flipSrc) {
+          cell.classList.add('roll-src', 'clickable');
+        } else if (rollSrcs.indexOf(i) >= 0) {
           cell.classList.add('flip-target', 'clickable');
         }
-        cell.appendChild(t);
-        t.innerHTML = faceSVG(tile.p, tile.s);
-      } else if (!g.over && !aiMove && g.phase === 'place') {
-        cell.classList.add('place-target', 'clickable');
+      } else {
+        if (rollDs.indexOf(i) >= 0) {
+          cell.classList.add('roll-dest', 'clickable');
+        } else if (!g.over && !aiMove && g.phase === 'place') {
+          cell.classList.add('place-target', 'clickable');
+        }
       }
       (function (idx) { cell.onclick = function () { cellClick(idx); }; })(i);
       boardEl.appendChild(cell);
