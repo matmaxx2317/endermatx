@@ -359,19 +359,19 @@ h1 {
       <div class="cname">back</div>
       <div class="carr"></div>
     </div>
-    <div class="card" onclick="startDiff('easy')">
+    <div class="card" onclick="startDiff('zombie')">
       <div class="clabel">01</div>
-      <div class="cname">easy</div>
+      <div class="cname">zombie</div>
       <div class="carr">→</div>
     </div>
-    <div class="card" onclick="startDiff('medium')">
+    <div class="card" onclick="startDiff('ghast')">
       <div class="clabel">02</div>
-      <div class="cname">medium</div>
+      <div class="cname">ghast</div>
       <div class="carr">→</div>
     </div>
-    <div class="card" onclick="startDiff('hard')">
+    <div class="card" onclick="startDiff('ravager')">
       <div class="clabel">03</div>
-      <div class="cname">hard</div>
+      <div class="cname">ravager</div>
       <div class="carr">→</div>
     </div>
     <div class="card" onclick="startDiff('wither')" style="border-left-color:#888">
@@ -431,7 +431,7 @@ h1 {
 (function () {
   var E = 'e', C = 'c', D = 'd', L = 'l';
 
-  var cfg = { mode: '2p', diff: 'easy' };
+  var cfg = { mode: '2p', diff: 'zombie' };
   var g   = null;
 
   // ── state factory ────────────────────────────────────
@@ -579,11 +579,11 @@ h1 {
     return false;
   }
 
-  // ── AI (easy / medium / hard) ─────────────────────────
+  // ── AI (zombie / ghast / ravager) ─────────────────────────
   function scheduleAI() {
     var msg = cfg.diff === 'wither' ? 'wither is thinking…' : 'creeper thinking…';
     setAIMsg(msg);
-    setTimeout(aiTurn, cfg.diff === 'wither' ? 80 : cfg.diff === 'hard' ? 600 : 420);
+    setTimeout(aiTurn, cfg.diff === 'wither' ? 80 : cfg.diff === 'ravager' ? 600 : 420);
   }
 
   function aiTurn() {
@@ -592,7 +592,7 @@ h1 {
     if (g.phase === 'place') {
       doPlace(pickPlace());
       if (!g.over && g.phase === 'flip')
-        setTimeout(aiTurn, cfg.diff === 'hard' ? 500 : 340);
+        setTimeout(aiTurn, cfg.diff === 'ravager' ? 500 : 340);
     } else if (g.phase === 'flip') {
       var mv = pickRoll();
       if (mv) doRoll(mv.src, mv.dest);
@@ -608,11 +608,11 @@ h1 {
   function pickPlace() {
     var empty = [];
     for (var i = 0; i < 16; i++) if (!g.board[i]) empty.push(i);
-    if (cfg.diff === 'easy') return empty[(Math.random() * empty.length) | 0];
+    if (cfg.diff === 'zombie') return empty[(Math.random() * empty.length) | 0];
     var best = empty[0], bestSc = -Infinity;
     for (var i = 0; i < empty.length; i++) {
       var b  = bPlace(g.board, empty[i], C);
-      var sc = cfg.diff === 'hard' ? evalAfterBestRoll(b, C) : evalBoard(b, C);
+      var sc = cfg.diff === 'ravager' ? evalAfterBestRoll(b, C) : evalBoard(b, C);
       if (sc > bestSc) { bestSc = sc; best = empty[i]; }
     }
     return best;
@@ -621,7 +621,7 @@ h1 {
   function pickRoll() {
     var sources = rollable(g.board, g.player);
     if (!sources.length) return null;
-    if (cfg.diff === 'easy') {
+    if (cfg.diff === 'zombie') {
       var src   = sources[(Math.random() * sources.length) | 0];
       var dests = rollDests(g.board, src);
       return { src: src, dest: dests[(Math.random() * dests.length) | 0] };
