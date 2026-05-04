@@ -374,6 +374,11 @@ h1 {
       <div class="cname">hard</div>
       <div class="carr">→</div>
     </div>
+    <div class="card" onclick="startDiff('wither')" style="border-left-color:#888">
+      <div class="clabel" style="color:#aaa">04</div>
+      <div class="cname" style="color:#ccc">wither</div>
+      <div class="carr">→</div>
+    </div>
   </nav>
 </div>
 
@@ -571,14 +576,16 @@ h1 {
     return false;
   }
 
-  // ── AI ────────────────────────────────────────────────
+  // ── AI (easy / medium / hard) ─────────────────────────
   function scheduleAI() {
-    setAIMsg('creeper thinking…');
-    setTimeout(aiTurn, cfg.diff === 'hard' ? 600 : 420);
+    var msg = cfg.diff === 'wither' ? 'wither is thinking…' : 'creeper thinking…';
+    setAIMsg(msg);
+    setTimeout(aiTurn, cfg.diff === 'wither' ? 80 : cfg.diff === 'hard' ? 600 : 420);
   }
 
   function aiTurn() {
     if (g.over || g.player !== C) return;
+    if (cfg.diff === 'wither') { witherTurn(); return; }
     if (g.phase === 'place') {
       doPlace(pickPlace());
       if (!g.over && g.phase === 'flip')
@@ -666,6 +673,148 @@ h1 {
       if (opp)  score -= opp  === 2 ? 80 : 8;
     }
     return score;
+  }
+
+  // ── MCTS (wither difficulty) ──────────────────────────
+  var MCTS_C = 1.414;
+  var MCTS_MS = 1100;
+
+  function mctsNode(board, player, phase, parent, action) {
+    return { board: board, player: player, phase: phase,
+             parent: parent, action: action,
+             children: [], wins: 0, visits: 0, untried: null };
+  }
+
+  function mctsActions(board, player, phase) {
+    var acts = [];
+    if (phase === 'place') {
+      for (var i = 0; i < 16; i++)
+        if (!board[i]) acts.push({ t: 'p', i: i });
+    } else {
+      var srcs = rollable(board, player);
+      for (var s = 0; s < srcs.length; s++) {
+        var ds = rollDests(board, srcs[s]);
+        for (var d = 0; d < ds.length; d++)
+          acts.push({ t: 'r', s: srcs[s], d: ds[d] });
+      }
+    }
+    return acts;
+  }
+
+  function mctsApply(board, player, phase, action) {
+    var nb, np, nph;
+    if (action.t === 'p') {
+      nb  = bPlace(board, action.i, player);
+      var srcs = rollable(nb, player);
+      if (srcs.length) { np = player;              nph = 'flip'; }
+      else             { np = player === E ? C : E; nph = 'place'; }
+    } else {
+      nb  = bRoll(board, action.s, action.d);
+      np  = player === E ? C : E;
+      nph = 'place';
+    }
+    return { b: nb, p: np, ph: nph };
+  }
+
+  function mctsSelect(node) {
+    for (;;) {
+      var w = checkWin(node.board);
+      if (w || node.board.every(function (x) { return x !== null; })) return node;
+      if (!node.untried) {
+        node.untried = mctsActions(node.board, node.player, node.phase);
+        for (var i = node.untried.length - 1; i > 0; i--) {
+          var j = (Math.random() * (i + 1)) | 0;
+          var tmp = node.untried[i]; node.untried[i] = node.untried[j]; node.untried[j] = tmp;
+        }
+      }
+      if (node.untried.length) {
+        var act  = node.untried.pop();
+        var next = mctsApply(node.board, node.player, node.phase, act);
+        var child = mctsNode(next.b, next.p, next.ph, node, act);
+        node.children.push(child);
+        return child;
+      }
+      var best = null, bestUCB = -Infinity;
+      for (var k = 0; k < node.children.length; k++) {
+        var c = node.children[k];
+        var ucb = c.visits === 0
+          ? Infinity
+          : c.wins / c.visits + MCTS_C * Math.sqrt(Math.log(node.visits) / c.visits);
+        if (ucb > bestUCB) { bestUCB = ucb; best = c; }
+      }
+      node = best;
+    }
+  }
+
+  function mctsSimulate(board, player, phase) {
+    var b = board.slice(), p = player, ph = phase, safety = 80;
+    while (safety-- > 0) {
+      var w = checkWin(b);
+      if (w) return w.winner;
+      if (b.every(function (x) { return x !== null; })) return null;
+      var acts = mctsActions(b, p, ph);
+      if (!acts.length) { p = p === E ? C : E; ph = 'place'; continue; }
+      var a = acts[(Math.random() * acts.length) | 0];
+      var nx = mctsApply(b, p, ph, a);
+      b = nx.b; p = nx.p; ph = nx.ph;
+    }
+    return null;
+  }
+
+  function mctsBackprop(node, winner) {
+    var n = node;
+    while (n.parent) {
+      n.visits++;
+      if (winner === n.parent.player)       n.wins += 1;
+      else if (winner === null)             n.wins += 0.5;
+      n = n.parent;
+    }
+    n.visits++;
+  }
+
+  function mctsRun(board, player, phase) {
+    var root = mctsNode(board, player, phase, null, null);
+    var end  = Date.now() + MCTS_MS;
+    while (Date.now() < end) {
+      var leaf   = mctsSelect(root);
+      var result = mctsSimulate(leaf.board, leaf.player, leaf.phase);
+      mctsBackprop(leaf, result);
+    }
+    return root;
+  }
+
+  function mostVisited(children) {
+    var best = null, bv = -1;
+    for (var i = 0; i < children.length; i++)
+      if (children[i].visits > bv) { bv = children[i].visits; best = children[i]; }
+    return best;
+  }
+
+  function witherTurn() {
+    if (g.phase !== 'place') {
+      var mv = pickRoll(); // fallback for edge case
+      setAIMsg('');
+      if (mv) doRoll(mv.src, mv.dest); else advancePlayer();
+      return;
+    }
+    var root      = mctsRun(g.board, g.player, g.phase);
+    var bestPlace = mostVisited(root.children);
+    setAIMsg('');
+    if (!bestPlace) { doPlace(pickPlace()); return; }
+
+    doPlace(bestPlace.action.i);
+    if (g.over || g.phase !== 'flip') return;
+
+    // Pick best roll from the subtree the MCTS already explored
+    var bestRoll = mostVisited(bestPlace.children);
+    setTimeout(function () {
+      if (bestRoll && bestRoll.action.t === 'r') {
+        doRoll(bestRoll.action.s, bestRoll.action.d);
+      } else {
+        var mv = pickRoll();
+        if (mv) doRoll(mv.src, mv.dest); else advancePlayer();
+      }
+    }, 380);
   }
 
   // ── cell interaction ──────────────────────────────────
