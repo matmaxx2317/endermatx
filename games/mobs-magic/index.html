@@ -678,10 +678,18 @@ h1 {
       if (!sideOk || (mine && opp)) continue;
       if (mine) {
         var msc = mine === 2 ? 90 : 10;
-        if (witherCorner !== null && ln.indexOf(witherCorner) >= 0) msc *= 2;
+        if (witherCorner !== null && ln.indexOf(witherCorner) >= 0) {
+          var isHV = (((ln[0]/4)|0) === ((ln[1]/4)|0) && ((ln[1]/4)|0) === ((ln[2]/4)|0)) ||
+                     ((ln[0]%4) === (ln[1]%4) && (ln[1]%4) === (ln[2]%4));
+          if (isHV) msc *= 2;
+        }
         score += msc;
       }
       if (opp)  score -= opp  === 2 ? 70 : 7;
+    }
+    if (witherCorner !== null) {
+      var cc = board[witherCorner];
+      if (cc && cc.p === forP) score += 50;
     }
     return score;
   }
