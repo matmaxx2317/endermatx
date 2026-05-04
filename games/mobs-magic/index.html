@@ -753,7 +753,17 @@ h1 {
       if (b.every(function (x) { return x !== null; })) return null;
       var acts = mctsActions(b, p, ph);
       if (!acts.length) { p = p === E ? C : E; ph = 'place'; continue; }
-      var a = acts[(Math.random() * acts.length) | 0];
+      var a;
+      if (Math.random() < 0.25) {
+        a = acts[(Math.random() * acts.length) | 0];
+      } else {
+        var bestA = acts[0], bestSc = -Infinity;
+        for (var i = 0; i < acts.length; i++) {
+          var sc = evalBoard(mctsApply(b, p, ph, acts[i]).b, p);
+          if (sc > bestSc) { bestSc = sc; bestA = acts[i]; }
+        }
+        a = bestA;
+      }
       var nx = mctsApply(b, p, ph, a);
       b = nx.b; p = nx.p; ph = nx.ph;
     }
