@@ -807,6 +807,14 @@ h1 {
     return best;
   }
 
+  function safest(children, aiPlayer) {
+    var safe = children.filter(function (c) {
+      var w = checkWin(c.board);
+      return !w || w.winner === aiPlayer;
+    });
+    return safe.length ? safe : children;
+  }
+
   function witherTurn() {
     if (g.phase !== 'place') {
       var mv = pickRoll(); // fallback for edge case
@@ -815,7 +823,7 @@ h1 {
       return;
     }
     var root      = mctsRun(g.board, g.player, g.phase);
-    var bestPlace = mostVisited(root.children);
+    var bestPlace = mostVisited(safest(root.children, g.player));
     setAIMsg('');
     if (!bestPlace) { doPlace(pickPlace()); return; }
 
@@ -823,7 +831,7 @@ h1 {
     if (g.over || g.phase !== 'flip') return;
 
     // Pick best roll from the subtree the MCTS already explored
-    var bestRoll = mostVisited(bestPlace.children);
+    var bestRoll = mostVisited(safest(bestPlace.children, g.player));
     setTimeout(function () {
       if (bestRoll && bestRoll.action.t === 'r') {
         doRoll(bestRoll.action.s, bestRoll.action.d);
