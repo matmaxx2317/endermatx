@@ -148,8 +148,8 @@ h1 {
   user-select: none;
 }
 .cell.clickable { cursor: pointer; }
-.cell.flip-target { border-color: #5500aa; background: #1e0030; }
-.cell.flip-target:hover { border-color: #9900cc; background: #260038; }
+.cell.flip-target .tile { box-shadow: inset 0 0 0 2px #6600aa; }
+.cell.flip-target:hover .tile { box-shadow: inset 0 0 0 2px #bb00ff; }
 .cell.place-target { border-color: #333; }
 .cell.place-target:hover { background: #222; border-color: #444; }
 
@@ -341,19 +341,13 @@ h1 {
   <div id="aiMsg"></div>
   <div id="board"></div>
 
-  <div id="sideSel">
-    <span class="slabel">side:</span>
-    <button class="sbtn on" id="btnDark"     onclick="setSide('d')">dark</button>
-    <button class="sbtn"    id="btnInverted" onclick="setSide('l')">inverted</button>
-  </div>
-
   <div id="btns">
     <button class="btn" onclick="newRound()">new game</button>
     <button class="btn" onclick="showScreen('screenMenu')">menu</button>
   </div>
 
   <p id="howto">
-    enderman places first · each turn: (1) flip opponent's last tile to an adjacent empty space — it inverts · (2) place your tile choosing dark or inverted side · win: 3 locked in a row — same player, same side, all neighbors occupied
+    enderman places first · each turn: (1) place your tile dark side up · (2) flip any one of the opponent's tiles to its other side · win: 3 locked in a row — same player, same side, all neighbors occupied
   </p>
 </div>
 
@@ -382,8 +376,7 @@ h1 {
       scores:      { e: 0, c: 0 },
       over:        false,
       winner:      null,
-      winLine:     null,
-      side:        D
+      winLine:     null
     };
   }
 
@@ -434,48 +427,57 @@ h1 {
     return null;
   }
 
-  function ft(board, last) {
-    if (last < 0) return [];
-    return nbrs(last).filter(function (n) { return !board[n]; });
+  // opponent tiles on the board (flip targets)
+  function oppTiles(board, player) {
+    var opp = player === E ? C : E, t = [];
+    for (var i = 0; i < 16; i++) if (board[i] && board[i].p === opp) t.push(i);
+    return t;
   }
 
   // ── pure board ops ────────────────────────────────────
-  function bFlip(board, from, to) {
+  function bFlip(board, idx) {
     var b = board.slice();
-    b[to]   = { p: b[from].p, s: b[from].s === D ? L : D };
-    b[from] = null;
+    b[idx] = { p: b[idx].p, s: b[idx].s === D ? L : D };
     return b;
   }
 
-  function bPlace(board, idx, player, side) {
-    var b  = board.slice();
-    b[idx] = { p: player, s: side };
+  function bPlace(board, idx, player) {
+    var b = board.slice();
+    b[idx] = { p: player, s: D };
     return b;
   }
 
   // ── actions ───────────────────────────────────────────
-  function doFlip(target) {
-    g.board       = bFlip(g.board, g.lastPlaced, target);
-    g.lastPlaced  = target;
-    g.phase       = 'place';
-    if (!resolve()) render();
-  }
-
-  function doPlace(idx, side) {
-    side = (side !== undefined) ? side : g.side;
-    g.board      = bPlace(g.board, idx, g.player, side);
+  // Phase order: place → flip → (next player) place → flip …
+  function doPlace(idx) {
+    g.board      = bPlace(g.board, idx, g.player);
     g.lastPlaced = idx;
     if (resolve()) return;
+    var targets = oppTiles(g.board, g.player);
+    g.phase = targets.length ? 'flip' : 'place-next';
+    if (g.phase === 'place-next') advancePlayer();
+    else {
+      render();
+      if (cfg.mode === '1p' && g.player === C) scheduleAI();
+    }
+  }
+
+  function doFlip(idx) {
+    g.board = bFlip(g.board, idx);
+    if (resolve()) return;
+    advancePlayer();
+  }
+
+  function advancePlayer() {
     g.player = g.player === E ? C : E;
-    var targets = ft(g.board, g.lastPlaced);
-    g.phase = targets.length ? 'flip' : 'place';
+    g.phase  = 'place';
     render();
     if (cfg.mode === '1p' && g.player === C && !g.over) scheduleAI();
   }
 
   function resolve() {
     var w    = checkWin(g.board);
-    var full = g.board.every(function (c) { return c !== null; });
+    var full = g.board.every(function (x) { return x !== null; });
     if (w || full) {
       g.over    = true;
       g.winner  = w ? w.winner : null;
@@ -491,26 +493,21 @@ h1 {
   // ── AI ────────────────────────────────────────────────
   function scheduleAI() {
     setAIMsg('creeper thinking…');
-    setTimeout(aiTurn, cfg.diff === 'hard' ? 650 : 420);
+    setTimeout(aiTurn, cfg.diff === 'hard' ? 600 : 400);
   }
 
   function aiTurn() {
     if (g.over || g.player !== C) return;
-    if (g.phase === 'flip') {
-      var targets = ft(g.board, g.lastPlaced);
-      if (!targets.length) {
-        g.phase = 'place';
-        render();
-        setTimeout(aiTurn, 200);
-        return;
-      }
-      var target = pickFlip(targets);
-      doFlip(target);
-      if (!g.over) setTimeout(aiTurn, cfg.diff === 'hard' ? 500 : 320);
-    } else {
-      var move = pickPlace();
+    if (g.phase === 'place') {
+      var idx = pickPlace();
       setAIMsg('');
-      doPlace(move.idx, move.side);
+      doPlace(idx);
+      // if now in flip phase, schedule flip step
+      if (!g.over && g.phase === 'flip' && g.player === C)
+        setTimeout(function () { aiTurn(); }, cfg.diff === 'hard' ? 500 : 350);
+    } else if (g.phase === 'flip') {
+      var target = pickFlip();
+      doFlip(target);
     }
   }
 
@@ -519,45 +516,40 @@ h1 {
     if (el) el.textContent = msg;
   }
 
-  function pickFlip(targets) {
+  function pickPlace() {
+    var empty = [];
+    for (var i = 0; i < 16; i++) if (!g.board[i]) empty.push(i);
+    if (cfg.diff === 'easy') return empty[(Math.random() * empty.length) | 0];
+    var best = empty[0], bestSc = -Infinity;
+    for (var i = 0; i < empty.length; i++) {
+      var b  = bPlace(g.board, empty[i], C);
+      var sc = cfg.diff === 'hard' ? evalAfterBestFlip(b, C) : evalBoard(b, C);
+      if (sc > bestSc) { bestSc = sc; best = empty[i]; }
+    }
+    return best;
+  }
+
+  function pickFlip() {
+    var targets = oppTiles(g.board, g.player);
     if (cfg.diff === 'easy') return targets[(Math.random() * targets.length) | 0];
     var best = targets[0], bestSc = -Infinity;
     for (var i = 0; i < targets.length; i++) {
-      var b  = bFlip(g.board, g.lastPlaced, targets[i]);
+      var b  = bFlip(g.board, targets[i]);
       var sc = evalBoard(b, C);
       if (sc > bestSc) { bestSc = sc; best = targets[i]; }
     }
     return best;
   }
 
-  function pickPlace() {
-    var empty = [];
-    for (var i = 0; i < 16; i++) if (!g.board[i]) empty.push(i);
-    if (cfg.diff === 'easy') {
-      return { idx: empty[(Math.random() * empty.length) | 0], side: Math.random() < 0.5 ? D : L };
-    }
-    var best = null, bestSc = -Infinity;
-    for (var i = 0; i < empty.length; i++) {
-      for (var si = 0; si < 2; si++) {
-        var side = si === 0 ? D : L;
-        var b    = bPlace(g.board, empty[i], C, side);
-        var sc   = cfg.diff === 'hard' ? evalWithResponse(b, empty[i]) : evalBoard(b, C);
-        if (sc > bestSc) { bestSc = sc; best = { idx: empty[i], side: side }; }
-      }
-    }
-    return best || { idx: empty[0], side: D };
-  }
-
-  function evalWithResponse(board, lastIdx) {
-    var targets = ft(board, lastIdx);
-    if (!targets.length) return evalBoard(board, C);
-    var worst = Infinity;
+  function evalAfterBestFlip(board, player) {
+    var targets = oppTiles(board, player);
+    if (!targets.length) return evalBoard(board, player);
+    var best = -Infinity;
     for (var i = 0; i < targets.length; i++) {
-      var b2 = bFlip(board, lastIdx, targets[i]);
-      var sc = evalBoard(b2, C);
-      if (sc < worst) worst = sc;
+      var sc = evalBoard(bFlip(board, targets[i]), player);
+      if (sc > best) best = sc;
     }
-    return worst;
+    return best;
   }
 
   function evalBoard(board, forP) {
@@ -591,17 +583,11 @@ h1 {
   function cellClick(idx) {
     if (g.over) return;
     if (cfg.mode === '1p' && g.player === C) return;
-    if (g.phase === 'flip') {
-      if (ft(g.board, g.lastPlaced).indexOf(idx) >= 0) doFlip(idx);
-    } else {
+    if (g.phase === 'place') {
       if (!g.board[idx]) doPlace(idx);
+    } else if (g.phase === 'flip') {
+      if (g.board[idx] && g.board[idx].p !== g.player) doFlip(idx);
     }
-  }
-
-  function setSide(s) {
-    g.side = s;
-    document.getElementById('btnDark').classList.toggle('on',     s === D);
-    document.getElementById('btnInverted').classList.toggle('on', s === L);
   }
 
   // ── screens ───────────────────────────────────────────
@@ -658,9 +644,6 @@ h1 {
   function render() {
     renderBoard();
     renderStatus();
-    var humanPlace = g.phase === 'place' && !g.over &&
-                     !(cfg.mode === '1p' && g.player === C);
-    document.getElementById('sideSel').style.visibility = humanPlace ? 'visible' : 'hidden';
   }
 
   function faceSVG(player, side) {
@@ -685,10 +668,11 @@ h1 {
   }
 
   function renderBoard() {
-    var boardEl  = document.getElementById('board');
-    var targets  = g.phase === 'flip' ? ft(g.board, g.lastPlaced) : [];
-    var wl       = g.winLine || [];
-    var aiTurn   = cfg.mode === '1p' && g.player === C;
+    var boardEl = document.getElementById('board');
+    var isFlip  = g.phase === 'flip';
+    var flipSet = isFlip ? oppTiles(g.board, g.player) : [];
+    var wl      = g.winLine || [];
+    var aiMove  = cfg.mode === '1p' && g.player === C;
     boardEl.innerHTML = '';
     for (var i = 0; i < 16; i++) {
       var cell = document.createElement('div');
@@ -697,16 +681,14 @@ h1 {
       if (tile) {
         var t = document.createElement('div');
         t.className = 'tile ' + tile.p + '-' + tile.s;
-        if (i === g.lastPlaced && g.phase === 'flip') t.classList.add('flip-src');
         if (wl.indexOf(i) >= 0) t.classList.add('win-hi');
-        t.innerHTML = faceSVG(tile.p, tile.s);
-        cell.appendChild(t);
-      } else if (!g.over && !aiTurn) {
-        if (targets.indexOf(i) >= 0) {
+        if (!g.over && !aiMove && isFlip && flipSet.indexOf(i) >= 0) {
           cell.classList.add('flip-target', 'clickable');
-        } else if (g.phase === 'place') {
-          cell.classList.add('place-target', 'clickable');
         }
+        cell.appendChild(t);
+        t.innerHTML = faceSVG(tile.p, tile.s);
+      } else if (!g.over && !aiMove && g.phase === 'place') {
+        cell.classList.add('place-target', 'clickable');
       }
       (function (idx) { cell.onclick = function () { cellClick(idx); }; })(i);
       boardEl.appendChild(cell);
@@ -722,15 +704,14 @@ h1 {
     document.getElementById('p2score').textContent = g.scores.c;
     var ph = document.getElementById('phaseLabel');
     if      (g.over)          ph.textContent = 'game over';
-    else if (g.phase === 'flip') ph.textContent = '1. flip';
-    else                      ph.textContent = '2. place';
+    else if (g.phase === 'flip') ph.textContent = '2. flip';
+    else                      ph.textContent = '1. place';
   }
 
   // ── boot ──────────────────────────────────────────────
   window.startMode  = startMode;
   window.startDiff  = startDiff;
   window.showScreen = showScreen;
-  window.setSide    = setSide;
   window.newRound   = newRound;
 
   showScreen('screenMenu');
