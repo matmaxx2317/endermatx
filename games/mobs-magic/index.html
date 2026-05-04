@@ -535,12 +535,16 @@ h1 {
     g.lastPlaced = idx;
     if (resolve()) return;
     var sources = rollable(g.board, g.player);
-    if (!sources.length) {
+    var opp = g.player === E ? C : E;
+    var oppHasTiles = g.board.some(function (c) { return c && c.p === opp; });
+    if (!sources.length && oppHasTiles) {
       var pName   = g.player === E ? 'enderman' : 'creeper';
-      var oppName = g.player === E ? 'creeper'  : 'enderman';
+      var oppName = opp === E ? 'enderman' : 'creeper';
       g.over = true; g.winner = null; g.winLine = null;
       render();
       showWin(null, pName + " can't roll any " + oppName + ' tile');
+    } else if (!sources.length) {
+      advancePlayer();
     } else {
       g.phase   = 'flip';
       g.flipSrc = -1;
