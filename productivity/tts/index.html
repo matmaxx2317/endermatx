@@ -851,6 +851,8 @@ flex-shrink: 0;
 }
 
 .weekly-cell-empty { color: #333 !important; }
+.weekly-adj-cell { cursor: pointer; }
+.weekly-adj-cell:hover { background: #1a1a1a; color: #ccc !important; }
 
 .weekly-row-total { border-left: 1px solid #222; color: #bbb !important; }
 
@@ -991,6 +993,21 @@ transition: background 0.1s;
   </div>
 </div>
 
+<div class="modal-overlay" id="cellAdjustModal">
+  <div class="modal">
+    <h2>Adjust Time</h2>
+    <p id="cellAdjustDesc"></p>
+    <div style="display:flex;gap:12px;align-items:flex-end;margin-top:4px;">
+      <div style="flex:1"><label>Hours</label><input type="number" id="cellAdjustH" min="0" max="23" style="text-align:center"></div>
+      <div style="flex:1"><label>Minutes</label><input type="number" id="cellAdjustM" min="0" max="59" style="text-align:center"></div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-primary" onclick="confirmCellAdjust()">Apply</button>
+      <button class="btn-ghost" onclick="closeCellAdjustModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="unassignModal">
   <div class="modal">
     <h2>Assign Time</h2>
@@ -1019,7 +1036,7 @@ transition: background 0.1s;
 
 <!-- APP -->
 
-<h1>tts<span style="font-size:10px;color:#bbb;margin-left:8px;letter-spacing:0.05em;text-transform:none;font-weight:normal">v2.10</span></h1>
+<h1>tts<span style="font-size:10px;color:#bbb;margin-left:8px;letter-spacing:0.05em;text-transform:none;font-weight:normal">v2.11</span></h1>
 
 <div class="top-bar">
   <div class="timer-display" id="timerDisplay">00:00:00</div>
@@ -1357,6 +1374,70 @@ function closeUnassignModal() {
   document.getElementById('unassignModal').classList.remove('active');
   unassignState = null;
   unassignSelectedId = null;
+}
+
+function openCellAdjustModal(projectId, dayIndex) {
+  var d = new Date(weekOverviewMonday);
+  d.setDate(d.getDate() + dayIndex);
+  var p = getProject(projectId);
+  if (!p) return;
+  var currentSec = getDayEntries(projectId, d);
+  cellAdjustState = { projectId: projectId, dayDate: d };
+  document.getElementById('cellAdjustH').value = Math.floor(currentSec / 3600);
+  document.getElementById('cellAdjustM').value = Math.floor((currentSec % 3600) / 60);
+  var dayNames = ['Mon','Tue','Wed','Thu','Fri'];
+  document.getElementById('cellAdjustDesc').innerHTML =
+    '<strong style="color:' + p.color + '">' + escHtml(p.name) + '</strong> · ' +
+    dayNames[dayIndex] + ' ' + pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '.';
+  document.getElementById('cellAdjustModal').classList.add('active');
+}
+
+function closeCellAdjustModal() {
+  document.getElementById('cellAdjustModal').classList.remove('active');
+  cellAdjustState = null;
+}
+
+function confirmCellAdjust() {
+  if (!cellAdjustState) return;
+  var h = Math.max(0, parseInt(document.getElementById('cellAdjustH').value, 10) || 0);
+  var m = Math.max(0, Math.min(59, parseInt(document.getElementById('cellAdjustM').value, 10) || 0));
+  var newTotalSec = h * 3600 + m * 60;
+  var projectId = cellAdjustState.projectId;
+  var dayDate = cellAdjustState.dayDate;
+  var currentSec = getDayEntries(projectId, dayDate);
+  var delta = newTotalSec - currentSec;
+  if (delta === 0) { closeCellAdjustModal(); return; }
+
+  var dayEntries = state.entries
+    .filter(function(e) { return e.projectId === projectId && isSameDay(new Date(e.start), dayDate); })
+    .sort(function(a, b) { return a.start - b.start; });
+
+  if (delta > 0) {
+    var startTs;
+    if (dayEntries.length > 0) {
+      var last = dayEntries[dayEntries.length - 1];
+      startTs = last.start + last.duration * 1000;
+    } else {
+      startTs = new Date(dayDate.getFullYear(), dayDate.getMonth(), dayDate.getDate(), 12, 0, 0).getTime();
+    }
+    state.entries.push({ id: Date.now() + Math.random(), projectId: projectId, start: startTs, duration: delta });
+  } else {
+    var toRemove = -delta;
+    for (var i = dayEntries.length - 1; i >= 0 && toRemove > 0; i--) {
+      var entry = dayEntries[i];
+      if (entry.duration <= toRemove) {
+        toRemove -= entry.duration;
+        state.entries = state.entries.filter(function(e) { return e.id !== entry.id; });
+      } else {
+        entry.duration -= toRemove;
+        toRemove = 0;
+      }
+    }
+  }
+
+  schedulePush();
+  closeCellAdjustModal();
+  renderAll();
 }
 
 function confirmAdjust() {
@@ -2069,6 +2150,7 @@ var weekOverviewMonday = getMondayOf(new Date());
 var calPopupMonth = new Date();
 var unassignState = null;
 var unassignSelectedId = null;
+var cellAdjustState = null;
 
 function getMondayOf(date) {
   var d = new Date(date);
@@ -2215,7 +2297,7 @@ function renderWeeklyOverview() {
       dayTotals[i] += sec;
       rowTotal += sec;
       var cellStr = formatCell(sec);
-      html += '<td id="wk_c_' + p.id + '_' + i + '" class="weekly-cell' + (sec === 0 ? ' weekly-cell-empty' : '') + '">' + cellStr + '</td>';
+      html += '<td id="wk_c_' + p.id + '_' + i + '" class="weekly-cell weekly-adj-cell' + (sec === 0 ? ' weekly-cell-empty' : '') + '" onclick="openCellAdjustModal(' + p.id + ',' + i + ')">' + cellStr + '</td>';
     });
     grandTotal += rowTotal;
     html += '<td id="wk_rt_' + p.id + '" class="weekly-cell weekly-row-total">' + formatCell(rowTotal) + '</td>';
