@@ -13,19 +13,19 @@ jobs:
     steps:
       - name: Stop running timer
         env:
-          TT_TOKEN: ${{ secrets.TT_TOKEN }}
-          TT_GIST_ID: ${{ secrets.TT_GIST_ID }}
+          TTS_TOKEN: ${{ secrets.TTS_TOKEN }}
+          TTS_GIST_ID: ${{ secrets.TTS_GIST_ID }}
         run: |
           set -euo pipefail
 
-          if [ -z "${TT_TOKEN:-}" ] || [ -z "${TT_GIST_ID:-}" ]; then
-            echo "TT_TOKEN or TT_GIST_ID secret not configured — skipping."
+          if [ -z "${TTS_TOKEN:-}" ] || [ -z "${TTS_GIST_ID:-}" ]; then
+            echo "TTS_TOKEN or TTS_GIST_ID secret not configured — skipping."
             exit 0
           fi
 
           FILE_CONTENT=$(curl -sf \
-            -H "Authorization: Bearer $TT_TOKEN" \
-            "https://api.github.com/gists/$TT_GIST_ID" \
+            -H "Authorization: Bearer $TTS_TOKEN" \
+            "https://api.github.com/gists/$TTS_GIST_ID" \
             | jq -r '.files["tt_data.json"].content')
 
           TIMER_RUNNING=$(echo "$FILE_CONTENT" | jq -r '.timerRunning // false')
@@ -65,9 +65,9 @@ jobs:
           CONTENT_JSON=$(echo "$UPDATED" | jq -Rs '.')
 
           curl -sf -X PATCH \
-            -H "Authorization: Bearer $TT_TOKEN" \
+            -H "Authorization: Bearer $TTS_TOKEN" \
             -H "Content-Type: application/json" \
-            "https://api.github.com/gists/$TT_GIST_ID" \
+            "https://api.github.com/gists/$TTS_GIST_ID" \
             --data "{\"files\":{\"tt_data.json\":{\"content\":$CONTENT_JSON}}}" \
             > /dev/null
 
