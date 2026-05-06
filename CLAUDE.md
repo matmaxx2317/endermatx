@@ -97,9 +97,27 @@ Each tool keeps a single `state` (or `data`) object in memory. Mutations happen 
 3. Add a `.card` entry to the appropriate category page (`productivity/index.html`, `personal/index.html`, or `games/index.html`) using a relative path like `<name>/` (no `../` prefix).
 4. The root `index.html` only lists categories — no changes needed there unless a new category is added.
 
-## Versioning (tts)
+## Versioning (all subprojects)
 
-The `tts` tool displays a version in its `<h1>` title bar (e.g. `v1.0`). **With every PR created for tts, increment the minor version** (e.g. `v1.0` → `v1.1` → `v1.2`). Increment the major version only when the user explicitly asks. The current version is whatever is in `productivity/tts/index.html` at the time — read it before creating a PR and bump it then.
+Every subproject displays its version next to its title — small (`font-size:10px`), gray (`color:#bbb`), not bold, with condensed letter-spacing (`0.05em`) — using the format `vMAJOR.MINOR` (e.g. `v1.0`, `v2.11`).
+
+**Rules:**
+- **Minor bump** — with every PR that adds a feature or fix, increment the minor part (e.g. `v1.3` → `v1.4`).
+- **Major bump** — only when the user explicitly says something breaking is changing; reset minor to `0` (e.g. `v1.4` → `v2.0`).
+- Always read the current version from the file before creating a PR, then bump it in that same PR.
+
+**Current versions** (update this table whenever a version changes):
+
+| Tool | Path | Version |
+|------|------|---------|
+| tts  | `productivity/tts/index.html` | v2.11 |
+| cal  | `productivity/cal/index.html` | v1.3 |
+| pom  | `productivity/pom/index.html` | v1.0 |
+| mtg  | `productivity/mtg/index.html` | v1.0 |
+| str  | `personal/str/index.html` | v1.0 |
+| crd  | `personal/crd/index.html` | v1.0 |
+| teleport-tap | `games/teleport-tap/index.html` | v1.0 |
+| mobs-magic | `games/mobs-magic/index.html` | v1.0 |
 
 ## No build, lint, or test commands
 
