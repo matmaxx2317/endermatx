@@ -322,7 +322,7 @@ h1 {
 <body>
 
 <div id="syncBar">
-  <div id="syncLeft">mob's magic<span style="font-size:10px;color:#bbb;margin-left:8px;letter-spacing:0.05em;text-transform:none;font-weight:normal">v1.1</span></div>
+  <div id="syncLeft">mob's magic<span style="font-size:10px;color:#bbb;margin-left:8px;letter-spacing:0.05em;text-transform:none;font-weight:normal">v1.2</span></div>
   <div id="syncRight">minecraft edition</div>
 </div>
 
@@ -1061,7 +1061,7 @@ h1 {
         var t = document.createElement('div');
         t.className = 'tile ' + tile.p + '-' + tile.s;
         if (wl.indexOf(i) >= 0) t.classList.add('win-hi');
-        t.innerHTML = faceSVG(tile.p, tile.s);
+        t.innerHTML = faceSVG(tile.p, tile.s, 80);
         cell.appendChild(t);
         if (i === g.flipSrc) {
           cell.classList.add('roll-src', 'clickable');
