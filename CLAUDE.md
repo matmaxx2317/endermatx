@@ -16,6 +16,8 @@ deploy: <path/to/file> - DD.MM.YYYY HH:MM
 
 **Always push directly to `main`.** Do not use feature branches or PRs — commit and push straight to `main` every time.
 
+When the user says a PR has been merged: switch to `main`, pull from origin, and delete the local feature branch (`git checkout main && git pull origin main && git branch -d <branch>`).
+
 ## Site structure
 
 Navigation is three levels deep:
