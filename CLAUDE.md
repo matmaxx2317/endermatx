@@ -14,9 +14,16 @@ Push to `main` → GitHub Pages deploys automatically. The root `index.html` pol
 deploy: <path/to/file> - DD.MM.YYYY HH:MM
 ```
 
-**Always push directly to `main`.** Do not use feature branches or PRs — commit and push straight to `main` every time.
+## Development workflow
 
-When the user says a PR has been merged: switch to `main`, pull from origin, and delete the local feature branch (`git checkout main && git pull origin main && git branch -d <branch>`).
+Every piece of work follows this cycle — never deviate from it:
+
+1. **New branch** — create a new feature branch for the work (`git checkout -b <branch>`).
+2. **Develop** — make all changes on that branch, committing as needed.
+3. **Push + PR** — when finished, push the branch and create a pull request. Do not push to `main` directly.
+4. **User reviews** — the user checks the changes on GitHub and merges the PR, then deletes the branch on GitHub.
+5. **Sync to main** — when the user reports that the PR has been merged, run `git checkout main && git pull origin main && git branch -d <branch>` to clean up the local branch and land on the updated `main`.
+6. **Repeat** — the next piece of work starts a new branch from step 1.
 
 ## Site structure
 
