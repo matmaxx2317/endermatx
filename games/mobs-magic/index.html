@@ -235,9 +235,10 @@ h1 {
   flex-direction: column;
   align-items: center;
   justify-content: flex-end;
-  padding-bottom: 48px;
-  gap: 16px;
+  padding-bottom: 72px;
+  gap: 12px;
 }
+#winBtns { display: flex; gap: 10px; }
 #winOverlay.show { display: flex; }
 #winMsg {
   font-size: 1.7rem;
@@ -323,7 +324,7 @@ h1 {
 <body>
 
 <div id="syncBar">
-  <div id="syncLeft">mob's magic<span style="font-size:10px;color:#bbb;margin-left:8px;letter-spacing:0.05em;text-transform:none;font-weight:normal">v1.7</span></div>
+  <div id="syncLeft">mob's magic<span style="font-size:10px;color:#bbb;margin-left:8px;letter-spacing:0.05em;text-transform:none;font-weight:normal">v1.8</span></div>
   <div id="syncRight">minecraft edition</div>
 </div>
 
@@ -416,8 +417,10 @@ h1 {
 <div id="winOverlay">
   <div id="winMsg"></div>
   <div id="winSub"></div>
-  <button class="bigbtn" onclick="newRound()">play again</button>
-  <button class="btn" style="margin-top:2px;border-color:#333" onclick="showScreen('screenMenu')">menu</button>
+  <div id="winBtns">
+    <button class="bigbtn" onclick="newRound()">play again</button>
+    <button class="bigbtn" style="border-color:#444;color:#888" onclick="showScreen('screenMenu')">menu</button>
+  </div>
 </div>
 
 <div id="diceOverlay">
