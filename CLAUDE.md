@@ -27,6 +27,7 @@ index.html              ← landing page (enderman animation + category cards)
     cal/                ← calendar
     pom/                ← pomodoro
     mtg/                ← meeting notes
+    idx/                ← idea inbox
   personal/             ← category page
     str/                ← string tracker
     crd/                ← chord aligner
@@ -53,6 +54,7 @@ All tools store data in a private GitHub Gist, synced via the GitHub API. Creden
 | cal  | `cal_token`, `cal_gist_id` | `cal_data.json` |
 | pom  | `pom_token`, `pom_gist_id` | `pom_data.json` |
 | mtg  | `mtg_token`, `mtg_gist_id` | `mtg_data.json` |
+| idx  | `idx_token`, `idx_gist_id` | `idx_data.json` |
 | str  | `str_token`, `str_gist_id` | `str_data.json` |
 
 The sync flow in every tool:
@@ -79,6 +81,7 @@ Each tool keeps a single `state` (or `data`) object in memory. Mutations happen 
 - **cal** (`productivity/cal/`) — Calendar. Month tiles across a configurable date range. Project timelines overlaid as colored date ranges. Holiday overlays for DE, AT, US, GB, FR, CN, JP (computed via Easter algorithm + fixed dates).
 - **pom** (`productivity/pom/`) — Pomodoro. 25-min work / 5-min break cycles. Timer state persists to Gist every 60 ticks so it survives page reloads. Snarky message pool in `MESSAGES` object, randomized via `pick()`.
 - **mtg** (`productivity/mtg/`) — Meeting notes. Meetings with title, date, attendees, freeform notes, and action items. "Summarize" generates a plain-text summary locally (no AI). Cross-meeting actions view with open/done/all filter.
+- **idx** (`productivity/idx/`) — Idea inbox. Frictionless capture (one input, Enter to log). Three views: Inbox, Promoted, Deferred — each with a counter. Actions per status: inbox → promote / defer / kill; deferred → promote / kill; promoted → kill. Click an inbox item to edit it inline. Ideas never demoted once promoted. Gist-synced.
 
 ### Personal (`personal/`)
 
@@ -114,6 +117,7 @@ Every subproject displays its version next to its title — small (`font-size:10
 | cal  | `productivity/cal/index.html` | v1.3 |
 | pom  | `productivity/pom/index.html` | v1.0 |
 | mtg  | `productivity/mtg/index.html` | v1.0 |
+| idx  | `productivity/idx/index.html` | v1.0 |
 | str  | `personal/str/index.html` | v1.0 |
 | crd  | `personal/crd/index.html` | v1.0 |
 | teleport-tap | `games/teleport-tap/index.html` | v1.0 |
