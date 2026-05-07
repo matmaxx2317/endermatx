@@ -240,6 +240,7 @@ h1 {
 }
 #winBtns { display: flex; gap: 10px; }
 #winOverlay.show { display: flex; }
+body:has(#winOverlay.show) #btns { display: none; }
 #winMsg {
   font-size: 1.7rem;
   letter-spacing: 0.22em;
@@ -324,7 +325,7 @@ h1 {
 <body>
 
 <div id="syncBar">
-  <div id="syncLeft">mob's magic<span style="font-size:10px;color:#bbb;margin-left:8px;letter-spacing:0.05em;text-transform:none;font-weight:normal">v1.8</span></div>
+  <div id="syncLeft">mob's magic<span style="font-size:10px;color:#bbb;margin-left:8px;letter-spacing:0.05em;text-transform:none;font-weight:normal">v1.9</span></div>
   <div id="syncRight">minecraft edition</div>
 </div>
 
