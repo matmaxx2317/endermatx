@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>idx</title>
+<link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: #0d0d0d;
+  color: #e0e0e0;
+  font-family: 'Courier New', Courier, monospace;
+  min-height: 100vh;
+}
+
+#syncBar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 12px;
+  background: #111;
+  border-bottom: 1px solid #222;
+  font-size: 11px;
+  color: #ccc;
+  z-index: 50;
+}
+
+#syncBar .left { display: flex; align-items: center; gap: 6px; }
+#syncBar .name { font-weight: bold; }
+#syncBar .ver { font-size: 10px; color: #bbb; letter-spacing: 0.05em; font-weight: normal; }
+#syncStatus { display: flex; align-items: center; gap: 6px; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: #555; display: inline-block; }
+.dot.synced  { background: #4caf50; }
+.dot.syncing { background: #ff9800; }
+.dot.error   { background: #f44336; }
+
+#setupBtn {
+  background: none; border: 1px solid #333;
+  color: #ccc; cursor: pointer; padding: 2px 8px;
+  font-family: 'Courier New', monospace; font-size: 11px;
+}
+#setupBtn:hover { border-color: #ccc; }
+
+/* SETUP MODAL */
+.modal-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.85);
+  z-index: 100;
+  align-items: center; justify-content: center;
+}
+.modal-overlay.active { display: flex; }
+.modal {
+  background: #111;
+  border: 1px solid #333;
+  padding: 24px;
+  width: 90%; max-width: 420px;
+}
+.modal h2 { font-size: 13px; color: #ccc; margin-bottom: 16px; letter-spacing: 2px; text-transform: uppercase; }
+.modal label { display: block; color: #888; font-size: 11px; margin-bottom: 4px; margin-top: 12px; }
+.modal input {
+  width: 100%; background: #1a1a1a;
+  border: 1px solid #333; color: #e0e0e0;
+  padding: 8px; font-family: 'Courier New', monospace; font-size: 13px;
+}
+.modal input:focus { outline: none; border-color: #8855ff; }
+.modal-btns { display: flex; gap: 8px; margin-top: 20px; justify-content: flex-end; }
+.mbtn {
+  padding: 6px 14px; cursor: pointer;
+  font-family: 'Courier New', monospace; font-size: 12px;
+  border: 1px solid #444; background: none; color: #ccc;
+}
+.mbtn:hover { border-color: #888; color: #fff; }
+.mbtn-primary { border-color: #8855ff; color: #8855ff; }
+.mbtn-primary:hover { background: rgba(136,85,255,0.1); }
+
+/* MAIN */
+#app {
+  margin-top: 36px;
+  padding: 20px 16px;
+  max-width: 680px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+#captureWrap { margin-bottom: 20px; }
+#captureInput {
+  width: 100%;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-left: 2px solid #8855ff;
+  color: #e0e0e0;
+  padding: 10px 12px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 14px;
+  outline: none;
+}
+#captureInput:focus { border-color: #8855ff; }
+#captureInput::placeholder { color: #444; }
+
+/* TABS */
+#tabs {
+  display: flex;
+  border-bottom: 1px solid #222;
+  margin-bottom: 16px;
+}
+.tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #555;
+  padding: 7px 14px;
+  cursor: pointer;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  margin-bottom: -1px;
+}
+.tab:hover { color: #999; }
+.tab.active { color: #8855ff; border-bottom-color: #8855ff; }
+
+/* IDEAS */
+#list { display: flex; flex-direction: column; gap: 6px; }
+
+.idea {
+  background: #111;
+  border: 1px solid #1e1e1e;
+  padding: 10px 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.idea:hover { border-color: #2a2a2a; }
+
+.idea-body { flex: 1; min-width: 0; }
+.idea-text { color: #ddd; word-break: break-word; line-height: 1.5; font-size: 13px; }
+.idea-text.clickable { cursor: pointer; }
+.idea-text.clickable:hover { color: #fff; }
+.idea-ts { font-size: 10px; color: #444; margin-top: 5px; }
+
+.idea-actions { display: flex; gap: 5px; flex-shrink: 0; padding-top: 1px; }
+.act {
+  background: none;
+  border: 1px solid #2a2a2a;
+  color: #555;
+  padding: 2px 8px;
+  cursor: pointer;
+  font-family: 'Courier New', monospace;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+}
+.act:hover              { border-color: #555; color: #ccc; }
+.act.promote:hover      { border-color: #8855ff; color: #8855ff; }
+.act.defer:hover        { border-color: #886600; color: #ccaa00; }
+.act.kill:hover         { border-color: #882222; color: #ff5555; }
+
+.idea-edit {
+  width: 100%;
+  background: #0d0d0d;
+  border: 1px solid #8855ff;
+  color: #e0e0e0;
+  padding: 3px 6px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13px;
+  outline: none;
+}
+
+.empty {
+  color: #333;
+  padding: 32px 0;
+  text-align: center;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+}
+</style>
+</head>
+<body>
+
+<div id="syncBar">
+  <div class="left">
+    <span class="name">idx</span>
+    <span class="ver">v1.0</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <div id="syncStatus"><span class="dot" id="syncDot"></span><span id="syncText">not connected</span></div>
+    <button id="setupBtn" onclick="openSetup()">setup</button>
+  </div>
+</div>
+
+<div id="app">
+  <div id="captureWrap">
+    <input id="captureInput" type="text" placeholder="new idea — press enter" autocomplete="off" />
+  </div>
+  <div id="tabs">
+    <button class="tab active" data-view="inbox"    onclick="switchView('inbox')">inbox (<span id="cntInbox">0</span>)</button>
+    <button class="tab"        data-view="promoted" onclick="switchView('promoted')">promoted (<span id="cntPromoted">0</span>)</button>
+    <button class="tab"        data-view="deferred" onclick="switchView('deferred')">deferred (<span id="cntDeferred">0</span>)</button>
+  </div>
+  <div id="list"></div>
+</div>
+
+<div class="modal-overlay" id="setupModal">
+  <div class="modal">
+    <h2>sync setup</h2>
+    <label>GitHub Personal Access Token (scope: gist)</label>
+    <input type="password" id="inputToken" placeholder="ghp_..." autocomplete="off" />
+    <label>Gist ID <span style="color:#555">(leave blank to create new)</span></label>
+    <input type="text" id="inputGistId" placeholder="optional" />
+    <div class="modal-btns">
+      <button class="mbtn" onclick="closeSetup()">cancel</button>
+      <button class="mbtn mbtn-primary" onclick="saveSetup()">save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var state = { ideas: [] };
+var currentView = 'inbox';
+var pushTimer = null;
+var token = '';
+var gistId = '';
+
+function loadCredentials() {
+  token  = localStorage.getItem('idx_token')   || '';
+  gistId = localStorage.getItem('idx_gist_id') || '';
+}
+
+function setSyncState(cls, msg) {
+  document.getElementById('syncDot').className  = 'dot' + (cls ? ' ' + cls : '');
+  document.getElementById('syncText').textContent = msg;
+}
+
+async function pullFromGist() {
+  if (!token || !gistId) return;
+  setSyncState('syncing', 'syncing...');
+  try {
+    var res = await fetch('https://api.github.com/gists/' + gistId, {
+      headers: { Authorization: 'token ' + token }
+    });
+    if (!res.ok) throw new Error(res.status);
+    var json = await res.json();
+    var file = json.files['idx_data.json'];
+    if (file && file.content) state = JSON.parse(file.content);
+    setSyncState('synced', 'synced');
+  } catch(e) {
+    setSyncState('error', 'sync error');
+  }
+  render();
+}
+
+async function pushToGist() {
+  if (!token) return;
+  setSyncState('syncing', 'saving...');
+  try {
+    var body = { files: { 'idx_data.json': { content: JSON.stringify(state) } } };
+    var res;
+    if (gistId) {
+      res = await fetch('https://api.github.com/gists/' + gistId, {
+        method: 'PATCH',
+        headers: { Authorization: 'token ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+    } else {
+      res = await fetch('https://api.github.com/gists', {
+        method: 'POST',
+        headers: { Authorization: 'token ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify(Object.assign({ description: 'idx data', public: false }, body))
+      });
+      if (res.ok) {
+        var d = await res.json();
+        gistId = d.id;
+        localStorage.setItem('idx_gist_id', gistId);
+      }
+    }
+    if (!res.ok) throw new Error(res.status);
+    setSyncState('synced', 'synced');
+  } catch(e) {
+    setSyncState('error', 'sync error');
+  }
+}
+
+function schedulePush() {
+  clearTimeout(pushTimer);
+  pushTimer = setTimeout(pushToGist, 1500);
+}
+
+function formatTs(ts) {
+  var d   = new Date(ts);
+  var dd  = String(d.getDate()).padStart(2, '0');
+  var mm  = String(d.getMonth() + 1).padStart(2, '0');
+  var hh  = String(d.getHours()).padStart(2, '0');
+  var min = String(d.getMinutes()).padStart(2, '0');
+  return dd + '.' + mm + '.' + d.getFullYear() + ' ' + hh + ':' + min;
+}
+
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function render() {
+  var inbox    = state.ideas.filter(function(i) { return i.status === 'inbox';    });
+  var promoted = state.ideas.filter(function(i) { return i.status === 'promoted'; });
+  var deferred = state.ideas.filter(function(i) { return i.status === 'deferred'; });
+
+  document.getElementById('cntInbox').textContent    = inbox.length;
+  document.getElementById('cntPromoted').textContent = promoted.length;
+  document.getElementById('cntDeferred').textContent = deferred.length;
+
+  var visible = (currentView === 'inbox' ? inbox : currentView === 'promoted' ? promoted : deferred)
+    .slice().sort(function(a, b) { return b.ts - a.ts; });
+
+  var list = document.getElementById('list');
+
+  if (visible.length === 0) {
+    list.innerHTML = '<div class="empty">nothing here</div>';
+    return;
+  }
+
+  list.innerHTML = visible.map(function(idea) {
+    var actions;
+    if (currentView === 'inbox') {
+      actions =
+        '<button class="act promote" onclick="promote(' + idea.id + ')">promote</button>' +
+        '<button class="act defer"   onclick="defer('   + idea.id + ')">defer</button>'   +
+        '<button class="act kill"    onclick="kill('    + idea.id + ')">kill</button>';
+    } else if (currentView === 'deferred') {
+      actions =
+        '<button class="act promote" onclick="promote(' + idea.id + ')">promote</button>' +
+        '<button class="act kill"    onclick="kill('    + idea.id + ')">kill</button>';
+    } else {
+      actions = '<button class="act kill" onclick="kill(' + idea.id + ')">kill</button>';
+    }
+
+    var textAttrs = currentView === 'inbox'
+      ? 'class="idea-text clickable" onclick="startEdit(' + idea.id + ')"'
+      : 'class="idea-text"';
+
+    return '<div class="idea" id="idea-' + idea.id + '">' +
+      '<div class="idea-body">' +
+        '<div ' + textAttrs + '>' + esc(idea.text) + '</div>' +
+        '<div class="idea-ts">' + formatTs(idea.ts) + '</div>' +
+      '</div>' +
+      '<div class="idea-actions">' + actions + '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function switchView(v) {
+  currentView = v;
+  document.querySelectorAll('.tab').forEach(function(t) {
+    t.classList.toggle('active', t.dataset.view === v);
+  });
+  render();
+}
+
+function capture(text) {
+  text = text.trim();
+  if (!text) return;
+  state.ideas.push({ id: Date.now(), text: text, ts: Date.now(), status: 'inbox' });
+  render();
+  schedulePush();
+}
+
+function promote(id) {
+  var idea = state.ideas.find(function(i) { return i.id === id; });
+  if (idea) { idea.status = 'promoted'; render(); schedulePush(); }
+}
+
+function defer(id) {
+  var idea = state.ideas.find(function(i) { return i.id === id; });
+  if (idea) { idea.status = 'deferred'; render(); schedulePush(); }
+}
+
+function kill(id) {
+  state.ideas = state.ideas.filter(function(i) { return i.id !== id; });
+  render();
+  schedulePush();
+}
+
+function startEdit(id) {
+  var idea = state.ideas.find(function(i) { return i.id === id; });
+  if (!idea) return;
+  var el = document.querySelector('#idea-' + id + ' .idea-text');
+  if (!el) return;
+  var input = document.createElement('input');
+  input.className = 'idea-edit';
+  input.value = idea.text;
+  el.replaceWith(input);
+  input.focus();
+  input.select();
+  var committed = false;
+  function commit() {
+    if (committed) return;
+    committed = true;
+    var newText = input.value.trim();
+    if (newText && newText !== idea.text) {
+      idea.text = newText;
+      schedulePush();
+    }
+    render();
+  }
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter')  { e.preventDefault(); commit(); }
+    if (e.key === 'Escape') { committed = true; render(); }
+  });
+  input.addEventListener('blur', commit);
+}
+
+function openSetup() {
+  document.getElementById('inputToken').value  = token;
+  document.getElementById('inputGistId').value = gistId;
+  document.getElementById('setupModal').classList.add('active');
+}
+
+function closeSetup() {
+  document.getElementById('setupModal').classList.remove('active');
+}
+
+function saveSetup() {
+  var t = document.getElementById('inputToken').value.trim();
+  var g = document.getElementById('inputGistId').value.trim();
+  if (t) { token  = t; localStorage.setItem('idx_token',   t); }
+  if (g !== gistId) { gistId = g; localStorage.setItem('idx_gist_id', g); }
+  closeSetup();
+  pullFromGist();
+}
+
+document.getElementById('setupModal').addEventListener('click', function(e) {
+  if (e.target === this) closeSetup();
+});
+
+document.getElementById('captureInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    var val = this.value;
+    this.value = '';
+    capture(val);
+  }
+});
+
+loadCredentials();
+if (token && gistId) {
+  pullFromGist();
+} else {
+  render();
+  setSyncState('', 'not connected');
+}
+document.getElementById('captureInput').focus();
+</script>
+</body>
+</html>
