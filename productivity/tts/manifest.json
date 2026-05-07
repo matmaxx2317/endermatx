@@ -1,0 +1,16 @@
+{
+  "name": "tts — time tracker",
+  "short_name": "tts",
+  "start_url": "./",
+  "display": "standalone",
+  "theme_color": "#0e0e0e",
+  "background_color": "#0e0e0e",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

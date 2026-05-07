@@ -6,6 +6,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>tts</title>
 <link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0e0e0e">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -1036,7 +1038,7 @@ transition: background 0.1s;
 
 <!-- APP -->
 
-<h1>tts<span style="font-size:10px;color:#bbb;margin-left:8px;letter-spacing:0.05em;text-transform:none;font-weight:normal">v2.11</span></h1>
+<h1>tts<span style="font-size:10px;color:#bbb;margin-left:8px;letter-spacing:0.05em;text-transform:none;font-weight:normal">v2.12</span></h1>
 
 <div class="top-bar">
   <div class="timer-display" id="timerDisplay">00:00:00</div>
@@ -2522,6 +2524,7 @@ async function init() {
   handleDeepLink(new URLSearchParams(window.location.search));
 }
 
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 init();
 </script>
 
