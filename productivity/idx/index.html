@@ -61,7 +61,7 @@ body {
   width: 90%; max-width: 420px;
 }
 .modal h2 { font-size: 13px; color: #ccc; margin-bottom: 16px; letter-spacing: 2px; text-transform: uppercase; }
-.modal label { display: block; color: #888; font-size: 11px; margin-bottom: 4px; margin-top: 12px; }
+.modal label { display: block; color: #aaa; font-size: 11px; margin-bottom: 4px; margin-top: 12px; }
 .modal input {
   width: 100%; background: #1a1a1a;
   border: 1px solid #333; color: #e0e0e0;
@@ -100,7 +100,7 @@ body {
   outline: none;
 }
 #captureInput:focus { border-color: #8855ff; }
-#captureInput::placeholder { color: #444; }
+#captureInput::placeholder { color: #666; }
 
 /* TABS */
 #tabs {
@@ -112,15 +112,15 @@ body {
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
-  color: #555;
+  color: #777;
   padding: 7px 14px;
   cursor: pointer;
   font-family: 'Courier New', monospace;
-  font-size: 12px;
+  font-size: 15px;
   letter-spacing: 0.05em;
   margin-bottom: -1px;
 }
-.tab:hover { color: #999; }
+.tab:hover { color: #bbb; }
 .tab.active { color: #8855ff; border-bottom-color: #8855ff; }
 
 /* IDEAS */
@@ -133,20 +133,22 @@ body {
   display: flex;
   align-items: flex-start;
   gap: 10px;
+  transition: opacity 0.15s ease, transform 0.15s ease;
 }
 .idea:hover { border-color: #2a2a2a; }
+.idea.killing { opacity: 0; transform: translateX(10px); pointer-events: none; }
 
 .idea-body { flex: 1; min-width: 0; }
 .idea-text { color: #ddd; word-break: break-word; line-height: 1.5; font-size: 13px; }
 .idea-text.clickable { cursor: pointer; }
 .idea-text.clickable:hover { color: #fff; }
-.idea-ts { font-size: 10px; color: #444; margin-top: 5px; }
+.idea-ts { font-size: 10px; color: #777; margin-top: 5px; }
 
 .idea-actions { display: flex; gap: 5px; flex-shrink: 0; padding-top: 1px; }
 .act {
   background: none;
   border: 1px solid #2a2a2a;
-  color: #555;
+  color: #888;
   padding: 2px 8px;
   cursor: pointer;
   font-family: 'Courier New', monospace;
@@ -170,7 +172,7 @@ body {
 }
 
 .empty {
-  color: #333;
+  color: #666;
   padding: 32px 0;
   text-align: center;
   font-size: 12px;
@@ -183,7 +185,7 @@ body {
 <div id="syncBar">
   <div class="left">
     <span class="name">idx</span>
-    <span class="ver">v1.0</span>
+    <span class="ver">v1.3</span>
   </div>
   <div style="display:flex;align-items:center;gap:10px;">
     <div id="syncStatus"><span class="dot" id="syncDot"></span><span id="syncText">not connected</span></div>
@@ -196,9 +198,9 @@ body {
     <input id="captureInput" type="text" placeholder="new idea — press enter" autocomplete="off" />
   </div>
   <div id="tabs">
-    <button class="tab active" data-view="inbox"    onclick="switchView('inbox')">inbox (<span id="cntInbox">0</span>)</button>
-    <button class="tab"        data-view="promoted" onclick="switchView('promoted')">promoted (<span id="cntPromoted">0</span>)</button>
-    <button class="tab"        data-view="deferred" onclick="switchView('deferred')">deferred (<span id="cntDeferred">0</span>)</button>
+    <button class="tab active" data-view="inbox"    onclick="switchView('inbox')">IN (<span id="cntInbox">0</span>)</button>
+    <button class="tab"        data-view="promoted" onclick="switchView('promoted')">DO (<span id="cntPromoted">0</span>)</button>
+    <button class="tab"        data-view="deferred" onclick="switchView('deferred')">BL (<span id="cntDeferred">0</span>)</button>
   </div>
   <div id="list"></div>
 </div>
@@ -376,9 +378,19 @@ function defer(id) {
 }
 
 function kill(id) {
-  state.ideas = state.ideas.filter(function(i) { return i.id !== id; });
-  render();
-  schedulePush();
+  var el = document.getElementById('idea-' + id);
+  if (el) {
+    el.classList.add('killing');
+    setTimeout(function() {
+      state.ideas = state.ideas.filter(function(i) { return i.id !== id; });
+      render();
+      schedulePush();
+    }, 170);
+  } else {
+    state.ideas = state.ideas.filter(function(i) { return i.id !== id; });
+    render();
+    schedulePush();
+  }
 }
 
 function startEdit(id) {
@@ -426,7 +438,13 @@ function saveSetup() {
   if (t) { token  = t; localStorage.setItem('idx_token',   t); }
   if (g !== gistId) { gistId = g; localStorage.setItem('idx_gist_id', g); }
   closeSetup();
-  pullFromGist();
+  if (token) {
+    if (gistId) {
+      pullFromGist();
+    } else {
+      pushToGist();
+    }
+  }
 }
 
 document.getElementById('setupModal').addEventListener('click', function(e) {
