@@ -116,7 +116,7 @@ body {
   padding: 7px 14px;
   cursor: pointer;
   font-family: 'Courier New', monospace;
-  font-size: 12px;
+  font-size: 15px;
   letter-spacing: 0.05em;
   margin-bottom: -1px;
 }
@@ -185,7 +185,7 @@ body {
 <div id="syncBar">
   <div class="left">
     <span class="name">idx</span>
-    <span class="ver">v1.2</span>
+    <span class="ver">v1.3</span>
   </div>
   <div style="display:flex;align-items:center;gap:10px;">
     <div id="syncStatus"><span class="dot" id="syncDot"></span><span id="syncText">not connected</span></div>
@@ -198,9 +198,9 @@ body {
     <input id="captureInput" type="text" placeholder="new idea — press enter" autocomplete="off" />
   </div>
   <div id="tabs">
-    <button class="tab active" data-view="inbox"    onclick="switchView('inbox')">inbox (<span id="cntInbox">0</span>)</button>
-    <button class="tab"        data-view="promoted" onclick="switchView('promoted')">promoted (<span id="cntPromoted">0</span>)</button>
-    <button class="tab"        data-view="deferred" onclick="switchView('deferred')">deferred (<span id="cntDeferred">0</span>)</button>
+    <button class="tab active" data-view="inbox"    onclick="switchView('inbox')">IN (<span id="cntInbox">0</span>)</button>
+    <button class="tab"        data-view="promoted" onclick="switchView('promoted')">DO (<span id="cntPromoted">0</span>)</button>
+    <button class="tab"        data-view="deferred" onclick="switchView('deferred')">BL (<span id="cntDeferred">0</span>)</button>
   </div>
   <div id="list"></div>
 </div>
