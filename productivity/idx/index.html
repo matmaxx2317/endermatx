@@ -185,7 +185,7 @@ body {
 <div id="syncBar">
   <div class="left">
     <span class="name">idx</span>
-    <span class="ver">v1.3</span>
+    <span class="ver">v1.4</span>
   </div>
   <div style="display:flex;align-items:center;gap:10px;">
     <div id="syncStatus"><span class="dot" id="syncDot"></span><span id="syncText">not connected</span></div>
@@ -326,12 +326,12 @@ function render() {
     var actions;
     if (currentView === 'inbox') {
       actions =
-        '<button class="act promote" onclick="promote(' + idea.id + ')">promote</button>' +
-        '<button class="act defer"   onclick="defer('   + idea.id + ')">defer</button>'   +
+        '<button class="act promote" onclick="promote(' + idea.id + ')">DO</button>' +
+        '<button class="act defer"   onclick="defer('   + idea.id + ')">BL</button>'  +
         '<button class="act kill"    onclick="kill('    + idea.id + ')">kill</button>';
     } else if (currentView === 'deferred') {
       actions =
-        '<button class="act promote" onclick="promote(' + idea.id + ')">promote</button>' +
+        '<button class="act promote" onclick="promote(' + idea.id + ')">DO</button>' +
         '<button class="act kill"    onclick="kill('    + idea.id + ')">kill</button>';
     } else {
       actions = '<button class="act kill" onclick="kill(' + idea.id + ')">kill</button>';
@@ -379,18 +379,34 @@ function defer(id) {
 
 function kill(id) {
   var el = document.getElementById('idea-' + id);
-  if (el) {
-    el.classList.add('killing');
+  if (!el) {
+    state.ideas = state.ideas.filter(function(i) { return i.id !== id; });
+    render(); schedulePush();
+    return;
+  }
+  el.classList.add('killing');
+  setTimeout(function() {
+    // collapse height after fade so the list slides up instead of jumping
+    var h = el.offsetHeight;
+    el.style.height = h + 'px';
+    el.style.overflow = 'hidden';
+    el.offsetHeight; // force reflow
+    el.style.transition = 'height 0.15s ease, padding-top 0.15s ease, padding-bottom 0.15s ease';
+    el.style.height = '0';
+    el.style.paddingTop = '0';
+    el.style.paddingBottom = '0';
     setTimeout(function() {
       state.ideas = state.ideas.filter(function(i) { return i.id !== id; });
       render();
       schedulePush();
-    }, 170);
-  } else {
-    state.ideas = state.ideas.filter(function(i) { return i.id !== id; });
-    render();
-    schedulePush();
-  }
+      // block ghost taps on newly positioned buttons
+      var list = document.getElementById('list');
+      if (list) {
+        list.style.pointerEvents = 'none';
+        setTimeout(function() { list.style.pointerEvents = ''; }, 400);
+      }
+    }, 160);
+  }, 150);
 }
 
 function startEdit(id) {

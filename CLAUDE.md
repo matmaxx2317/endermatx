@@ -126,7 +126,7 @@ Every subproject displays its version next to its title — small (`font-size:10
 | cal  | `productivity/cal/index.html` | v1.3 |
 | pom  | `productivity/pom/index.html` | v1.0 |
 | mtg  | `productivity/mtg/index.html` | v1.0 |
-| idx  | `productivity/idx/index.html` | v1.3 |
+| idx  | `productivity/idx/index.html` | v1.4 |
 | str  | `personal/str/index.html` | v1.0 |
 | crd  | `personal/crd/index.html` | v1.0 |
 | teleport-tap | `games/teleport-tap/index.html` | v1.0 |
