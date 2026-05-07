@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mob's Magic · endermatx</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#111111">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -1107,5 +1109,6 @@ body:has(#winOverlay.show) #btns { display: none; }
   showScreen('screenMenu');
 })();
 </script>
+<script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");</script>
 </body>
 </html>

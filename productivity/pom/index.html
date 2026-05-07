@@ -6,6 +6,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>pom</title>
 <link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#111111">
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -707,5 +709,6 @@ if (token && gistId) {
 }
 </script>
 
+<script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");</script>
 </body>
 </html>
