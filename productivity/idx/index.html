@@ -185,7 +185,7 @@ body {
 <div id="syncBar">
   <div class="left">
     <span class="name">idx</span>
-    <span class="ver">v1.1</span>
+    <span class="ver">v1.2</span>
   </div>
   <div style="display:flex;align-items:center;gap:10px;">
     <div id="syncStatus"><span class="dot" id="syncDot"></span><span id="syncText">not connected</span></div>
@@ -438,7 +438,13 @@ function saveSetup() {
   if (t) { token  = t; localStorage.setItem('idx_token',   t); }
   if (g !== gistId) { gistId = g; localStorage.setItem('idx_gist_id', g); }
   closeSetup();
-  pullFromGist();
+  if (token) {
+    if (gistId) {
+      pullFromGist();
+    } else {
+      pushToGist();
+    }
+  }
 }
 
 document.getElementById('setupModal').addEventListener('click', function(e) {
