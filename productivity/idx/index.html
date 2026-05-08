@@ -65,7 +65,7 @@ body {
 .modal input {
   width: 100%; background: #1a1a1a;
   border: 1px solid #333; color: #e0e0e0;
-  padding: 8px; font-family: 'Courier New', monospace; font-size: 13px;
+  padding: 8px; font-family: 'Courier New', monospace; font-size: 16px;
 }
 .modal input:focus { outline: none; border-color: #8855ff; }
 .modal-btns { display: flex; gap: 8px; margin-top: 20px; justify-content: flex-end; }
@@ -126,17 +126,52 @@ body {
 /* IDEAS */
 #list { display: flex; flex-direction: column; gap: 6px; }
 
-.idea {
-  background: #111;
+/* outer wrapper: handles border, overflow clip, kill-fade animation, height collapse */
+.idea-wrap {
+  position: relative;
+  overflow: hidden;
   border: 1px solid #1e1e1e;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.idea-wrap:hover { border-color: #2a2a2a; }
+.idea-wrap.killing { opacity: 0; transform: translateX(10px); pointer-events: none; }
+
+/* swipe reveal backgrounds */
+.swipe-bg {
+  position: absolute;
+  top: 0; bottom: 0;
+  display: flex;
+  align-items: center;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  font-family: 'Courier New', monospace;
+  pointer-events: none;
+}
+.swipe-right {
+  left: 0; right: 35%;
+  background: #110822;
+  color: #8855ff;
+  padding-left: 16px;
+}
+.swipe-left {
+  left: 35%; right: 0;
+  background: #131100;
+  color: #ccaa00;
+  padding-right: 16px;
+  justify-content: flex-end;
+}
+
+/* inner card: the element that slides on swipe */
+.idea-card {
+  background: #111;
   padding: 10px 12px;
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  position: relative;
+  z-index: 1;
+  will-change: transform;
 }
-.idea:hover { border-color: #2a2a2a; }
-.idea.killing { opacity: 0; transform: translateX(10px); pointer-events: none; }
 
 .idea-body { flex: 1; min-width: 0; }
 .idea-text { color: #ddd; word-break: break-word; line-height: 1.5; font-size: 13px; }
@@ -186,7 +221,7 @@ body {
 <div id="syncBar">
   <div class="left">
     <span class="name">idx</span>
-    <span class="ver">v1.6</span>
+    <span class="ver">v1.7</span>
   </div>
   <div style="display:flex;align-items:center;gap:10px;">
     <div id="syncStatus"><span class="dot" id="syncDot"></span><span id="syncText">not connected</span></div>
@@ -233,7 +268,7 @@ function loadCredentials() {
 }
 
 function setSyncState(cls, msg) {
-  document.getElementById('syncDot').className  = 'dot' + (cls ? ' ' + cls : '');
+  document.getElementById('syncDot').className   = 'dot' + (cls ? ' ' + cls : '');
   document.getElementById('syncText').textContent = msg;
 }
 
@@ -324,17 +359,20 @@ function render() {
   }
 
   list.innerHTML = visible.map(function(idea) {
-    var actions;
+    var actions, rightLabel, leftLabel;
     if (currentView === 'inbox') {
+      rightLabel = 'DO'; leftLabel = 'BL';
       actions =
         '<button class="act promote" onclick="promote(' + idea.id + ')">DO</button>' +
         '<button class="act defer"   onclick="defer('   + idea.id + ')">BL</button>'  +
         '<button class="act kill"    onclick="kill('    + idea.id + ')">kill</button>';
     } else if (currentView === 'deferred') {
+      rightLabel = 'DO'; leftLabel = '';
       actions =
         '<button class="act promote" onclick="promote(' + idea.id + ')">DO</button>' +
         '<button class="act kill"    onclick="kill('    + idea.id + ')">kill</button>';
     } else {
+      rightLabel = 'DONE'; leftLabel = '';
       actions =
         '<button class="act done" onclick="done(' + idea.id + ')">DONE</button>' +
         '<button class="act kill" onclick="kill(' + idea.id + ')">kill</button>';
@@ -344,14 +382,132 @@ function render() {
       ? 'class="idea-text clickable" onclick="startEdit(' + idea.id + ')"'
       : 'class="idea-text"';
 
-    return '<div class="idea" id="idea-' + idea.id + '">' +
-      '<div class="idea-body">' +
-        '<div ' + textAttrs + '>' + esc(idea.text) + '</div>' +
-        '<div class="idea-ts">' + formatTs(idea.ts) + '</div>' +
+    var leftBg = leftLabel
+      ? '<div class="swipe-bg swipe-left">' + leftLabel + '</div>'
+      : '';
+
+    return '<div class="idea-wrap" id="idea-' + idea.id + '">' +
+      '<div class="swipe-bg swipe-right">' + rightLabel + '</div>' +
+      leftBg +
+      '<div class="idea-card">' +
+        '<div class="idea-body">' +
+          '<div ' + textAttrs + '>' + esc(idea.text) + '</div>' +
+          '<div class="idea-ts">' + formatTs(idea.ts) + '</div>' +
+        '</div>' +
+        '<div class="idea-actions">' + actions + '</div>' +
       '</div>' +
-      '<div class="idea-actions">' + actions + '</div>' +
     '</div>';
   }).join('');
+
+  // attach swipe handlers after DOM is built
+  visible.forEach(function(idea) {
+    var wrap = document.getElementById('idea-' + idea.id);
+    if (!wrap) return;
+    var card = wrap.querySelector('.idea-card');
+    var rightCb = null, leftCb = null;
+    if (currentView === 'inbox') {
+      rightCb = function() { idea.status = 'promoted'; };
+      leftCb  = function() { idea.status = 'deferred'; };
+    } else if (currentView === 'deferred') {
+      rightCb = function() { idea.status = 'promoted'; };
+    } else {
+      rightCb = function() { idea.status = 'done'; };
+    }
+    attachSwipe(wrap, card, idea.id, rightCb, leftCb);
+  });
+}
+
+var SWIPE_THRESHOLD = 72;
+
+function attachSwipe(wrap, card, id, rightCb, leftCb) {
+  var bgRight = wrap.querySelector('.swipe-right');
+  var bgLeft  = wrap.querySelector('.swipe-left');
+  var startX, startY, direction;
+
+  wrap.addEventListener('touchstart', function(e) {
+    startX    = e.touches[0].clientX;
+    startY    = e.touches[0].clientY;
+    direction = null;
+    card.style.transition = 'none';
+  }, { passive: true });
+
+  wrap.addEventListener('touchmove', function(e) {
+    var dx = e.touches[0].clientX - startX;
+    var dy = e.touches[0].clientY - startY;
+
+    if (!direction) {
+      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 6) direction = 'h';
+      else if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 6) direction = 'v';
+      else return;
+    }
+    if (direction !== 'h') return;
+
+    e.preventDefault();
+
+    // apply resistance when swiping in a direction with no action
+    var effectiveDx = dx;
+    if (dx > 0 && !rightCb) effectiveDx = dx * 0.15;
+    if (dx < 0 && !leftCb)  effectiveDx = dx * 0.15;
+
+    card.style.transform = 'translateX(' + effectiveDx + 'px)';
+
+    var progress = Math.min(Math.abs(effectiveDx) / SWIPE_THRESHOLD, 1);
+    if (bgRight) bgRight.style.opacity = (dx > 0 && rightCb) ? progress : 0;
+    if (bgLeft)  bgLeft.style.opacity  = (dx < 0 && leftCb)  ? progress : 0;
+  }, { passive: false });
+
+  wrap.addEventListener('touchend', function(e) {
+    if (direction !== 'h') return;
+    var dx = e.changedTouches[0].clientX - startX;
+
+    if (bgRight) bgRight.style.opacity = 0;
+    if (bgLeft)  bgLeft.style.opacity  = 0;
+
+    if (dx > SWIPE_THRESHOLD && rightCb) {
+      card.style.transition = 'transform 0.2s ease';
+      card.style.transform  = 'translateX(110%)';
+      var cb = rightCb;
+      setTimeout(function() { collapseAndComplete(id, cb); }, 200);
+    } else if (dx < -SWIPE_THRESHOLD && leftCb) {
+      card.style.transition = 'transform 0.2s ease';
+      card.style.transform  = 'translateX(-110%)';
+      var cb = leftCb;
+      setTimeout(function() { collapseAndComplete(id, cb); }, 200);
+    } else {
+      card.style.transition = 'transform 0.25s ease';
+      card.style.transform  = 'translateX(0)';
+    }
+  }, { passive: true });
+}
+
+// collapseAndComplete: animate wrap height to 0, then mutate state + re-render
+function collapseAndComplete(id, onComplete) {
+  var wrap = document.getElementById('idea-' + id);
+  if (!wrap) { onComplete(); render(); schedulePush(); return; }
+  var h = wrap.offsetHeight;
+  wrap.style.height   = h + 'px';
+  wrap.style.overflow = 'hidden';
+  wrap.offsetHeight; // force reflow
+  wrap.style.transition = 'height 0.15s ease';
+  wrap.style.height     = '0';
+  setTimeout(function() {
+    onComplete();
+    render();
+    schedulePush();
+    var list = document.getElementById('list');
+    if (list) {
+      list.style.pointerEvents = 'none';
+      setTimeout(function() { list.style.pointerEvents = ''; }, 400);
+    }
+  }, 160);
+}
+
+// animateRemove: fade + slight slide, then collapse — used by kill button
+function animateRemove(id, onComplete) {
+  var wrap = document.getElementById('idea-' + id);
+  if (!wrap) { onComplete(); render(); schedulePush(); return; }
+  wrap.classList.add('killing');
+  setTimeout(function() { collapseAndComplete(id, onComplete); }, 150);
 }
 
 function switchView(v) {
@@ -378,32 +534,6 @@ function promote(id) {
 function defer(id) {
   var idea = state.ideas.find(function(i) { return i.id === id; });
   if (idea) { idea.status = 'deferred'; render(); schedulePush(); }
-}
-
-function animateRemove(id, onComplete) {
-  var el = document.getElementById('idea-' + id);
-  if (!el) { onComplete(); render(); schedulePush(); return; }
-  el.classList.add('killing');
-  setTimeout(function() {
-    var h = el.offsetHeight;
-    el.style.height = h + 'px';
-    el.style.overflow = 'hidden';
-    el.offsetHeight;
-    el.style.transition = 'height 0.15s ease, padding-top 0.15s ease, padding-bottom 0.15s ease';
-    el.style.height = '0';
-    el.style.paddingTop = '0';
-    el.style.paddingBottom = '0';
-    setTimeout(function() {
-      onComplete();
-      render();
-      schedulePush();
-      var list = document.getElementById('list');
-      if (list) {
-        list.style.pointerEvents = 'none';
-        setTimeout(function() { list.style.pointerEvents = ''; }, 400);
-      }
-    }, 160);
-  }, 150);
 }
 
 function kill(id) {
@@ -462,11 +592,7 @@ function saveSetup() {
   if (g !== gistId) { gistId = g; localStorage.setItem('idx_gist_id', g); }
   closeSetup();
   if (token) {
-    if (gistId) {
-      pullFromGist();
-    } else {
-      pushToGist();
-    }
+    if (gistId) { pullFromGist(); } else { pushToGist(); }
   }
 }
 
