@@ -179,7 +179,7 @@ body {
 .idea-text.clickable:hover { color: #fff; }
 .idea-ts { font-size: 10px; color: #777; margin-top: 5px; }
 
-.idea-actions { display: flex; gap: 5px; flex-shrink: 0; padding-top: 1px; }
+.idea-actions { display: flex; gap: 5px; flex-shrink: 0; align-self: stretch; align-items: center; }
 .act {
   background: none;
   border: 1px solid #2a2a2a;
@@ -194,6 +194,7 @@ body {
 .act.promote:hover      { border-color: #8855ff; color: #8855ff; }
 .act.defer:hover        { border-color: #886600; color: #ccaa00; }
 .act.done:hover         { border-color: #226644; color: #44cc88; }
+.act.kill               { padding: 0 8px; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; }
 .act.kill:hover         { border-color: #882222; color: #ff5555; }
 
 .idea-edit {
@@ -221,7 +222,7 @@ body {
 <div id="syncBar">
   <div class="left">
     <span class="name">idx</span>
-    <span class="ver">v1.7</span>
+    <span class="ver">v1.8</span>
   </div>
   <div style="display:flex;align-items:center;gap:10px;">
     <div id="syncStatus"><span class="dot" id="syncDot"></span><span id="syncText">not connected</span></div>
@@ -363,19 +364,16 @@ function render() {
     if (currentView === 'inbox') {
       rightLabel = 'DO'; leftLabel = 'BL';
       actions =
-        '<button class="act promote" onclick="promote(' + idea.id + ')">DO</button>' +
-        '<button class="act defer"   onclick="defer('   + idea.id + ')">BL</button>'  +
-        '<button class="act kill"    onclick="kill('    + idea.id + ')">kill</button>';
+        '<button class="act defer" onclick="defer(' + idea.id + ')">BL</button>'  +
+        '<button class="act kill"  onclick="kill('  + idea.id + ')">KILL</button>';
     } else if (currentView === 'deferred') {
       rightLabel = 'DO'; leftLabel = '';
       actions =
-        '<button class="act promote" onclick="promote(' + idea.id + ')">DO</button>' +
-        '<button class="act kill"    onclick="kill('    + idea.id + ')">kill</button>';
+        '<button class="act kill" onclick="kill(' + idea.id + ')">KILL</button>';
     } else {
       rightLabel = 'DONE'; leftLabel = '';
       actions =
-        '<button class="act done" onclick="done(' + idea.id + ')">DONE</button>' +
-        '<button class="act kill" onclick="kill(' + idea.id + ')">kill</button>';
+        '<button class="act kill" onclick="kill(' + idea.id + ')">KILL</button>';
     }
 
     var textAttrs = currentView === 'inbox'
