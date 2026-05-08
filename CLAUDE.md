@@ -90,7 +90,7 @@ Each tool keeps a single `state` (or `data`) object in memory. Mutations happen 
 - **cal** (`productivity/cal/`) — Calendar. Month tiles across a configurable date range. Project timelines overlaid as colored date ranges. Holiday overlays for DE, AT, US, GB, FR, CN, JP (computed via Easter algorithm + fixed dates).
 - **pom** (`productivity/pom/`) — Pomodoro. 25-min work / 5-min break cycles. Timer state persists to Gist every 60 ticks so it survives page reloads. Snarky message pool in `MESSAGES` object, randomized via `pick()`.
 - **mtg** (`productivity/mtg/`) — Meeting notes. Meetings with title, date, attendees, freeform notes, and action items. "Summarize" generates a plain-text summary locally (no AI). Cross-meeting actions view with open/done/all filter.
-- **idx** (`productivity/idx/`) — Idea inbox. Frictionless capture (one input, Enter to log). Three views: Inbox, Promoted, Deferred — each with a counter. Actions per status: inbox → promote / defer / kill; deferred → promote / kill; promoted → kill. Click an inbox item to edit it inline. Ideas never demoted once promoted. Gist-synced.
+- **idx** (`productivity/idx/`) — Idea inbox. Frictionless capture (one input, Enter to log). Three views: IN / DO / BL — each with a counter. Statuses: `inbox`, `promoted` (DO), `deferred` (BL), `done`, `killed`. Transitions: IN→DO, IN→BL, BL→DO, DO→DONE, any→killed. Done and killed ideas are hidden from UI but kept in Gist for future stats. Click an inbox item to edit it inline. Ideas never demoted once promoted. Gist-synced.
 
 ### Personal (`personal/`)
 
@@ -126,7 +126,7 @@ Every subproject displays its version next to its title — small (`font-size:10
 | cal  | `productivity/cal/index.html` | v1.3 |
 | pom  | `productivity/pom/index.html` | v1.0 |
 | mtg  | `productivity/mtg/index.html` | v1.0 |
-| idx  | `productivity/idx/index.html` | v1.5 |
+| idx  | `productivity/idx/index.html` | v1.6 |
 | str  | `personal/str/index.html` | v1.0 |
 | crd  | `personal/crd/index.html` | v1.0 |
 | teleport-tap | `games/teleport-tap/index.html` | v1.0 |
