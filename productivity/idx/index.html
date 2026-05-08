@@ -160,6 +160,10 @@ body {
   padding-right: 16px;
   justify-content: flex-end;
 }
+.swipe-left.kill-swipe {
+  background: #1a0606;
+  color: #ff5555;
+}
 
 /* inner card: the element that slides on swipe */
 .idea-card {
@@ -222,7 +226,7 @@ body {
 <div id="syncBar">
   <div class="left">
     <span class="name">idx</span>
-    <span class="ver">v1.8</span>
+    <span class="ver">v1.9</span>
   </div>
   <div style="display:flex;align-items:center;gap:10px;">
     <div id="syncStatus"><span class="dot" id="syncDot"></span><span id="syncText">not connected</span></div>
@@ -360,29 +364,24 @@ function render() {
   }
 
   list.innerHTML = visible.map(function(idea) {
-    var actions, rightLabel, leftLabel;
+    var actions, rightLabel, leftLabel, leftKill;
     if (currentView === 'inbox') {
-      rightLabel = 'DO'; leftLabel = 'BL';
-      actions =
-        '<button class="act defer" onclick="defer(' + idea.id + ')">BL</button>'  +
-        '<button class="act kill"  onclick="kill('  + idea.id + ')">KILL</button>';
+      rightLabel = 'DO'; leftLabel = 'BL'; leftKill = false;
+      actions = '<div class="idea-actions"><button class="act kill" onclick="kill(' + idea.id + ')">KILL</button></div>';
     } else if (currentView === 'deferred') {
-      rightLabel = 'DO'; leftLabel = '';
-      actions =
-        '<button class="act kill" onclick="kill(' + idea.id + ')">KILL</button>';
+      rightLabel = 'DO'; leftLabel = 'KILL'; leftKill = true;
+      actions = '';
     } else {
-      rightLabel = 'DONE'; leftLabel = '';
-      actions =
-        '<button class="act kill" onclick="kill(' + idea.id + ')">KILL</button>';
+      rightLabel = 'DONE'; leftLabel = 'KILL'; leftKill = true;
+      actions = '';
     }
 
     var textAttrs = currentView === 'inbox'
       ? 'class="idea-text clickable" onclick="startEdit(' + idea.id + ')"'
       : 'class="idea-text"';
 
-    var leftBg = leftLabel
-      ? '<div class="swipe-bg swipe-left">' + leftLabel + '</div>'
-      : '';
+    var leftBgClass = 'swipe-bg swipe-left' + (leftKill ? ' kill-swipe' : '');
+    var leftBg = '<div class="' + leftBgClass + '">' + leftLabel + '</div>';
 
     return '<div class="idea-wrap" id="idea-' + idea.id + '">' +
       '<div class="swipe-bg swipe-right">' + rightLabel + '</div>' +
@@ -392,7 +391,7 @@ function render() {
           '<div ' + textAttrs + '>' + esc(idea.text) + '</div>' +
           '<div class="idea-ts">' + formatTs(idea.ts) + '</div>' +
         '</div>' +
-        '<div class="idea-actions">' + actions + '</div>' +
+        actions +
       '</div>' +
     '</div>';
   }).join('');
@@ -408,8 +407,10 @@ function render() {
       leftCb  = function() { idea.status = 'deferred'; };
     } else if (currentView === 'deferred') {
       rightCb = function() { idea.status = 'promoted'; };
+      leftCb  = function() { idea.status = 'killed';   };
     } else {
-      rightCb = function() { idea.status = 'done'; };
+      rightCb = function() { idea.status = 'done';     };
+      leftCb  = function() { idea.status = 'killed';   };
     }
     attachSwipe(wrap, card, idea.id, rightCb, leftCb);
   });
