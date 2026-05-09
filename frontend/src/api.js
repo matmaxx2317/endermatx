@@ -1,0 +1,78 @@
+const BASE = '/api'
+
+async function req(method, path, body) {
+  const opts = { method, headers: {} }
+  if (body !== undefined) {
+    opts.headers['Content-Type'] = 'application/json'
+    opts.body = JSON.stringify(body)
+  }
+  const res = await fetch(BASE + path, opts)
+  if (!res.ok) throw new Error(`${method} ${path} → ${res.status}`)
+  if (res.status === 204) return null
+  return res.json()
+}
+
+const get  = (path)        => req('GET',    path)
+const post = (path, body)  => req('POST',   path, body)
+const put  = (path, body)  => req('PUT',    path, body)
+const del  = (path)        => req('DELETE', path)
+
+// ── tts ───────────────────────────────────────────────────────
+export const tts = {
+  getProjects: ()            => get('/tts/projects'),
+  createProject: (b)         => post('/tts/projects', b),
+  updateProject: (id, b)     => put(`/tts/projects/${id}`, b),
+  deleteProject: (id)        => del(`/tts/projects/${id}`),
+  getEntries: (projectId)    => get('/tts/entries' + (projectId ? `?project_id=${projectId}` : '')),
+  createEntry: (b)           => post('/tts/entries', b),
+  updateEntry: (id, b)       => put(`/tts/entries/${id}`, b),
+  deleteEntry: (id)          => del(`/tts/entries/${id}`),
+}
+
+// ── cal ───────────────────────────────────────────────────────
+export const cal = {
+  getProjects: ()            => get('/cal/projects'),
+  createProject: (b)         => post('/cal/projects', b),
+  updateProject: (id, b)     => put(`/cal/projects/${id}`, b),
+  deleteProject: (id)        => del(`/cal/projects/${id}`),
+  getSettings: ()            => get('/cal/settings'),
+  updateSettings: (b)        => put('/cal/settings', b),
+}
+
+// ── pom ───────────────────────────────────────────────────────
+export const pom = {
+  getState: ()               => get('/pom/state'),
+  updateState: (b)           => put('/pom/state', b),
+}
+
+// ── mtg ───────────────────────────────────────────────────────
+export const mtg = {
+  getMeetings: ()            => get('/mtg/meetings'),
+  createMeeting: (b)         => post('/mtg/meetings', b),
+  updateMeeting: (id, b)     => put(`/mtg/meetings/${id}`, b),
+  deleteMeeting: (id)        => del(`/mtg/meetings/${id}`),
+}
+
+// ── idx ───────────────────────────────────────────────────────
+export const idx = {
+  getIdeas: ()               => get('/idx/ideas'),
+  createIdea: (b)            => post('/idx/ideas', b),
+  updateIdea: (id, b)        => put(`/idx/ideas/${id}`, b),
+  deleteIdea: (id)           => del(`/idx/ideas/${id}`),
+}
+
+// ── str ───────────────────────────────────────────────────────
+export const str = {
+  getGuitars: ()             => get('/str/guitars'),
+  createGuitar: (b)          => post('/str/guitars', b),
+  updateGuitar: (id, b)      => put(`/str/guitars/${id}`, b),
+  deleteGuitar: (id)         => del(`/str/guitars/${id}`),
+  recordChange: (id)         => post(`/str/guitars/${id}/change`),
+  undoChange: (id)           => del(`/str/guitars/${id}/change`),
+}
+
+// ── crd ───────────────────────────────────────────────────────
+export const crd = {
+  getState: ()               => get('/crd/state'),
+  updateState: (b)           => put('/crd/state', b),
+}

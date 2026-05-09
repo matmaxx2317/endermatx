@@ -1,0 +1,169 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: #0d0d0d;
+  color: #e0e0e0;
+  font-family: 'Courier New', Courier, monospace;
+  min-height: 100vh;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: 'Courier New', Courier, monospace;
+  cursor: pointer;
+}
+
+input, textarea, select {
+  font-family: 'Courier New', Courier, monospace;
+}
+
+/* ── Top bar ──────────────────────────────────────────────────── */
+.topbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 12px;
+  background: #111;
+  border-bottom: 1px solid #222;
+  font-size: 11px;
+  color: #ccc;
+  z-index: 50;
+}
+.topbar-left { display: flex; align-items: center; gap: 8px; }
+.topbar-title { font-weight: bold; letter-spacing: 0.15em; }
+.topbar-back {
+  background: none; border: 1px solid #333; color: #888;
+  font-size: 11px; padding: 2px 8px;
+}
+.topbar-back:hover { border-color: #888; color: #ccc; }
+
+/* ── Page shell ──────────────────────────────────────────────── */
+.page {
+  margin-top: 32px;
+  padding: 20px 16px;
+  max-width: 720px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* ── Shared controls ─────────────────────────────────────────── */
+.btn {
+  background: none;
+  border: 1px solid #333;
+  color: #ccc;
+  padding: 5px 12px;
+  font-size: 12px;
+}
+.btn:hover { border-color: #888; color: #fff; }
+.btn-primary { border-color: #8855ff; color: #8855ff; }
+.btn-primary:hover { background: rgba(136,85,255,0.1); }
+.btn-danger { border-color: #f44336; color: #f44336; }
+.btn-danger:hover { background: rgba(244,67,54,0.1); }
+.btn-sm { padding: 2px 8px; font-size: 11px; }
+
+.input {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  color: #e0e0e0;
+  padding: 8px 10px;
+  font-size: 14px;
+  width: 100%;
+  outline: none;
+}
+.input:focus { border-color: #8855ff; }
+.input::placeholder { color: #555; }
+
+.textarea {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  color: #e0e0e0;
+  padding: 8px 10px;
+  font-size: 13px;
+  width: 100%;
+  resize: vertical;
+  outline: none;
+  min-height: 80px;
+}
+.textarea:focus { border-color: #8855ff; }
+
+/* ── Cards ───────────────────────────────────────────────────── */
+.card {
+  background: #111;
+  border: 1px solid #1e1e1e;
+  padding: 14px;
+  margin-bottom: 8px;
+}
+.card:hover { border-color: #2a2a2a; }
+
+/* ── Home grid ───────────────────────────────────────────────── */
+.home-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+  margin-top: 24px;
+}
+.home-card {
+  background: #111;
+  border: 1px solid #222;
+  padding: 20px 16px;
+  display: block;
+  transition: border-color 0.15s;
+}
+.home-card:hover { border-color: #555; }
+.home-card-name { font-size: 13px; color: #e0e0e0; letter-spacing: 0.1em; }
+.home-card-desc { font-size: 11px; color: #666; margin-top: 4px; }
+
+/* ── Flex utils ──────────────────────────────────────────────── */
+.row { display: flex; align-items: center; gap: 8px; }
+.row-between { display: flex; align-items: center; justify-content: space-between; }
+.gap4 { gap: 4px; }
+.gap8 { gap: 8px; }
+.gap12 { gap: 12px; }
+.mt4  { margin-top: 4px; }
+.mt8  { margin-top: 8px; }
+.mt12 { margin-top: 12px; }
+.mt16 { margin-top: 16px; }
+.mt24 { margin-top: 24px; }
+
+/* ── Text utils ──────────────────────────────────────────────── */
+.text-sm   { font-size: 11px; }
+.text-muted { color: #666; }
+.text-accent { color: #8855ff; }
+.label { font-size: 11px; color: #888; letter-spacing: 0.05em; margin-bottom: 4px; display: block; }
+
+/* ── Section header ──────────────────────────────────────────── */
+.section-header {
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #555;
+  margin-bottom: 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #1e1e1e;
+}
+
+/* ── Tabs ────────────────────────────────────────────────────── */
+.tabs { display: flex; border-bottom: 1px solid #222; margin-bottom: 16px; }
+.tab {
+  background: none; border: none; border-bottom: 2px solid transparent;
+  color: #888; padding: 7px 14px; font-size: 13px;
+  letter-spacing: 0.05em; margin-bottom: -1px;
+}
+.tab:hover { color: #ccc; }
+.tab.active { color: #8855ff; border-bottom-color: #8855ff; }
+
+/* ── Color dot ───────────────────────────────────────────────── */
+.color-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  display: inline-block; flex-shrink: 0;
+}
