@@ -1,5 +1,7 @@
-import os
+import logging
+from contextlib import asynccontextmanager
 from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -7,9 +9,20 @@ from fastapi.responses import FileResponse
 from .database import engine, Base
 from .routers import tts, cal, pom, mtg, idx, strings, crd
 
-Base.metadata.create_all(bind=engine)
+logger = logging.getLogger(__name__)
 
-app = FastAPI(title="endermatx API")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    try:
+        Base.metadata.create_all(bind=engine)
+        logger.info("DB tables ready")
+    except Exception as exc:
+        logger.error("DB init failed: %s", exc)
+    yield
+
+
+app = FastAPI(title="endermatx API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -28,13 +41,26 @@ app.include_router(crd.router, prefix="/api/crd", tags=["crd"])
 
 FRONTEND_DIST = Path(__file__).parent.parent / "frontend" / "dist"
 
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
+
+@app.get("/")
+async def root():
+    index = FRONTEND_DIST / "index.html"
+    if index.exists():
+        return FileResponse(index)
+    return {"status": "api running"}
+
+
 @app.get("/{full_path:path}")
 async def spa_fallback(full_path: str):
-    if FRONTEND_DIST.exists():
-        candidate = FRONTEND_DIST / full_path
-        if full_path and candidate.is_file():
-            return FileResponse(candidate)
-        index = FRONTEND_DIST / "index.html"
-        if index.exists():
-            return FileResponse(index)
+    candidate = FRONTEND_DIST / full_path
+    if full_path and candidate.is_file():
+        return FileResponse(candidate)
+    index = FRONTEND_DIST / "index.html"
+    if index.exists():
+        return FileResponse(index)
     return {"status": "api running"}
