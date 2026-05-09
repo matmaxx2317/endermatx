@@ -71,7 +71,7 @@ export default function Calendar() {
         <div className="topbar-left">
           <Link to="/"><button className="topbar-back btn btn-sm">←</button></Link>
           <span className="topbar-title">cal</span>
-          <span style={{ fontSize: 10, color: '#bbb', letterSpacing: '0.05em' }}>v1.4</span>
+          <span style={{ fontSize: 10, color: '#bbb', letterSpacing: '0.05em' }}>v3.0</span>
         </div>
       </div>
       <div className="page" style={{ maxWidth: 900 }}>

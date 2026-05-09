@@ -122,15 +122,15 @@ Every subproject displays its version next to its title — small (`font-size:10
 
 | Tool | Path | Version |
 |------|------|---------|
-| tts  | `productivity/tts/index.html` | v2.13 |
-| cal  | `productivity/cal/index.html` | v1.4 |
-| pom  | `productivity/pom/index.html` | v1.1 |
-| mtg  | `productivity/mtg/index.html` | v1.1 |
-| idx  | `productivity/idx/index.html` | v1.12 |
-| str  | `personal/str/index.html` | v1.1 |
-| crd  | `personal/crd/index.html` | v1.1 |
-| teleport-tap | `games/teleport-tap/index.html` | v1.0 |
-| mobs-magic | `games/mobs-magic/index.html` | v1.0 |
+| tts  | `productivity/tts/index.html` | v3.0 |
+| cal  | `productivity/cal/index.html` | v3.0 |
+| pom  | `productivity/pom/index.html` | v3.0 |
+| mtg  | `productivity/mtg/index.html` | v3.0 |
+| idx  | `productivity/idx/index.html` | v3.0 |
+| str  | `personal/str/index.html` | v3.0 |
+| crd  | `personal/crd/index.html` | v3.0 |
+| teleport-tap | `games/teleport-tap/index.html` | v3.0 |
+| mobs-magic | `games/mobs-magic/index.html` | v3.0 |
 
 ## No build, lint, or test commands
 
