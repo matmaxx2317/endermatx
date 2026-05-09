@@ -28,16 +28,14 @@ body {
   color: #ccc;
   z-index: 50;
 }
-
 #syncBar .left { display: flex; align-items: center; gap: 6px; }
 #syncBar .name { font-weight: bold; }
-#syncBar .ver { font-size: 10px; color: #bbb; letter-spacing: 0.05em; font-weight: normal; }
+#syncBar .ver  { font-size: 10px; color: #bbb; letter-spacing: 0.05em; font-weight: normal; }
 #syncStatus { display: flex; align-items: center; gap: 6px; }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: #555; display: inline-block; }
 .dot.synced  { background: #4caf50; }
 .dot.syncing { background: #ff9800; }
 .dot.error   { background: #f44336; }
-
 #setupBtn {
   background: none; border: 1px solid #333;
   color: #ccc; cursor: pointer; padding: 2px 8px;
@@ -45,80 +43,47 @@ body {
 }
 #setupBtn:hover { border-color: #ccc; }
 
-/* SETUP MODAL */
+/* MODAL */
 .modal-overlay {
-  display: none;
-  position: fixed; inset: 0;
-  background: rgba(0,0,0,0.85);
-  z-index: 100;
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.85); z-index: 100;
   align-items: center; justify-content: center;
 }
 .modal-overlay.active { display: flex; }
-.modal {
-  background: #111;
-  border: 1px solid #333;
-  padding: 24px;
-  width: 90%; max-width: 420px;
-}
+.modal { background: #111; border: 1px solid #333; padding: 24px; width: 90%; max-width: 420px; }
 .modal h2 { font-size: 13px; color: #ccc; margin-bottom: 16px; letter-spacing: 2px; text-transform: uppercase; }
 .modal label { display: block; color: #aaa; font-size: 11px; margin-bottom: 4px; margin-top: 12px; }
 .modal input {
-  width: 100%; background: #1a1a1a;
-  border: 1px solid #333; color: #e0e0e0;
+  width: 100%; background: #1a1a1a; border: 1px solid #333; color: #e0e0e0;
   padding: 8px; font-family: 'Courier New', monospace; font-size: 16px;
 }
 .modal input:focus { outline: none; border-color: #8855ff; }
 .modal-btns { display: flex; gap: 8px; margin-top: 20px; justify-content: flex-end; }
-.mbtn {
-  padding: 6px 14px; cursor: pointer;
-  font-family: 'Courier New', monospace; font-size: 12px;
-  border: 1px solid #444; background: none; color: #ccc;
-}
+.mbtn { padding: 6px 14px; cursor: pointer; font-family: 'Courier New', monospace; font-size: 12px; border: 1px solid #444; background: none; color: #ccc; }
 .mbtn:hover { border-color: #888; color: #fff; }
 .mbtn-primary { border-color: #8855ff; color: #8855ff; }
 .mbtn-primary:hover { background: rgba(136,85,255,0.1); }
 
 /* MAIN */
-#app {
-  margin-top: 36px;
-  padding: 20px 16px;
-  max-width: 680px;
-  margin-left: auto;
-  margin-right: auto;
-}
+#app { margin-top: 36px; padding: 20px 16px; max-width: 680px; margin-left: auto; margin-right: auto; }
 
 #captureWrap { margin-bottom: 20px; }
 #captureInput {
-  width: 100%;
-  background: #1a1a1a;
-  border: 1px solid #333;
-  border-left: 2px solid #8855ff;
-  color: #e0e0e0;
-  padding: 10px 12px;
-  font-family: 'Courier New', Courier, monospace;
-  font-size: 16px;
-  outline: none;
+  width: 100%; background: #1a1a1a; border: 1px solid #333;
+  border-left: 2px solid #8855ff; color: #e0e0e0;
+  padding: 10px 12px; font-family: 'Courier New', Courier, monospace;
+  font-size: 16px; outline: none;
 }
 #captureInput:focus { border-color: #8855ff; }
 #captureInput::placeholder { color: #666; }
 
 /* TABS */
-#tabs {
-  display: flex;
-  border-bottom: 1px solid #222;
-  margin-bottom: 16px;
-}
+#tabs { display: flex; border-bottom: 1px solid #222; margin-bottom: 16px; }
 .tab {
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: #777;
-  padding: 7px 14px;
-  cursor: pointer;
-  font-family: 'Courier New', monospace;
-  font-size: 15px;
-  letter-spacing: 0.05em;
-  margin-bottom: -1px;
+  background: none; border: none; border-bottom: 2px solid transparent;
+  color: #777; padding: 7px 14px; cursor: pointer;
+  font-family: 'Courier New', monospace; font-size: 15px;
+  letter-spacing: 0.05em; margin-bottom: -1px;
 }
 .tab:hover { color: #bbb; }
 .tab.active { color: #8855ff; border-bottom-color: #8855ff; }
@@ -126,57 +91,28 @@ body {
 /* IDEAS */
 #list { display: flex; flex-direction: column; gap: 6px; }
 
-/* outer wrapper: handles border, overflow clip, kill-fade animation, height collapse */
 .idea-wrap {
-  position: relative;
-  overflow: hidden;
-  border: 1px solid #1e1e1e;
+  position: relative; overflow: hidden; border: 1px solid #1e1e1e;
   transition: opacity 0.15s ease, transform 0.15s ease;
 }
 .idea-wrap:hover { border-color: #2a2a2a; }
 .idea-wrap.killing { opacity: 0; transform: translateX(10px); pointer-events: none; }
 
-/* swipe reveal backgrounds */
 .swipe-bg {
-  position: absolute;
-  top: 0; bottom: 0;
-  display: flex;
-  align-items: center;
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  font-family: 'Courier New', monospace;
-  pointer-events: none;
+  position: absolute; top: 0; bottom: 0;
+  display: flex; align-items: center;
+  font-size: 11px; letter-spacing: 0.12em;
+  font-family: 'Courier New', monospace; pointer-events: none;
 }
-.swipe-right {
-  left: 0; right: 35%;
-  background: #110822;
-  color: #8855ff;
-  padding-left: 16px;
-}
-.swipe-left {
-  left: 35%; right: 0;
-  background: #131100;
-  color: #ccaa00;
-  padding-right: 16px;
-  justify-content: flex-end;
-}
-.swipe-left.kill-swipe {
-  background: #1a0606;
-  color: #ff5555;
-}
+.swipe-right { left: 0; right: 35%; background: #110822; color: #8855ff; padding-left: 16px; }
+.swipe-left  { left: 35%; right: 0; background: #131100; color: #ccaa00; padding-right: 16px; justify-content: flex-end; }
+.swipe-left.kill-swipe { background: #1a0606; color: #ff5555; }
 
-/* inner card: the element that slides on swipe */
 .idea-card {
-  background: #111;
-  padding: 10px 12px;
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  position: relative;
-  z-index: 1;
-  will-change: transform;
+  background: #111; padding: 10px 12px;
+  display: flex; align-items: flex-start; gap: 10px;
+  position: relative; z-index: 1; will-change: transform;
 }
-
 .idea-body { flex: 1; min-width: 0; }
 .idea-text { color: #ddd; word-break: break-word; line-height: 1.5; font-size: 13px; }
 .idea-text.clickable { cursor: pointer; }
@@ -185,40 +121,56 @@ body {
 
 .idea-actions { display: flex; gap: 5px; flex-shrink: 0; align-self: stretch; align-items: center; }
 .act {
-  background: none;
-  border: 1px solid #2a2a2a;
-  color: #888;
-  padding: 2px 8px;
-  cursor: pointer;
-  font-family: 'Courier New', monospace;
-  font-size: 10px;
-  letter-spacing: 0.05em;
+  background: none; border: 1px solid #2a2a2a; color: #888;
+  padding: 2px 8px; cursor: pointer;
+  font-family: 'Courier New', monospace; font-size: 10px; letter-spacing: 0.05em;
 }
-.act:hover              { border-color: #555; color: #ccc; }
-.act.promote:hover      { border-color: #8855ff; color: #8855ff; }
-.act.defer:hover        { border-color: #886600; color: #ccaa00; }
-.act.done:hover         { border-color: #226644; color: #44cc88; }
-.act.kill               { padding: 0 8px; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; background: #1a0606; border-color: #882222; color: #ff5555; }
-.act.kill:hover         { border-color: #cc3333; color: #ff8888; background: #2a0a0a; }
+.act:hover         { border-color: #555; color: #ccc; }
+.act.kill          { padding: 0 8px; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; background: #1a0606; border-color: #882222; color: #ff5555; }
+.act.kill:hover    { border-color: #cc3333; color: #ff8888; background: #2a0a0a; }
 
 .idea-edit {
-  width: 100%;
-  background: #0d0d0d;
-  border: 1px solid #8855ff;
-  color: #e0e0e0;
-  padding: 3px 6px;
-  font-family: 'Courier New', Courier, monospace;
-  font-size: 16px;
-  outline: none;
+  width: 100%; background: #0d0d0d; border: 1px solid #8855ff;
+  color: #e0e0e0; padding: 3px 6px;
+  font-family: 'Courier New', Courier, monospace; font-size: 16px; outline: none;
 }
+.empty { color: #666; padding: 32px 0; text-align: center; font-size: 12px; letter-spacing: 0.1em; }
 
-.empty {
-  color: #666;
-  padding: 32px 0;
-  text-align: center;
-  font-size: 12px;
-  letter-spacing: 0.1em;
-}
+/* ── STATS ──────────────────────────────────────────── */
+.stat-topline { display: flex; margin-bottom: 28px; }
+.stat-box { flex: 1; text-align: center; padding: 14px 6px; border: 1px solid #1e1e1e; background: #111; }
+.stat-box + .stat-box { border-left: none; }
+.stat-box-val   { font-size: 26px; line-height: 1; margin-bottom: 5px; }
+.stat-box-label { font-size: 9px; color: #555; letter-spacing: 0.15em; }
+
+.stat-section { margin-bottom: 28px; }
+.stat-heading { font-size: 9px; color: #555; letter-spacing: 0.15em; margin-bottom: 12px; }
+
+.stat-funnel-row   { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+.stat-funnel-label { font-size: 10px; color: #777; letter-spacing: 0.08em; width: 44px; flex-shrink: 0; text-align: right; }
+.stat-funnel-wrap  { flex: 1; height: 10px; background: #1a1a1a; }
+.stat-funnel-bar   { height: 100%; }
+.stat-funnel-count { font-size: 10px; color: #555; width: 68px; flex-shrink: 0; }
+.stat-pct          { color: #444; }
+
+.stat-resolution { display: flex; gap: 28px; margin-bottom: 10px; }
+.stat-res-item   { display: flex; align-items: baseline; gap: 7px; }
+.stat-res-pct    { font-size: 32px; line-height: 1; }
+.stat-res-label  { font-size: 9px; color: #555; letter-spacing: 0.12em; }
+.stat-res-bar    { width: 100%; height: 4px; display: flex; overflow: hidden; }
+
+.stat-bars     { display: flex; align-items: flex-end; gap: 4px; }
+.stat-bar-col  { display: flex; flex-direction: column; align-items: center; flex: 1; gap: 3px; }
+.stat-bar-val  { font-size: 9px; color: #666; min-height: 12px; line-height: 12px; }
+.stat-bar-out  { width: 100%; height: 60px; background: #1a1a1a; display: flex; align-items: flex-end; }
+.stat-bar-in   { width: 100%; background: #8855ff; min-height: 0; }
+.stat-bar-date { font-size: 8px; color: #444; white-space: nowrap; }
+
+.stat-dow       { display: flex; gap: 4px; }
+.stat-dow-col   { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.stat-dow-cell  { width: 100%; aspect-ratio: 1; }
+.stat-dow-label { font-size: 8px; color: #555; letter-spacing: 0.04em; }
+.stat-dow-count { font-size: 9px; color: #666; }
 </style>
 </head>
 <body>
@@ -226,7 +178,7 @@ body {
 <div id="syncBar">
   <div class="left">
     <span class="name">idx</span>
-    <span class="ver">v1.10</span>
+    <span class="ver">v1.11</span>
   </div>
   <div style="display:flex;align-items:center;gap:10px;">
     <div id="syncStatus"><span class="dot" id="syncDot"></span><span id="syncText">not connected</span></div>
@@ -242,6 +194,7 @@ body {
     <button class="tab active" data-view="inbox"    onclick="switchView('inbox')">IN (<span id="cntInbox">0</span>)</button>
     <button class="tab"        data-view="promoted" onclick="switchView('promoted')">DO (<span id="cntPromoted">0</span>)</button>
     <button class="tab"        data-view="deferred" onclick="switchView('deferred')">BL (<span id="cntDeferred">0</span>)</button>
+    <button class="tab"        data-view="stats"    onclick="switchView('stats')">ST</button>
   </div>
   <div id="list"></div>
 </div>
@@ -332,7 +285,7 @@ function schedulePush() {
 }
 
 function formatTs(ts) {
-  var d   = new Date(ts);
+  var d = new Date(ts);
   var dd  = String(d.getDate()).padStart(2, '0');
   var mm  = String(d.getMonth() + 1).padStart(2, '0');
   var hh  = String(d.getHours()).padStart(2, '0');
@@ -344,6 +297,133 @@ function esc(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+// ── STATS ───────────────────────────────────────────────
+
+function statBox(label, value, color) {
+  return '<div class="stat-box">' +
+    '<div class="stat-box-val" style="color:' + color + '">' + value + '</div>' +
+    '<div class="stat-box-label">' + label + '</div>' +
+  '</div>';
+}
+
+function funnelRow(label, count, total, color) {
+  var pct  = total > 0 ? Math.round(count / total * 100) : 0;
+  var barW = count > 0 ? Math.max(pct, 1) : 0;
+  return '<div class="stat-funnel-row">' +
+    '<div class="stat-funnel-label">' + label + '</div>' +
+    '<div class="stat-funnel-wrap"><div class="stat-funnel-bar" style="width:' + barW + '%;background:' + color + '"></div></div>' +
+    '<div class="stat-funnel-count">' + count + ' <span class="stat-pct">(' + pct + '%)</span></div>' +
+  '</div>';
+}
+
+function renderStats() {
+  var total    = state.ideas.length;
+  var inCount  = state.ideas.filter(function(i) { return i.status === 'inbox';    }).length;
+  var doCount  = state.ideas.filter(function(i) { return i.status === 'promoted'; }).length;
+  var blCount  = state.ideas.filter(function(i) { return i.status === 'deferred'; }).length;
+  var doneCount   = state.ideas.filter(function(i) { return i.status === 'done';   }).length;
+  var killedCount = state.ideas.filter(function(i) { return i.status === 'killed'; }).length;
+
+  if (total === 0) return '<div class="empty">no data yet</div>';
+
+  var resolved   = doneCount + killedCount;
+  var doneRate   = resolved > 0 ? Math.round(doneCount   / resolved * 100) : 0;
+  var killedRate = resolved > 0 ? Math.round(killedCount / resolved * 100) : 0;
+
+  // weekly captures — last 8 complete weeks + current week
+  var now = new Date();
+  var dow = (now.getDay() + 6) % 7; // 0 = Mon
+  var curWeekStart = new Date(now);
+  curWeekStart.setHours(0, 0, 0, 0);
+  curWeekStart.setDate(curWeekStart.getDate() - dow);
+
+  var weeks = [];
+  for (var w = 7; w >= 0; w--) {
+    var ws = new Date(curWeekStart);
+    ws.setDate(curWeekStart.getDate() - w * 7);
+    var we = new Date(ws);
+    we.setDate(ws.getDate() + 7);
+    var wStart = ws.getTime(), wEnd = we.getTime();
+    var cnt = state.ideas.filter(function(i) { return i.ts >= wStart && i.ts < wEnd; }).length;
+    var lbl = (ws.getMonth() + 1) + '/' + ws.getDate();
+    weeks.push({ cnt: cnt, lbl: lbl });
+  }
+  var maxW = Math.max.apply(null, weeks.map(function(w) { return w.cnt; })) || 1;
+
+  // day-of-week totals
+  var dayCounts = [0, 0, 0, 0, 0, 0, 0];
+  state.ideas.forEach(function(i) { dayCounts[(new Date(i.ts).getDay() + 6) % 7]++; });
+  var maxD = Math.max.apply(null, dayCounts) || 1;
+  var dayLabels = ['MO','TU','WE','TH','FR','SA','SU'];
+
+  var h = '';
+
+  // top-line
+  h += '<div class="stat-topline">' +
+    statBox('TOTAL',  total,       '#aaa')    +
+    statBox('DO',     doCount,     '#8855ff') +
+    statBox('DONE',   doneCount,   '#44cc88') +
+    statBox('KILLED', killedCount, '#ff5555') +
+  '</div>';
+
+  // fate funnel
+  h += '<div class="stat-section">';
+  h += '<div class="stat-heading">FATE OF ALL IDEAS</div>';
+  h += funnelRow('DONE',   doneCount,   total, '#44cc88');
+  h += funnelRow('DO',     doCount,     total, '#8855ff');
+  h += funnelRow('BL',     blCount,     total, '#ccaa00');
+  h += funnelRow('IN',     inCount,     total, '#888888');
+  h += funnelRow('KILLED', killedCount, total, '#ff5555');
+  h += '</div>';
+
+  // resolution rates
+  if (resolved > 0) {
+    h += '<div class="stat-section">';
+    h += '<div class="stat-heading">RESOLUTION OF CLOSED IDEAS</div>';
+    h += '<div class="stat-resolution">' +
+      '<div class="stat-res-item"><span class="stat-res-pct" style="color:#44cc88">' + doneRate   + '%</span><span class="stat-res-label">DONE</span></div>' +
+      '<div class="stat-res-item"><span class="stat-res-pct" style="color:#ff5555">' + killedRate + '%</span><span class="stat-res-label">KILLED</span></div>' +
+    '</div>';
+    h += '<div class="stat-res-bar">' +
+      '<div style="flex:' + doneRate   + ';background:#44cc88"></div>' +
+      '<div style="flex:' + killedRate + ';background:#ff5555"></div>' +
+    '</div>';
+    h += '</div>';
+  }
+
+  // weekly captures
+  h += '<div class="stat-section">';
+  h += '<div class="stat-heading">CAPTURES BY WEEK (last 8)</div>';
+  h += '<div class="stat-bars">';
+  weeks.forEach(function(w) {
+    var barH = w.cnt > 0 ? Math.max(Math.round((w.cnt / maxW) * 60), 3) : 0;
+    h += '<div class="stat-bar-col">' +
+      '<div class="stat-bar-val">' + (w.cnt || '') + '</div>' +
+      '<div class="stat-bar-out"><div class="stat-bar-in" style="height:' + barH + 'px"></div></div>' +
+      '<div class="stat-bar-date">' + w.lbl + '</div>' +
+    '</div>';
+  });
+  h += '</div></div>';
+
+  // day-of-week heatmap
+  h += '<div class="stat-section">';
+  h += '<div class="stat-heading">CAPTURE BY DAY OF WEEK</div>';
+  h += '<div class="stat-dow">';
+  dayLabels.forEach(function(lbl, i) {
+    var alpha = 0.08 + (dayCounts[i] / maxD) * 0.92;
+    h += '<div class="stat-dow-col">' +
+      '<div class="stat-dow-cell" style="background:rgba(136,85,255,' + alpha.toFixed(2) + ')"></div>' +
+      '<div class="stat-dow-label">' + lbl + '</div>' +
+      '<div class="stat-dow-count">' + dayCounts[i] + '</div>' +
+    '</div>';
+  });
+  h += '</div></div>';
+
+  return h;
+}
+
+// ── RENDER ──────────────────────────────────────────────
+
 function render() {
   var inbox    = state.ideas.filter(function(i) { return i.status === 'inbox';    });
   var promoted = state.ideas.filter(function(i) { return i.status === 'promoted'; });
@@ -353,10 +433,15 @@ function render() {
   document.getElementById('cntPromoted').textContent = promoted.length;
   document.getElementById('cntDeferred').textContent = deferred.length;
 
+  var list = document.getElementById('list');
+
+  if (currentView === 'stats') {
+    list.innerHTML = renderStats();
+    return;
+  }
+
   var visible = (currentView === 'inbox' ? inbox : currentView === 'promoted' ? promoted : deferred)
     .slice().sort(function(a, b) { return b.ts - a.ts; });
-
-  var list = document.getElementById('list');
 
   if (visible.length === 0) {
     list.innerHTML = '<div class="empty">nothing here</div>';
@@ -381,11 +466,10 @@ function render() {
       : 'class="idea-text"';
 
     var leftBgClass = 'swipe-bg swipe-left' + (leftKill ? ' kill-swipe' : '');
-    var leftBg = '<div class="' + leftBgClass + '">' + leftLabel + '</div>';
 
     return '<div class="idea-wrap" id="idea-' + idea.id + '">' +
       '<div class="swipe-bg swipe-right">' + rightLabel + '</div>' +
-      leftBg +
+      '<div class="' + leftBgClass + '">' + leftLabel + '</div>' +
       '<div class="idea-card">' +
         '<div class="idea-body">' +
           '<div ' + textAttrs + '>' + esc(idea.text) + '</div>' +
@@ -396,12 +480,11 @@ function render() {
     '</div>';
   }).join('');
 
-  // attach swipe handlers after DOM is built
   visible.forEach(function(idea) {
     var wrap = document.getElementById('idea-' + idea.id);
     if (!wrap) return;
     var card = wrap.querySelector('.idea-card');
-    var rightCb = null, leftCb = null;
+    var rightCb, leftCb;
     if (currentView === 'inbox') {
       rightCb = function() { idea.status = 'promoted'; };
       leftCb  = function() { idea.status = 'deferred'; };
@@ -409,12 +492,14 @@ function render() {
       rightCb = function() { idea.status = 'promoted'; };
       leftCb  = function() { idea.status = 'killed';   };
     } else {
-      rightCb = function() { idea.status = 'done';     };
-      leftCb  = function() { idea.status = 'killed';   };
+      rightCb = function() { idea.status = 'done';   };
+      leftCb  = function() { idea.status = 'killed'; };
     }
     attachSwipe(wrap, card, idea.id, rightCb, leftCb);
   });
 }
+
+// ── SWIPE ───────────────────────────────────────────────
 
 var SWIPE_THRESHOLD = 72;
 
@@ -424,8 +509,7 @@ function attachSwipe(wrap, card, id, rightCb, leftCb) {
   var startX, startY, direction;
 
   wrap.addEventListener('touchstart', function(e) {
-    startX    = e.touches[0].clientX;
-    startY    = e.touches[0].clientY;
+    startX = e.touches[0].clientX; startY = e.touches[0].clientY;
     direction = null;
     card.style.transition = 'none';
   }, { passive: true });
@@ -433,23 +517,17 @@ function attachSwipe(wrap, card, id, rightCb, leftCb) {
   wrap.addEventListener('touchmove', function(e) {
     var dx = e.touches[0].clientX - startX;
     var dy = e.touches[0].clientY - startY;
-
     if (!direction) {
       if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 6) direction = 'h';
       else if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 6) direction = 'v';
       else return;
     }
     if (direction !== 'h') return;
-
     e.preventDefault();
-
-    // apply resistance when swiping in a direction with no action
     var effectiveDx = dx;
     if (dx > 0 && !rightCb) effectiveDx = dx * 0.15;
     if (dx < 0 && !leftCb)  effectiveDx = dx * 0.15;
-
     card.style.transform = 'translateX(' + effectiveDx + 'px)';
-
     var progress = Math.min(Math.abs(effectiveDx) / SWIPE_THRESHOLD, 1);
     if (bgRight) bgRight.style.opacity = (dx > 0 && rightCb) ? progress : 0;
     if (bgLeft)  bgLeft.style.opacity  = (dx < 0 && leftCb)  ? progress : 0;
@@ -458,10 +536,8 @@ function attachSwipe(wrap, card, id, rightCb, leftCb) {
   wrap.addEventListener('touchend', function(e) {
     if (direction !== 'h') return;
     var dx = e.changedTouches[0].clientX - startX;
-
     if (bgRight) bgRight.style.opacity = 0;
     if (bgLeft)  bgLeft.style.opacity  = 0;
-
     if (dx > SWIPE_THRESHOLD && rightCb) {
       card.style.transition = 'transform 0.2s ease';
       card.style.transform  = 'translateX(110%)';
@@ -479,35 +555,29 @@ function attachSwipe(wrap, card, id, rightCb, leftCb) {
   }, { passive: true });
 }
 
-// collapseAndComplete: animate wrap height to 0, then mutate state + re-render
 function collapseAndComplete(id, onComplete) {
   var wrap = document.getElementById('idea-' + id);
   if (!wrap) { onComplete(); render(); schedulePush(); return; }
   var h = wrap.offsetHeight;
-  wrap.style.height   = h + 'px';
-  wrap.style.overflow = 'hidden';
-  wrap.offsetHeight; // force reflow
+  wrap.style.height = h + 'px'; wrap.style.overflow = 'hidden';
+  wrap.offsetHeight;
   wrap.style.transition = 'height 0.15s ease';
-  wrap.style.height     = '0';
+  wrap.style.height = '0';
   setTimeout(function() {
-    onComplete();
-    render();
-    schedulePush();
+    onComplete(); render(); schedulePush();
     var list = document.getElementById('list');
-    if (list) {
-      list.style.pointerEvents = 'none';
-      setTimeout(function() { list.style.pointerEvents = ''; }, 400);
-    }
+    if (list) { list.style.pointerEvents = 'none'; setTimeout(function() { list.style.pointerEvents = ''; }, 400); }
   }, 160);
 }
 
-// animateRemove: fade + slight slide, then collapse — used by kill button
 function animateRemove(id, onComplete) {
   var wrap = document.getElementById('idea-' + id);
   if (!wrap) { onComplete(); render(); schedulePush(); return; }
   wrap.classList.add('killing');
   setTimeout(function() { collapseAndComplete(id, onComplete); }, 150);
 }
+
+// ── ACTIONS ─────────────────────────────────────────────
 
 function switchView(v) {
   currentView = v;
@@ -521,8 +591,7 @@ function capture(text) {
   text = text.trim();
   if (!text) return;
   state.ideas.push({ id: Date.now(), text: text, ts: Date.now(), status: 'inbox' });
-  render();
-  schedulePush();
+  render(); schedulePush();
 }
 
 function promote(id) {
@@ -554,17 +623,13 @@ function startEdit(id) {
   input.className = 'idea-edit';
   input.value = idea.text;
   el.replaceWith(input);
-  input.focus();
-  input.select();
+  input.focus(); input.select();
   var committed = false;
   function commit() {
     if (committed) return;
     committed = true;
     var newText = input.value.trim();
-    if (newText && newText !== idea.text) {
-      idea.text = newText;
-      schedulePush();
-    }
+    if (newText && newText !== idea.text) { idea.text = newText; schedulePush(); }
     render();
   }
   input.addEventListener('keydown', function(e) {
@@ -573,6 +638,8 @@ function startEdit(id) {
   });
   input.addEventListener('blur', commit);
 }
+
+// ── SETUP ───────────────────────────────────────────────
 
 function openSetup() {
   document.getElementById('inputToken').value  = token;
@@ -590,9 +657,7 @@ function saveSetup() {
   if (t) { token  = t; localStorage.setItem('idx_token',   t); }
   if (g !== gistId) { gistId = g; localStorage.setItem('idx_gist_id', g); }
   closeSetup();
-  if (token) {
-    if (gistId) { pullFromGist(); } else { pushToGist(); }
-  }
+  if (token) { if (gistId) { pullFromGist(); } else { pushToGist(); } }
 }
 
 document.getElementById('setupModal').addEventListener('click', function(e) {
@@ -600,20 +665,13 @@ document.getElementById('setupModal').addEventListener('click', function(e) {
 });
 
 document.getElementById('captureInput').addEventListener('keydown', function(e) {
-  if (e.key === 'Enter') {
-    var val = this.value;
-    this.value = '';
-    capture(val);
-  }
+  if (e.key === 'Enter') { var val = this.value; this.value = ''; capture(val); }
 });
 
+// ── INIT ────────────────────────────────────────────────
+
 loadCredentials();
-if (token && gistId) {
-  pullFromGist();
-} else {
-  render();
-  setSyncState('', 'not connected');
-}
+if (token && gistId) { pullFromGist(); } else { render(); setSyncState('', 'not connected'); }
 document.getElementById('captureInput').focus();
 </script>
 </body>
