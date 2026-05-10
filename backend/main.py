@@ -15,11 +15,8 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    try:
-        Base.metadata.create_all(bind=engine)
-        logger.info("DB tables ready")
-    except Exception as exc:
-        logger.error("DB init failed: %s", exc)
+    Base.metadata.create_all(bind=engine)
+    logger.info("DB tables ready")
     yield
 
 
