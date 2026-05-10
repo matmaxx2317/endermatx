@@ -1,10 +1,10 @@
 import { useEffect, useRef } from 'react'
 
 const ENDER_W = 14
-const ENDER_H = 70
+const ENDER_TOP = 8
 const PARTICLE_COLORS = ['#cc00ee', '#dd44ff', '#9900bb', '#ee88ff', '#aa00dd']
 
-export default function Enderman({ headerRef }) {
+export default function Enderman() {
   const endermanRef = useRef(null)
   const flipRef = useRef(null)
 
@@ -33,16 +33,6 @@ export default function Enderman({ headerRef }) {
       if (r < 0.5) return 18 + Math.random() * 14
       if (r < 0.85) return 45 + Math.random() * 25
       return 90 + Math.random() * 40
-    }
-
-    function positionV() {
-      if (headerRef?.current) {
-        const rect = headerRef.current.getBoundingClientRect()
-        const top = rect.top + rect.height / 2 - ENDER_H / 2
-        enderman.style.top = Math.max(8, top) + 'px'
-      } else {
-        enderman.style.top = (window.innerHeight / 2 - ENDER_H / 2) + 'px'
-      }
     }
 
     function spawnParticles(px, py, count) {
@@ -77,7 +67,7 @@ export default function Enderman({ headerRef }) {
     function enderPos() {
       return {
         px: x + ENDER_W / 2,
-        py: parseFloat(enderman.style.top || 0) + ENDER_H / 2,
+        py: ENDER_TOP + 35,
       }
     }
 
@@ -134,11 +124,9 @@ export default function Enderman({ headerRef }) {
       rafId = requestAnimationFrame(loop)
     }
 
-    positionV()
     enderman.style.transform = `translateX(${x}px)`
 
     function onResize() {
-      positionV()
       x = Math.min(x, window.innerWidth - ENDER_W)
     }
     window.addEventListener('resize', onResize)
@@ -151,7 +139,7 @@ export default function Enderman({ headerRef }) {
   }, [])
 
   return (
-    <div ref={endermanRef} style={{ position: 'fixed', top: 0, left: 0, zIndex: 5, pointerEvents: 'none' }}>
+    <div ref={endermanRef} style={{ position: 'fixed', top: ENDER_TOP, left: 0, zIndex: 5, pointerEvents: 'none' }}>
       <div ref={flipRef}>
         <div className="ender-figure">
           <div className="ender-head">
