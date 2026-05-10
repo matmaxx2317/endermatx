@@ -124,7 +124,15 @@ export default function Enderman() {
       rafId = requestAnimationFrame(loop)
     }
 
+    x = Math.random() * (window.innerWidth - ENDER_W)
+    dir = Math.random() > 0.5 ? 1 : -1
+    flip.style.transform = dir === -1 ? 'scaleX(-1)' : 'scaleX(1)'
     enderman.style.transform = `translateX(${x}px)`
+    enderman.style.opacity = '0'
+    setTimeout(() => {
+      enderman.style.opacity = '1'
+      spawnParticles(x + ENDER_W / 2, ENDER_TOP + 35, 14)
+    }, 300)
 
     function onResize() {
       x = Math.min(x, window.innerWidth - ENDER_W)
