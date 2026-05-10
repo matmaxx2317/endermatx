@@ -11,8 +11,8 @@ export default function Personal() {
     <div className="landing-page">
       <Enderman />
       <header className="landing-header">
-        <h1 className="landing-title">PER<br />SON<br />AL</h1>
-        <p className="landing-sub">personal</p>
+        <h1 className="landing-title">END<br />ERM<br />ATX</h1>
+        <p className="landing-sub">tools</p>
       </header>
       <nav className="landing-grid">
         <Link to="/" className="nav-card">

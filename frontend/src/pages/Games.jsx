@@ -11,8 +11,8 @@ export default function Games() {
     <div className="landing-page">
       <Enderman />
       <header className="landing-header">
-        <h1 className="landing-title">GAM<br />ES</h1>
-        <p className="landing-sub">games</p>
+        <h1 className="landing-title">END<br />ERM<br />ATX</h1>
+        <p className="landing-sub">tools</p>
       </header>
       <nav className="landing-grid">
         <Link to="/" className="nav-card">
