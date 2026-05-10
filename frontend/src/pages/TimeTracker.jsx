@@ -34,12 +34,15 @@ export default function TimeTracker() {
   const [newName, setNewName] = useState('')
   const [newColor, setNewColor] = useState(COLORS[0])
   const [adding, setAdding] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(null)
   const [tick, setTick] = useState(0)
   const timerRef = useRef(null)
 
   useEffect(() => {
-    tts.getProjects().then(setProjects)
-    tts.getEntries().then(setEntries)
+    Promise.all([tts.getProjects(), tts.getEntries()])
+      .then(([ps, es]) => { setProjects(ps); setEntries(es) })
+      .catch(err => setError(err.message))
   }, [])
 
   useEffect(() => {
@@ -51,36 +54,56 @@ export default function TimeTracker() {
   const activeProjectId = activeEntry?.project_id
 
   async function handleProjectClick(pid) {
-    if (activeEntry) {
-      const updated = await tts.updateEntry(activeEntry.id, { end_time: new Date().toISOString() })
-      setEntries(es => es.map(e => e.id === updated.id ? updated : e))
-      if (pid === activeProjectId) return
+    try {
+      if (activeEntry) {
+        const updated = await tts.updateEntry(activeEntry.id, { end_time: new Date().toISOString() })
+        setEntries(es => es.map(e => e.id === updated.id ? updated : e))
+        if (pid === activeProjectId) return
+      }
+      const entry = await tts.createEntry({ project_id: pid, start_time: new Date().toISOString() })
+      setEntries(es => [entry, ...es])
+    } catch (err) {
+      setError(err.message)
     }
-    const entry = await tts.createEntry({ project_id: pid, start_time: new Date().toISOString() })
-    setEntries(es => [entry, ...es])
   }
 
   async function addProject(e) {
     e.preventDefault()
     if (!newName.trim()) return
-    const proj = await tts.createProject({ name: newName.trim(), color: newColor })
-    setProjects(ps => [...ps, proj])
-    setNewName('')
-    setAdding(false)
+    setSaving(true)
+    setError(null)
+    try {
+      const proj = await tts.createProject({ name: newName.trim(), color: newColor })
+      setProjects(ps => [...ps, proj])
+      setNewName('')
+      setAdding(false)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function archiveProject(pid) {
-    await tts.updateProject(pid, { archived: true })
-    setProjects(ps => ps.filter(p => p.id !== pid))
-    if (activeEntry?.project_id === pid) {
-      const updated = await tts.updateEntry(activeEntry.id, { end_time: new Date().toISOString() })
-      setEntries(es => es.map(e => e.id === updated.id ? updated : e))
+    try {
+      await tts.updateProject(pid, { archived: true })
+      setProjects(ps => ps.filter(p => p.id !== pid))
+      if (activeEntry?.project_id === pid) {
+        const updated = await tts.updateEntry(activeEntry.id, { end_time: new Date().toISOString() })
+        setEntries(es => es.map(e => e.id === updated.id ? updated : e))
+      }
+    } catch (err) {
+      setError(err.message)
     }
   }
 
   async function deleteEntry(eid) {
-    await tts.deleteEntry(eid)
-    setEntries(es => es.filter(e => e.id !== eid))
+    try {
+      await tts.deleteEntry(eid)
+      setEntries(es => es.filter(e => e.id !== eid))
+    } catch (err) {
+      setError(err.message)
+    }
   }
 
   const visibleProjects = projects.filter(p => !p.archived)
@@ -96,12 +119,18 @@ export default function TimeTracker() {
     <div>
       <div className="topbar">
         <div className="topbar-left">
-          <Link to="/"><button className="topbar-back btn btn-sm">←</button></Link>
+          <Link to="/productivity"><button className="topbar-back btn btn-sm">←</button></Link>
           <span className="topbar-title">tts</span>
           <span style={{ fontSize: 10, color: '#bbb', letterSpacing: '0.05em' }}>v3.0</span>
         </div>
       </div>
       <div className="page">
+        {error && (
+          <div style={{ background: '#2a0000', border: '1px solid #f44336', color: '#f44336', fontSize: 12, padding: '8px 12px', marginBottom: 12 }}>
+            {error} <button style={{ float: 'right', background: 'none', border: 'none', color: '#f44336', cursor: 'pointer' }} onClick={() => setError(null)}>×</button>
+          </div>
+        )}
+
         <div className="section-header">projects</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {visibleProjects.map(p => (
@@ -127,16 +156,16 @@ export default function TimeTracker() {
         </div>
 
         {adding ? (
-          <form onSubmit={addProject} className="card mt8" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <input className="input" style={{ flex: 1 }} placeholder="project name" value={newName} onChange={e => setNewName(e.target.value)} autoFocus />
+          <form onSubmit={addProject} className="card mt8" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <input className="input" style={{ flex: 1, minWidth: 120 }} placeholder="project name" value={newName} onChange={e => setNewName(e.target.value)} autoFocus />
             <div style={{ display: 'flex', gap: 4 }}>
               {COLORS.map(c => (
                 <button key={c} type="button" onClick={() => setNewColor(c)}
                   style={{ width: 18, height: 18, background: c, border: newColor === c ? '2px solid #fff' : '2px solid transparent', borderRadius: 2 }} />
               ))}
             </div>
-            <button type="submit" className="btn btn-primary btn-sm">add</button>
-            <button type="button" className="btn btn-sm" onClick={() => setAdding(false)}>cancel</button>
+            <button type="submit" className="btn btn-primary btn-sm" disabled={saving}>{saving ? '…' : 'add'}</button>
+            <button type="button" className="btn btn-sm" onClick={() => { setAdding(false); setError(null) }}>cancel</button>
           </form>
         ) : (
           <button className="btn btn-sm mt8" onClick={() => setAdding(true)}>+ project</button>
