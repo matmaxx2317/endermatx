@@ -1,14 +1,11 @@
-import { useRef } from 'react'
 import { Link } from 'react-router-dom'
 import Enderman from '../components/Enderman'
 
 export default function Home() {
-  const headerRef = useRef(null)
-
   return (
     <div className="landing-page">
-      <Enderman headerRef={headerRef} />
-      <header className="landing-header" ref={headerRef}>
+      <Enderman />
+      <header className="landing-header">
         <h1 className="landing-title">END<br />ERM<br />ATX</h1>
         <p className="landing-sub">tools</p>
       </header>
