@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -15,8 +16,16 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    Base.metadata.create_all(bind=engine)
-    logger.info("DB tables ready")
+    for attempt in range(1, 6):
+        try:
+            Base.metadata.create_all(bind=engine)
+            logger.info("DB tables ready")
+            break
+        except Exception as exc:
+            logger.warning("DB init attempt %d/5 failed: %s", attempt, exc)
+            if attempt == 5:
+                raise
+            await asyncio.sleep(2)
     yield
 
 
