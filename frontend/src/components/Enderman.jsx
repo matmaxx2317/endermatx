@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 
 const ENDER_W = 14
-const ENDER_TOP = 8
+const ENDER_TOP = 120
 const PARTICLE_COLORS = ['#cc00ee', '#dd44ff', '#9900bb', '#ee88ff', '#aa00dd']
 
 export default function Enderman() {
