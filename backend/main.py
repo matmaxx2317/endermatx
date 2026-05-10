@@ -5,6 +5,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from .database import engine, Base
 from .routers import tts, cal, pom, mtg, idx, strings, crd
@@ -40,6 +41,10 @@ app.include_router(strings.router, prefix="/api/str", tags=["str"])
 app.include_router(crd.router, prefix="/api/crd", tags=["crd"])
 
 FRONTEND_DIST = Path(__file__).parent.parent / "frontend" / "dist"
+GAMES_DIR = Path(__file__).parent.parent / "games"
+
+if GAMES_DIR.exists():
+    app.mount("/games", StaticFiles(directory=GAMES_DIR, html=True), name="games")
 
 
 @app.get("/health")
