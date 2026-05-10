@@ -2,7 +2,12 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://localhost/endermatx")
+# Railway injects DATABASE_URL (internal, requires Railnet) and
+# DATABASE_PUBLIC_URL (always reachable). Prefer the public URL.
+DATABASE_URL = (
+    os.getenv("DATABASE_PUBLIC_URL")
+    or os.getenv("DATABASE_URL", "postgresql://localhost/endermatx")
+)
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
