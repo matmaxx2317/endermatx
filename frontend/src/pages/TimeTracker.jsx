@@ -20,8 +20,53 @@ function fmtMsStat(ms) {
   return ms > 1000 ? fmtMs(ms) : '—'
 }
 
+function fmtHHMM(dt) {
+  const d = new Date(dt)
+  return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+}
+
+function fmtCell(ms) {
+  const sec = Math.round(ms / 1000)
+  const r = Math.round(sec / 900) * 900
+  if (r === 0) return '--'
+  const h = Math.floor(r / 3600)
+  const m = Math.floor((r % 3600) / 60)
+  if (h > 0 && m > 0) return `${h}h ${m}m`
+  if (h > 0) return `${h}h`
+  return `${m}m`
+}
+
 function isToday(dt) {
   return new Date(dt).toDateString() === new Date().toDateString()
+}
+
+function isSameDay(a, b) {
+  const da = new Date(a), db = new Date(b)
+  return da.getFullYear() === db.getFullYear() &&
+         da.getMonth()    === db.getMonth()    &&
+         da.getDate()     === db.getDate()
+}
+
+function getMondayOf(date) {
+  const d = new Date(date)
+  d.setHours(0, 0, 0, 0)
+  const dow = (d.getDay() + 6) % 7
+  d.setDate(d.getDate() - dow)
+  return d
+}
+
+function getISOWeek(date) {
+  const d = new Date(date)
+  d.setHours(0, 0, 0, 0)
+  d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7)
+  const w1 = new Date(d.getFullYear(), 0, 4)
+  return 1 + Math.round(((d - w1) / 86400000 - 3 + (w1.getDay() + 6) % 7) / 7)
+}
+
+function getISOWeekYear(date) {
+  const d = new Date(date)
+  d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7)
+  return d.getFullYear()
 }
 
 // ── Modals ─────────────────────────────────────────────────────────────────────
@@ -129,6 +174,187 @@ function ProjectModal({ project, onSave, onClose }) {
   )
 }
 
+// ── Today's Log ────────────────────────────────────────────────────────────────
+
+function TodayLog({ entries, projects, onDelete }) {
+  const now = Date.now()
+
+  function getProject(pid) {
+    return projects.find(p => p.id === pid) || { name: '?', color: '#666' }
+  }
+
+  const todayAll   = entries.filter(e => isToday(e.start_time))
+  const active     = todayAll.find(e => !e.end_time)
+  const completed  = todayAll
+    .filter(e => e.end_time)
+    .sort((a, b) => new Date(b.start_time) - new Date(a.start_time))
+
+  if (!active && completed.length === 0) return (
+    <>
+      <div className="section-header mt24">today's log</div>
+      <div style={{ color: '#333', fontSize: 11, padding: '6px 0' }}>no entries today yet</div>
+    </>
+  )
+
+  function renderEntry(e) {
+    const p = getProject(e.project_id)
+    const isLive = !e.end_time
+    const durationMs = isLive
+      ? now - new Date(e.start_time).getTime()
+      : new Date(e.end_time).getTime() - new Date(e.start_time).getTime()
+    return (
+      <div key={e.id} className={`tts-log-entry${isLive ? ' tts-log-live' : ''}`}>
+        <span className="tts-log-dot" style={{ background: p.color }} />
+        <div className="tts-log-info">
+          <span className="tts-log-project">{p.name}</span>
+          <span className="tts-log-meta">{fmtHHMM(e.start_time)}</span>
+        </div>
+        <span className="tts-log-dur">{fmtMs(durationMs)}</span>
+        {!isLive && (
+          <button className="tts-log-del" onClick={() => onDelete(e.id)}>×</button>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <div className="section-header mt24">today's log</div>
+      <div className="tts-log">
+        {active && renderEntry(active)}
+        {completed.map(renderEntry)}
+      </div>
+    </>
+  )
+}
+
+// ── Weekly Overview ────────────────────────────────────────────────────────────
+
+function WeeklyOverview({ entries, projects }) {
+  const [weekMonday, setWeekMonday] = useState(() => getMondayOf(new Date()))
+  const now = Date.now()
+  const today = new Date()
+
+  const activeProjects = projects.filter(p => !p.archived)
+  const cw     = getISOWeek(weekMonday)
+  const cwYear = getISOWeekYear(weekMonday)
+
+  const days = []
+  for (let i = 0; i < 5; i++) {
+    const d = new Date(weekMonday)
+    d.setDate(d.getDate() + i)
+    days.push(d)
+  }
+
+  function getDayMs(pid, dayDate) {
+    return entries
+      .filter(e => e.project_id === pid && isSameDay(e.start_time, dayDate))
+      .reduce((acc, e) => {
+        const end = e.end_time ? new Date(e.end_time).getTime() : now
+        return acc + Math.max(0, end - new Date(e.start_time).getTime())
+      }, 0)
+  }
+
+  function getDayBounds(dayDate) {
+    const dayEntries = entries.filter(e => isSameDay(e.start_time, dayDate))
+    if (!dayEntries.length) return null
+    let minStart = Infinity, maxEnd = -Infinity
+    dayEntries.forEach(e => {
+      const s   = new Date(e.start_time).getTime()
+      const end = e.end_time ? new Date(e.end_time).getTime() : now
+      if (s   < minStart) minStart = s
+      if (end > maxEnd)   maxEnd   = end
+    })
+    return { start: minStart, end: maxEnd }
+  }
+
+  function prevWeek() {
+    setWeekMonday(d => { const nd = new Date(d); nd.setDate(nd.getDate() - 7); return nd })
+  }
+  function nextWeek() {
+    setWeekMonday(d => { const nd = new Date(d); nd.setDate(nd.getDate() + 7); return nd })
+  }
+
+  const DAY_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
+  const p2 = n => String(n).padStart(2, '0')
+
+  // Compute per-project row data
+  const dayTotals = [0, 0, 0, 0, 0]
+  let grandTotal = 0
+  const projectRows = activeProjects.map(p => {
+    const rowTotals = days.map(d => getDayMs(p.id, d))
+    const rowTotal  = rowTotals.reduce((a, b) => a + b, 0)
+    rowTotals.forEach((ms, i) => { dayTotals[i] += ms })
+    grandTotal += rowTotal
+    return { p, rowTotals, rowTotal }
+  })
+
+  return (
+    <>
+      <div className="section-header mt24">weekly overview</div>
+      <div className="tts-week-nav">
+        <button className="btn btn-sm" onClick={prevWeek}>←</button>
+        <span className="tts-week-cw">CW {cw} · {cwYear}</span>
+        <button className="btn btn-sm" onClick={nextWeek}>→</button>
+      </div>
+      <div className="tts-week-wrap">
+        <table className="tts-week-table">
+          <thead>
+            <tr>
+              <th className="tts-wk-proj-col"></th>
+              {days.map((d, i) => (
+                <th key={i} className={`tts-wk-day-col${isSameDay(d, today) ? ' tts-wk-today' : ''}`}>
+                  {DAY_SHORT[i]}
+                  <span className="tts-wk-date">{p2(d.getDate())}.{p2(d.getMonth()+1)}</span>
+                </th>
+              ))}
+              <th className="tts-wk-total-col">total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {/* start · end bounds row */}
+            <tr>
+              <td className="tts-wk-label tts-wk-bounds-label">start · end</td>
+              {days.map((d, i) => {
+                const b = getDayBounds(d)
+                return (
+                  <td key={i} className={`tts-wk-bounds-cell${!b ? ' tts-wk-empty' : ''}`}>
+                    {b ? <>{fmtHHMM(b.start)}<br />{fmtHHMM(b.end)}</> : '--'}
+                  </td>
+                )
+              })}
+              <td className="tts-wk-total-cell"></td>
+            </tr>
+            {/* per-project rows */}
+            {projectRows.map(({ p, rowTotals, rowTotal }) => (
+              <tr key={p.id}>
+                <td className="tts-wk-label">
+                  <span className="tts-wk-dot" style={{ background: p.color }} />
+                  {p.name}
+                </td>
+                {rowTotals.map((ms, i) => (
+                  <td key={i} className={`tts-wk-cell${ms === 0 ? ' tts-wk-empty' : ''}`}>
+                    {fmtCell(ms)}
+                  </td>
+                ))}
+                <td className="tts-wk-cell tts-wk-row-total">{fmtCell(rowTotal)}</td>
+              </tr>
+            ))}
+            {/* total row */}
+            <tr className="tts-wk-total-row">
+              <td className="tts-wk-label">total</td>
+              {dayTotals.map((ms, i) => (
+                <td key={i} className="tts-wk-cell">{fmtCell(ms)}</td>
+              ))}
+              <td className="tts-wk-cell tts-wk-row-total">{fmtCell(grandTotal)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </>
+  )
+}
+
 // ── Main ───────────────────────────────────────────────────────────────────────
 
 export default function TimeTracker() {
@@ -194,11 +420,9 @@ export default function TimeTracker() {
   // ── Project card click ─────────────────────────────────────────────────────
 
   async function handleCardClick(pid) {
-    // Auto-start global timer if not running
     if (!globalStart) startGlobal()
 
     if (pid === activeProjectId) {
-      // Open adjust-start modal
       const todayEs = entries
         .filter(e => isToday(e.start_time))
         .sort((a, b) => new Date(a.start_time) - new Date(b.start_time))
@@ -281,6 +505,13 @@ export default function TimeTracker() {
     } catch (err) { setError(err.message) }
   }
 
+  async function deleteEntry(id) {
+    try {
+      await tts.deleteEntry(id)
+      setEntries(es => es.filter(e => e.id !== id))
+    } catch (err) { setError(err.message) }
+  }
+
   // ── Stats helpers ──────────────────────────────────────────────────────────
 
   function projectStats(pid) {
@@ -318,7 +549,7 @@ export default function TimeTracker() {
         <div className="topbar-left">
           <Link to="/productivity"><button className="topbar-back btn btn-sm">←</button></Link>
           <span className="topbar-title">tts</span>
-          <span style={{ fontSize: 10, color: '#bbb', letterSpacing: '0.05em' }}>v3.1</span>
+          <span style={{ fontSize: 10, color: '#bbb', letterSpacing: '0.05em' }}>v3.2</span>
         </div>
       </div>
 
@@ -390,6 +621,12 @@ export default function TimeTracker() {
             })}
           </div>
         )}
+
+        {/* ── Today's Log ── */}
+        <TodayLog entries={entries} projects={projects} onDelete={deleteEntry} />
+
+        {/* ── Weekly Overview ── */}
+        <WeeklyOverview entries={entries} projects={projects} />
 
         {/* ── Project management ── */}
         <div className="section-header mt24">projects</div>
