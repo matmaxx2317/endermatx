@@ -519,9 +519,20 @@ export default function TimeTracker() {
     const today = all.filter(e => isToday(e.start_time))
     const now   = Date.now()
 
-    const sessionMs = activeEntry?.project_id === pid
-      ? now - new Date(activeEntry.start_time)
-      : 0
+    let sessionMs = 0
+    if (activeEntry?.project_id === pid) {
+      // Active: grows from 0 since last click; updates when start time is adjusted
+      sessionMs = now - new Date(activeEntry.start_time).getTime()
+    } else {
+      // Inactive: show duration of the last completed segment today
+      const lastCompleted = today
+        .filter(e => e.end_time)
+        .sort((a, b) => new Date(b.end_time) - new Date(a.end_time))[0]
+      if (lastCompleted) {
+        sessionMs = new Date(lastCompleted.end_time).getTime()
+                  - new Date(lastCompleted.start_time).getTime()
+      }
+    }
 
     const todayMs = today.reduce((acc, e) => {
       const end = e.end_time ? new Date(e.end_time) : new Date()
@@ -549,7 +560,7 @@ export default function TimeTracker() {
         <div className="topbar-left">
           <Link to="/productivity"><button className="topbar-back btn btn-sm">←</button></Link>
           <span className="topbar-title">tts</span>
-          <span style={{ fontSize: 10, color: '#bbb', letterSpacing: '0.05em' }}>v3.2</span>
+          <span style={{ fontSize: 10, color: '#bbb', letterSpacing: '0.05em' }}>v3.3</span>
         </div>
       </div>
 
