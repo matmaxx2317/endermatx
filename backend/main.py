@@ -60,7 +60,11 @@ async def lifespan(app: FastAPI):
         logger.error("DB init failed after 5 attempts — running without DB")
 
     scheduler = AsyncIOScheduler()
-    scheduler.add_job(_close_open_tts_entries, CronTrigger(hour=23, minute=0))
+    scheduler.add_job(
+        _close_open_tts_entries,
+        CronTrigger(hour=23, minute=0),
+        misfire_grace_time=3600,  # run immediately on startup if missed within the last hour
+    )
     scheduler.start()
     logger.info("EOD scheduler started — TTS entries will auto-close at 23:00")
 
