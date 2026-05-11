@@ -1,19 +1,46 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
+from datetime import datetime
 from pathlib import Path
 
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from .database import engine, Base
+from .database import engine, Base, SessionLocal
+from .models import TtsEntry
 from .routers import tts, cal, pom, mtg, idx, strings, crd
 
 logger = logging.getLogger(__name__)
 
 db_ready = False
+
+
+def _close_open_tts_entries() -> None:
+    """Close any TTS entries still open at 23:00. Runs in APScheduler's thread pool."""
+    eod = datetime.now().replace(hour=23, minute=0, second=0, microsecond=0)
+    db = SessionLocal()
+    try:
+        open_entries = db.query(TtsEntry).filter(TtsEntry.end_time.is_(None)).all()
+        for entry in open_entries:
+            entry.end_time = eod
+        if open_entries:
+            db.commit()
+            logger.info("EOD scheduler: closed %d open TTS entr%s at %s",
+                        len(open_entries),
+                        "y" if len(open_entries) == 1 else "ies",
+                        eod.strftime("%H:%M"))
+        else:
+            logger.debug("EOD scheduler: no open TTS entries to close")
+    except Exception as exc:
+        logger.error("EOD scheduler: failed to close entries: %s", exc)
+        db.rollback()
+    finally:
+        db.close()
 
 
 @asynccontextmanager
@@ -31,7 +58,16 @@ async def lifespan(app: FastAPI):
                 await asyncio.sleep(2)
     if not db_ready:
         logger.error("DB init failed after 5 attempts — running without DB")
+
+    scheduler = AsyncIOScheduler()
+    scheduler.add_job(_close_open_tts_entries, CronTrigger(hour=23, minute=0))
+    scheduler.start()
+    logger.info("EOD scheduler started — TTS entries will auto-close at 23:00")
+
     yield
+
+    scheduler.shutdown(wait=False)
+    logger.info("EOD scheduler stopped")
 
 
 app = FastAPI(title="endermatx API", lifespan=lifespan)
