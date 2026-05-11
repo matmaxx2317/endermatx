@@ -52,6 +52,7 @@ export default function TimeTracker() {
 
   const activeEntry = entries.find(e => !e.end_time)
   const activeProjectId = activeEntry?.project_id
+  const activeProject = projects.find(p => p.id === activeProjectId)
 
   async function handleProjectClick(pid) {
     try {
@@ -115,6 +116,10 @@ export default function TimeTracker() {
     projectTotals[e.project_id] = (projectTotals[e.project_id] || 0) + ms
   })
 
+  const activeDuration = activeEntry
+    ? Date.now() - new Date(activeEntry.start_time)
+    : null
+
   return (
     <div>
       <div className="topbar">
@@ -130,6 +135,23 @@ export default function TimeTracker() {
             {error} <button style={{ float: 'right', background: 'none', border: 'none', color: '#f44336', cursor: 'pointer' }} onClick={() => setError(null)}>×</button>
           </div>
         )}
+
+        <div style={{ textAlign: 'center', marginBottom: 24 }}>
+          <div style={{
+            fontSize: 'clamp(36px, 10vw, 64px)',
+            fontWeight: 700,
+            letterSpacing: '-0.02em',
+            fontVariantNumeric: 'tabular-nums',
+            lineHeight: 1,
+            color: activeEntry ? (activeProject?.color || '#f0f0f0') : '#333',
+            transition: 'color 0.3s',
+          }}>
+            {activeDuration != null ? fmtMs(activeDuration) : '0:00:00'}
+          </div>
+          <div style={{ fontSize: 11, color: activeProject?.color || '#555', marginTop: 6, letterSpacing: '0.1em', minHeight: 16 }}>
+            {activeProject ? activeProject.name : '—'}
+          </div>
+        </div>
 
         <div className="section-header">projects</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
