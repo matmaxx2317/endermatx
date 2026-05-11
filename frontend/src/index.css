@@ -349,3 +349,86 @@ input, textarea, select {
   0%, 100% { transform: rotate(10deg); }
   50%       { transform: rotate(-10deg); }
 }
+
+/* ── IDX swipe cards ─────────────────────────────────────────── */
+.idea-wrap {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid #1e1e1e;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.idea-wrap:hover { border-color: #2a2a2a; }
+.idea-wrap.killing { opacity: 0; transform: translateX(10px); pointer-events: none; }
+
+.swipe-bg {
+  position: absolute; top: 0; bottom: 0;
+  display: flex; align-items: center;
+  font-size: 11px; letter-spacing: 0.12em;
+  pointer-events: none; opacity: 0;
+}
+.swipe-right { left: 0; right: 35%; background: #110822; color: #8855ff; padding-left: 16px; }
+.swipe-left  { left: 35%; right: 0; background: #131100; color: #ccaa00; padding-right: 16px; justify-content: flex-end; }
+.swipe-left.kill-swipe { background: #1a0606; color: #ff5555; }
+
+.idea-card {
+  background: #111; padding: 10px 12px;
+  display: flex; align-items: flex-start; gap: 10px;
+  position: relative; z-index: 1; will-change: transform;
+}
+.idea-body { flex: 1; min-width: 0; }
+.idea-text { color: #e0e0e0; word-break: break-word; line-height: 1.5; font-size: 13px; }
+.idea-text.clickable { cursor: pointer; }
+.idea-text.clickable:hover { color: #fff; }
+
+.idea-actions { display: flex; gap: 5px; flex-shrink: 0; align-self: stretch; align-items: center; }
+.act {
+  background: none; border: 1px solid #2a2a2a; color: #ccc;
+  padding: 2px 8px; cursor: pointer; font-size: 10px; letter-spacing: 0.05em;
+}
+.act:hover { border-color: #555; color: #e0e0e0; }
+.act.kill {
+  padding: 0 8px; aspect-ratio: 1; display: flex; align-items: center;
+  justify-content: center; background: #1a0606; border-color: #882222; color: #ff5555;
+}
+.act.kill:hover { border-color: #cc3333; color: #ff8888; background: #2a0a0a; }
+
+.idea-edit {
+  width: 100%; background: #0d0d0d; border: 1px solid #8855ff;
+  color: #e0e0e0; padding: 3px 6px; font-size: 16px; outline: none;
+}
+
+/* ── IDX stats ───────────────────────────────────────────────── */
+.stat-topline { display: flex; margin-bottom: 28px; }
+.stat-box { flex: 1; text-align: center; padding: 14px 6px; border: 1px solid #1e1e1e; background: #111; }
+.stat-box + .stat-box { border-left: none; }
+.stat-box-val   { font-size: 26px; line-height: 1; margin-bottom: 5px; }
+.stat-box-label { font-size: 9px; color: #aaa; letter-spacing: 0.15em; }
+
+.stat-section { margin-bottom: 28px; }
+.stat-heading { font-size: 9px; color: #aaa; letter-spacing: 0.15em; margin-bottom: 12px; }
+
+.stat-funnel-row   { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+.stat-funnel-label { font-size: 10px; color: #ccc; letter-spacing: 0.08em; width: 44px; flex-shrink: 0; text-align: right; }
+.stat-funnel-wrap  { flex: 1; height: 10px; background: #1a1a1a; }
+.stat-funnel-bar   { height: 100%; }
+.stat-funnel-count { font-size: 10px; color: #aaa; width: 68px; flex-shrink: 0; }
+.stat-pct          { color: #888; }
+
+.stat-resolution { display: flex; gap: 28px; margin-bottom: 10px; }
+.stat-res-item   { display: flex; align-items: baseline; gap: 7px; }
+.stat-res-pct    { font-size: 32px; line-height: 1; }
+.stat-res-label  { font-size: 9px; color: #aaa; letter-spacing: 0.12em; }
+.stat-res-bar    { width: 100%; height: 4px; display: flex; overflow: hidden; }
+
+.stat-bars     { display: flex; align-items: flex-end; gap: 4px; }
+.stat-bar-col  { display: flex; flex-direction: column; align-items: center; flex: 1; gap: 3px; }
+.stat-bar-val  { font-size: 9px; color: #aaa; min-height: 12px; line-height: 12px; }
+.stat-bar-out  { width: 100%; height: 60px; background: #1a1a1a; display: flex; align-items: flex-end; }
+.stat-bar-in   { width: 100%; background: #8855ff; min-height: 0; }
+.stat-bar-date { font-size: 8px; color: #999; white-space: nowrap; }
+
+.stat-dow       { display: flex; gap: 4px; }
+.stat-dow-col   { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.stat-dow-cell  { width: 100%; aspect-ratio: 1; }
+.stat-dow-label { font-size: 8px; color: #aaa; letter-spacing: 0.04em; }
+.stat-dow-count { font-size: 9px; color: #ccc; }
