@@ -571,6 +571,63 @@ input, textarea, select {
   border-top: 1px solid #1e1e1e;
 }
 
+/* ── TTS Today's Log ─────────────────────────────────────────── */
+.tts-log { display: flex; flex-direction: column; gap: 1px; }
+.tts-log-entry {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 10px; background: #111; border: 1px solid #1e1e1e; font-size: 11px;
+}
+.tts-log-live { border-color: #1e3a1e; background: #0e1a0e; }
+.tts-log-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.tts-log-info { flex: 1; display: flex; gap: 8px; align-items: baseline; min-width: 0; }
+.tts-log-project { color: #e0e0e0; letter-spacing: 0.04em; }
+.tts-log-meta { color: #555; font-size: 10px; }
+.tts-log-dur { color: #888; font-size: 10px; letter-spacing: 0.04em; flex-shrink: 0; }
+.tts-log-live .tts-log-dur { color: #7effa0; }
+.tts-log-del {
+  background: none; border: none; color: #2a2a2a; font-size: 14px;
+  padding: 0 4px; cursor: pointer; flex-shrink: 0; line-height: 1;
+}
+.tts-log-del:hover { color: #ff6b6b; }
+
+/* ── TTS Weekly Overview ─────────────────────────────────────── */
+.tts-week-nav {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 8px;
+}
+.tts-week-cw {
+  flex: 1; text-align: center; font-size: 11px; color: #666; letter-spacing: 0.1em;
+}
+.tts-week-wrap { overflow-x: auto; margin-bottom: 4px; }
+.tts-week-table {
+  width: 100%; border-collapse: collapse; font-size: 10px;
+}
+.tts-week-table th, .tts-week-table td {
+  padding: 5px 6px; text-align: right; border-bottom: 1px solid #1a1a1a;
+}
+.tts-wk-proj-col { width: 90px; }
+.tts-wk-day-col  { color: #555; font-weight: normal; letter-spacing: 0.05em; }
+.tts-wk-today    { color: #7effa0 !important; }
+.tts-wk-date     { display: block; font-size: 9px; color: #333; margin-top: 2px; }
+.tts-wk-today .tts-wk-date { color: #2a5a2a; }
+.tts-wk-total-col { color: #444; font-weight: normal; letter-spacing: 0.05em; }
+.tts-wk-label {
+  text-align: left; color: #555; font-size: 10px; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; max-width: 90px;
+}
+.tts-wk-bounds-label { color: #333; font-size: 9px; }
+.tts-wk-bounds-cell  { font-size: 9px; color: #444; text-align: center; line-height: 1.5; }
+.tts-wk-dot {
+  display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+  margin-right: 5px; vertical-align: middle; flex-shrink: 0;
+}
+.tts-wk-cell       { color: #aaa; }
+.tts-wk-empty      { color: #222; }
+.tts-wk-row-total  { color: #ccc; border-left: 1px solid #1e1e1e; }
+.tts-wk-total-cell { }
+.tts-wk-total-row td {
+  border-top: 1px solid #2a2a2a; color: #ccc; font-size: 10px;
+}
+
 /* ── IDX swipe cards ─────────────────────────────────────────── */
 .idea-wrap {
   position: relative;

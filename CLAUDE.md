@@ -122,7 +122,7 @@ Every subproject displays its version next to its title — small (`font-size:10
 
 | Tool | Path | Version |
 |------|------|---------|
-| tts  | `productivity/tts/index.html` | v3.0 |
+| tts  | `productivity/tts/index.html` | v3.2 |
 | cal  | `productivity/cal/index.html` | v3.0 |
 | pom  | `productivity/pom/index.html` | v3.0 |
 | mtg  | `productivity/mtg/index.html` | v3.0 |
