@@ -54,6 +54,19 @@ app.include_router(crd.router, prefix="/api/crd", tags=["crd"])
 FRONTEND_DIST = Path(__file__).parent.parent / "frontend" / "dist"
 GAMES_DIR = Path(__file__).parent.parent / "games"
 
+# /games and /games/ must be explicit routes registered BEFORE the StaticFiles
+# mount.  Starlette stops at the first full match in registration order, so
+# without these the mount would intercept /games/ and serve the old static
+# games/index.html instead of the React SPA.
+@app.get("/games")
+@app.get("/games/")
+async def games_page():
+    index = FRONTEND_DIST / "index.html"
+    if index.exists():
+        return FileResponse(index)
+    return {"status": "api running"}
+
+
 if GAMES_DIR.exists():
     app.mount("/games", StaticFiles(directory=GAMES_DIR, html=True), name="games")
 
