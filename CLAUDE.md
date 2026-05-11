@@ -25,6 +25,8 @@ Every piece of work follows this cycle — never deviate from it:
 5. **Sync to main** — when the user reports that the PR has been merged, run `git checkout main && git pull origin main && git branch -d <branch>` to clean up the local branch and land on the updated `main`.
 6. **Repeat** — the next piece of work starts a new branch from step 1.
 
+**Critical rule:** Stay on the current open branch for ALL follow-up prompts in a session. Do NOT create a new branch for each prompt. Only move to a new branch after the user says something like "I merged the pull request to main and deleted your branch. Sync to main." Multiple prompts within the same work session should all land as commits on the same branch/PR.
+
 ## Site structure
 
 Navigation is three levels deep:
