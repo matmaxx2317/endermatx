@@ -5,7 +5,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from .database import engine, Base
@@ -13,19 +13,24 @@ from .routers import tts, cal, pom, mtg, idx, strings, crd
 
 logger = logging.getLogger(__name__)
 
+db_ready = False
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    global db_ready
     for attempt in range(1, 6):
         try:
             Base.metadata.create_all(bind=engine)
+            db_ready = True
             logger.info("DB tables ready")
             break
         except Exception as exc:
             logger.warning("DB init attempt %d/5 failed: %s", attempt, exc)
-            if attempt == 5:
-                raise
-            await asyncio.sleep(2)
+            if attempt < 5:
+                await asyncio.sleep(2)
+    if not db_ready:
+        logger.error("DB init failed after 5 attempts — running without DB")
     yield
 
 
@@ -55,7 +60,7 @@ if GAMES_DIR.exists():
 
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    return JSONResponse({"status": "ok", "db": db_ready})
 
 
 @app.get("/")
