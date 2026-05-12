@@ -359,6 +359,203 @@ function WeeklyOverview({ entries, projects }) {
   )
 }
 
+// ── Stats ──────────────────────────────────────────────────────────────────────
+
+function Stats({ entries, projects }) {
+  const [stackWeek, setStackWeek] = useState(() => getMondayOf(new Date()))
+  const now = Date.now()
+  const activeProjects = projects.filter(p => !p.archived)
+
+  function msOf(e) {
+    const end = e.end_time ? new Date(e.end_time).getTime() : now
+    return Math.max(0, end - new Date(e.start_time).getTime())
+  }
+
+  function projMs(pid, filterFn) {
+    return entries
+      .filter(e => e.project_id === pid && (!filterFn || filterFn(e)))
+      .reduce((acc, e) => acc + msOf(e), 0)
+  }
+
+  function hexRgb(hex) {
+    if (!hex || hex.length < 7) return '128,128,128'
+    return `${parseInt(hex.slice(1,3),16)},${parseInt(hex.slice(3,5),16)},${parseInt(hex.slice(5,7),16)}`
+  }
+
+  function fmtH(ms) {
+    if (ms < 60000) return ''
+    const h = Math.floor(ms / 3600000)
+    const m = Math.floor((ms % 3600000) / 60000)
+    if (h >= 10) return `${h}h`
+    if (h > 0) return m > 0 ? `${h}h${m}m` : `${h}h`
+    return `${m}m`
+  }
+
+  // Chart 1: all-time totals, sorted desc
+  const allTime = activeProjects
+    .map(p => ({ p, ms: projMs(p.id) }))
+    .filter(d => d.ms > 0)
+    .sort((a, b) => b.ms - a.ms)
+
+  // Chart 2: this week totals, sorted desc
+  const thisMonday = getMondayOf(new Date())
+  const nextMonday = new Date(thisMonday)
+  nextMonday.setDate(nextMonday.getDate() + 7)
+  const weekData = activeProjects
+    .map(p => ({
+      p,
+      ms: projMs(p.id, e => {
+        const s = new Date(e.start_time)
+        return s >= thisMonday && s < nextMonday
+      })
+    }))
+    .filter(d => d.ms > 0)
+    .sort((a, b) => b.ms - a.ms)
+
+  // Chart 3: horizontal stacked daily bars, week-navigable
+  const stackDays = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(stackWeek)
+    d.setDate(d.getDate() + i)
+    return d
+  })
+  const stackRows = stackDays.map(day => {
+    const segs = activeProjects
+      .map(p => ({ p, ms: projMs(p.id, e => isSameDay(e.start_time, day)) }))
+      .filter(s => s.ms > 0)
+    return { day, segs, total: segs.reduce((a, s) => a + s.ms, 0) }
+  })
+  const maxDayMs = Math.max(...stackRows.map(r => r.total), 1)
+  const stackCw = getISOWeek(stackWeek)
+  const stackCwYear = getISOWeekYear(stackWeek)
+  const p2 = n => String(n).padStart(2, '0')
+  const DOW_SHORT = ['Mo','Tu','We','Th','Fr','Sa','Su']
+
+  // Chart 4: heatmap — average ms per project per weekday
+  const DOW_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
+  const heatRows = activeProjects.map(p => {
+    const msByDate = new Map()
+    entries
+      .filter(e => e.project_id === p.id)
+      .forEach(e => {
+        const ds = new Date(e.start_time).toDateString()
+        msByDate.set(ds, (msByDate.get(ds) || 0) + msOf(e))
+      })
+    const msPerDow = [0,0,0,0,0,0,0]
+    const cntPerDow = [0,0,0,0,0,0,0]
+    for (const [ds, ms] of msByDate) {
+      const dow = (new Date(ds).getDay() + 6) % 7
+      msPerDow[dow] += ms
+      cntPerDow[dow]++
+    }
+    const avg = msPerDow.map((ms, i) => cntPerDow[i] > 0 ? ms / cntPerDow[i] : 0)
+    return { p, avg }
+  }).filter(r => r.avg.some(v => v > 0))
+  const heatMax = Math.max(...heatRows.flatMap(r => r.avg), 1)
+
+  function renderVertBars(data) {
+    const maxMs = Math.max(...data.map(d => d.ms), 1)
+    return (
+      <div className="tts-stat-vbars">
+        {data.map(({ p, ms }) => (
+          <div key={p.id} className="tts-stat-vbar-col">
+            <div className="tts-stat-vbar-val">{fmtH(ms)}</div>
+            <div className="tts-stat-vbar-track">
+              <div className="tts-stat-vbar-fill" style={{ height: (ms / maxMs * 100) + '%', background: p.color }} />
+            </div>
+            <div className="tts-stat-vbar-name">{p.name}</div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  return (
+    <div className="tts-stat">
+      <div className="tts-stat-section">
+        <div className="tts-stat-heading">all time</div>
+        {allTime.length === 0
+          ? <div className="tts-stat-empty">no data</div>
+          : renderVertBars(allTime)
+        }
+      </div>
+
+      <div className="tts-stat-section">
+        <div className="tts-stat-heading">this week</div>
+        {weekData.length === 0
+          ? <div className="tts-stat-empty">no data</div>
+          : renderVertBars(weekData)
+        }
+      </div>
+
+      <div className="tts-stat-section">
+        <div className="tts-stat-heading">daily breakdown</div>
+        <div className="tts-week-nav">
+          <button className="btn btn-sm" onClick={() => setStackWeek(d => { const nd = new Date(d); nd.setDate(nd.getDate() - 7); return nd })}>←</button>
+          <span className="tts-week-cw">CW {stackCw} · {stackCwYear}</span>
+          <button className="btn btn-sm" onClick={() => setStackWeek(d => { const nd = new Date(d); nd.setDate(nd.getDate() + 7); return nd })}>→</button>
+        </div>
+        <div className="tts-stat-stack">
+          {stackRows.map(({ day, segs, total }) => (
+            <div key={day.toDateString()} className="tts-stat-stack-row">
+              <div className="tts-stat-stack-lbl">
+                {DOW_SHORT[(day.getDay() + 6) % 7]}
+                <span className="tts-stat-stack-date">{p2(day.getDate())}.{p2(day.getMonth() + 1)}</span>
+              </div>
+              <div className="tts-stat-stack-track">
+                <div className="tts-stat-stack-bar" style={{ width: (total / maxDayMs * 100) + '%' }}>
+                  {segs.map(s => (
+                    <div key={s.p.id} style={{ flex: s.ms, background: s.p.color, opacity: 0.85 }}
+                      title={`${s.p.name}: ${fmtH(s.ms)}`} />
+                  ))}
+                </div>
+              </div>
+              <div className="tts-stat-stack-total">{fmtH(total)}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="tts-stat-section">
+        <div className="tts-stat-heading">weekday avg</div>
+        {heatRows.length === 0
+          ? <div className="tts-stat-empty">no data</div>
+          : (
+            <div className="tts-stat-heat-wrap">
+              <table className="tts-stat-heat">
+                <thead>
+                  <tr>
+                    <th className="tts-stat-heat-phd"></th>
+                    {DOW_LABELS.map(d => <th key={d} className="tts-stat-heat-dhd">{d}</th>)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {heatRows.map(({ p, avg }) => (
+                    <tr key={p.id}>
+                      <td className="tts-stat-heat-proj">
+                        <span className="tts-wk-dot" style={{ background: p.color }} />
+                        {p.name}
+                      </td>
+                      {avg.map((ms, i) => {
+                        const alpha = ms > 0 ? 0.15 + 0.85 * (ms / heatMax) : 0
+                        return (
+                          <td key={i} className="tts-stat-heat-cell"
+                            style={ms > 0 ? { background: `rgba(${hexRgb(p.color)},${alpha.toFixed(2)})` } : undefined}>
+                            {fmtH(ms)}
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        }
+      </div>
+    </div>
+  )
+}
+
 // ── Main ───────────────────────────────────────────────────────────────────────
 
 export default function TimeTracker() {
@@ -587,7 +784,7 @@ export default function TimeTracker() {
         <div className="topbar-left">
           <Link to="/productivity"><button className="topbar-back btn btn-sm">←</button></Link>
           <span className="topbar-title">tts</span>
-          <span style={{ fontSize: 10, color: '#bbb', letterSpacing: '0.05em' }}>v3.7</span>
+          <span style={{ fontSize: 10, color: '#bbb', letterSpacing: '0.05em' }}>v3.8</span>
         </div>
       </div>
 
@@ -734,11 +931,9 @@ export default function TimeTracker() {
           </>
         )}
 
-        {/* ── stat: statistics stub ── */}
+        {/* ── stat: statistics ── */}
         {tab === 'stat' && (
-          <div style={{ color: '#555', fontSize: 12, padding: '40px 0', textAlign: 'center', letterSpacing: '0.12em' }}>
-            statistics — coming soon
-          </div>
+          <Stats entries={entries} projects={projects} />
         )}
       </div>
 
