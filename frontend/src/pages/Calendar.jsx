@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { cal } from '../api'
+import VersionBadge from '../components/VersionBadge'
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 const COLORS = ['#4a9eff','#e74c3c','#2ecc71','#f1c40f','#9b59b6','#e67e22','#1abc9c','#e91e63']
@@ -71,7 +72,7 @@ export default function Calendar() {
         <div className="topbar-left">
           <Link to="/"><button className="topbar-back btn btn-sm">←</button></Link>
           <span className="topbar-title">cal</span>
-          <span style={{ fontSize: 10, color: '#bbb', letterSpacing: '0.05em' }}>v3.0</span>
+          <VersionBadge version="v3.0" />
         </div>
       </div>
       <div className="page" style={{ maxWidth: 900 }}>

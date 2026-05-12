@@ -5,7 +5,7 @@ import Enderman from '../components/Enderman'
 function fmtDeployTime(iso) {
   const d = new Date(iso)
   const pad = n => String(n).padStart(2, '0')
-  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+  return `deployed ${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
 export default function Home() {
@@ -18,8 +18,8 @@ export default function Home() {
       .catch(() => {})
   }, [])
 
-  const label = deployInfo?.started_at ? `deployed ${fmtDeployTime(deployInfo.started_at)}` : null
-  const url   = deployInfo?.deploy_url
+  const deployLabel = deployInfo?.started_at ? fmtDeployTime(deployInfo.started_at) : null
+  const deployUrl   = deployInfo?.deploy_url
 
   return (
     <div className="landing-page">
@@ -45,14 +45,24 @@ export default function Home() {
           <div className="nav-card-arrow">→</div>
         </Link>
       </nav>
-      {label && (
-        <footer className="landing-footer">
-          {url
-            ? <a href={url} target="_blank" rel="noopener noreferrer">{label}</a>
-            : <span>{label}</span>
-          }
-        </footer>
-      )}
+      <footer className="landing-footer">
+        <span>
+          v{__APP_VERSION__}-<a
+            href={`https://github.com/matmaxx2317/endermatx/commit/${__GIT_HASH_FULL__}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >{__GIT_HASH__}</a>
+        </span>
+        {deployLabel && (
+          <>
+            <span> · </span>
+            {deployUrl
+              ? <a href={deployUrl} target="_blank" rel="noopener noreferrer">{deployLabel}</a>
+              : <span>{deployLabel}</span>
+            }
+          </>
+        )}
+      </footer>
     </div>
   )
 }
