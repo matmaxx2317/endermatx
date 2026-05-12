@@ -23,6 +23,7 @@ function fmtMs(ms) {
   const h = Math.floor(s / 3600)
   const m = Math.floor((s % 3600) / 60)
   const ss = s % 60
+  if (h >= 100) return `${h}:${String(m).padStart(2,'0')}`
   return `${h}:${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}`
 }
 
@@ -374,6 +375,30 @@ export default function TimeTracker() {
   const [error, setError] = useState(null)
   const swipeRef = useRef({ startX: 0, startY: 0 })
 
+  // Document-level swipe so empty space below content also triggers tab change
+  useEffect(() => {
+    function onStart(e) {
+      swipeRef.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY }
+    }
+    function onEnd(e) {
+      const dx = e.changedTouches[0].clientX - swipeRef.current.startX
+      const dy = e.changedTouches[0].clientY - swipeRef.current.startY
+      if (Math.abs(dx) > 50 && Math.abs(dy) < 80) {
+        setTab(t => {
+          const i = TAB_KEYS.indexOf(t)
+          if (dx < 0) return i < TAB_KEYS.length - 1 ? TAB_KEYS[i + 1] : t
+          return i > 0 ? TAB_KEYS[i - 1] : t
+        })
+      }
+    }
+    document.addEventListener('touchstart', onStart, { passive: true })
+    document.addEventListener('touchend', onEnd, { passive: true })
+    return () => {
+      document.removeEventListener('touchstart', onStart)
+      document.removeEventListener('touchend', onEnd)
+    }
+  }, [])
+
   useEffect(() => {
     Promise.all([tts.getProjects(), tts.getEntries()])
       .then(([ps, es]) => { setProjects(ps); setEntries(es) })
@@ -401,24 +426,6 @@ export default function TimeTracker() {
 
   const activeEntry     = entries.find(e => !e.end_time)
   const activeProjectId = activeEntry?.project_id
-
-  // ── Swipe navigation ───────────────────────────────────────────────────────
-
-  function onTouchStart(e) {
-    swipeRef.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY }
-  }
-
-  function onTouchEnd(e) {
-    const dx = e.changedTouches[0].clientX - swipeRef.current.startX
-    const dy = e.changedTouches[0].clientY - swipeRef.current.startY
-    if (Math.abs(dx) > 50 && Math.abs(dy) < 80) {
-      setTab(t => {
-        const i = TAB_KEYS.indexOf(t)
-        if (dx < 0) return i < TAB_KEYS.length - 1 ? TAB_KEYS[i + 1] : t
-        return i > 0 ? TAB_KEYS[i - 1] : t
-      })
-    }
-  }
 
   // ── Global timer controls ──────────────────────────────────────────────────
 
@@ -580,11 +587,11 @@ export default function TimeTracker() {
         <div className="topbar-left">
           <Link to="/productivity"><button className="topbar-back btn btn-sm">←</button></Link>
           <span className="topbar-title">tts</span>
-          <span style={{ fontSize: 10, color: '#bbb', letterSpacing: '0.05em' }}>v3.6</span>
+          <span style={{ fontSize: 10, color: '#bbb', letterSpacing: '0.05em' }}>v3.7</span>
         </div>
       </div>
 
-      <div className="page" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+      <div className="page">
         {error && (
           <div style={{ background: '#2a0000', border: '1px solid #f44336', color: '#f44336', fontSize: 12, padding: '8px 12px', marginBottom: 16 }}>
             {error}
