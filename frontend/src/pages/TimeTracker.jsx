@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { tts } from '../api'
+import VersionBadge from '../components/VersionBadge'
 
 const COLORS = [
   '#7effa0','#ff6b6b','#6bb5ff','#ffd56b','#d06bff',
@@ -784,7 +785,7 @@ export default function TimeTracker() {
         <div className="topbar-left">
           <Link to="/productivity"><button className="topbar-back btn btn-sm">←</button></Link>
           <span className="topbar-title">tts</span>
-          <span style={{ fontSize: 10, color: '#bbb', letterSpacing: '0.05em' }}>v3.8</span>
+          <VersionBadge version="v3.8" />
         </div>
       </div>
 

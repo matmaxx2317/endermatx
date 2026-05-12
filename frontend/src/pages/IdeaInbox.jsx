@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { idx } from '../api'
+import VersionBadge from '../components/VersionBadge'
 
 const TABS = [
   { key: 'inbox',    label: 'IN',  status: 'inbox' },
@@ -345,7 +346,7 @@ export default function IdeaInbox() {
         <div className="topbar-left">
           <Link to="/productivity"><button className="topbar-back btn btn-sm">←</button></Link>
           <span className="topbar-title">idx</span>
-          <span style={{ fontSize: 10, color: '#bbb', letterSpacing: '0.05em' }}>v3.0</span>
+          <VersionBadge version="v3.0" />
         </div>
       </div>
       <div className="page">
