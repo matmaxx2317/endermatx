@@ -1,7 +1,26 @@
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import Enderman from '../components/Enderman'
 
+function fmtDeployTime(iso) {
+  const d = new Date(iso)
+  const pad = n => String(n).padStart(2, '0')
+  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
 export default function Home() {
+  const [deployInfo, setDeployInfo] = useState(null)
+
+  useEffect(() => {
+    fetch('/api/info')
+      .then(r => r.json())
+      .then(setDeployInfo)
+      .catch(() => {})
+  }, [])
+
+  const label = deployInfo?.started_at ? `deployed ${fmtDeployTime(deployInfo.started_at)}` : null
+  const url   = deployInfo?.deploy_url
+
   return (
     <div className="landing-page">
       <Enderman />
@@ -26,6 +45,14 @@ export default function Home() {
           <div className="nav-card-arrow">→</div>
         </Link>
       </nav>
+      {label && (
+        <footer className="landing-footer">
+          {url
+            ? <a href={url} target="_blank" rel="noopener noreferrer">{label}</a>
+            : <span>{label}</span>
+          }
+        </footer>
+      )}
     </div>
   )
 }

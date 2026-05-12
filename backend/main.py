@@ -1,8 +1,11 @@
 import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
+
+_startup_time = datetime.now(timezone.utc)
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -114,6 +117,21 @@ if GAMES_DIR.exists():
 @app.get("/health")
 async def health():
     return JSONResponse({"status": "ok", "db": db_ready})
+
+
+@app.get("/api/info")
+async def info():
+    project_id  = os.environ.get("RAILWAY_PROJECT_ID", "")
+    service_id  = os.environ.get("RAILWAY_SERVICE_ID", "")
+    deploy_url  = None
+    if project_id and service_id:
+        deploy_url = f"https://railway.com/project/{project_id}/service/{service_id}"
+    elif project_id:
+        deploy_url = f"https://railway.com/project/{project_id}"
+    return JSONResponse({
+        "started_at": _startup_time.isoformat(),
+        "deploy_url": deploy_url,
+    })
 
 
 @app.get("/")
