@@ -1,6 +1,13 @@
 from datetime import datetime
-from typing import Any, Optional
+from typing import Annotated, Any, Optional
 from pydantic import BaseModel
+from pydantic.functional_serializers import PlainSerializer
+
+# Timezone-naive datetimes from SQLAlchemy are serialized without a 'Z', so
+# browsers interpret them as local time instead of UTC.  These annotated types
+# append 'Z' on every JSON response, restoring correct UTC interpretation.
+UtcDt    = Annotated[datetime,          PlainSerializer(lambda v: v.isoformat() + 'Z', return_type=str)]
+UtcDtOpt = Annotated[Optional[datetime], PlainSerializer(lambda v: v.isoformat() + 'Z' if v else None, return_type=Optional[str])]
 
 
 # ── tts ───────────────────────────────────────────────────────────────────────
@@ -19,7 +26,7 @@ class TtsProjectOut(BaseModel):
     name: str
     color: str
     archived: bool
-    created_at: datetime
+    created_at: UtcDt
     model_config = {"from_attributes": True}
 
 
@@ -36,8 +43,8 @@ class TtsEntryUpdate(BaseModel):
 class TtsEntryOut(BaseModel):
     id: int
     project_id: int
-    start_time: datetime
-    end_time: Optional[datetime]
+    start_time: UtcDt
+    end_time: UtcDtOpt
     model_config = {"from_attributes": True}
 
 
@@ -122,7 +129,7 @@ class MeetingOut(BaseModel):
     attendees: list[str]
     actions: list[dict[str, Any]]
     summary: str
-    created_at: datetime
+    created_at: UtcDt
     model_config = {"from_attributes": True}
 
 
@@ -139,8 +146,8 @@ class IdeaOut(BaseModel):
     id: int
     text: str
     status: str
-    created_at: datetime
-    updated_at: datetime
+    created_at: UtcDt
+    updated_at: UtcDt
     model_config = {"from_attributes": True}
 
 
@@ -158,7 +165,7 @@ class GuitarOut(BaseModel):
     id: int
     name: str
     threshold_days: int
-    last_changed: Optional[datetime]
+    last_changed: UtcDtOpt
     history: list[str]
     model_config = {"from_attributes": True}
 
