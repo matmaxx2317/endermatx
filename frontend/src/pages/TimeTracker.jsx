@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { tts } from '../api'
 
@@ -6,6 +6,15 @@ const COLORS = [
   '#7effa0','#ff6b6b','#6bb5ff','#ffd56b','#d06bff',
   '#ff9f6b','#6bfff0','#ff6bd6','#b5ff6b','#6b7fff',
 ]
+
+const TABS = [
+  { key: 'log',  label: 'log'  },
+  { key: 'day',  label: 'day'  },
+  { key: 'week', label: 'week' },
+  { key: 'org',  label: 'org'  },
+  { key: 'stat', label: 'stat' },
+]
+const TAB_KEYS = TABS.map(t => t.key)
 
 function fmtMs(ms) {
   if (ms <= 0) ms = 0
@@ -183,18 +192,19 @@ function TodayLog({ entries, projects, onDelete }) {
     return projects.find(p => p.id === pid) || { name: '?', color: '#666' }
   }
 
-  const todayAll   = entries.filter(e => isToday(e.start_time))
-  const active     = todayAll.find(e => !e.end_time)
-  const completed  = todayAll
+  const todayAll  = entries.filter(e => isToday(e.start_time))
+  const active    = todayAll.find(e => !e.end_time)
+  const completed = todayAll
     .filter(e => e.end_time)
     .sort((a, b) => new Date(b.start_time) - new Date(a.start_time))
 
-  if (!active && completed.length === 0) return (
-    <>
-      <div className="section-header mt24">today's log</div>
-      <div style={{ color: '#333', fontSize: 11, padding: '6px 0' }}>no entries today yet</div>
-    </>
-  )
+  if (!active && completed.length === 0) {
+    return (
+      <div style={{ color: '#444', fontSize: 12, padding: '20px 0', textAlign: 'center', letterSpacing: '0.08em' }}>
+        no entries today yet
+      </div>
+    )
+  }
 
   function renderEntry(e) {
     const p = getProject(e.project_id)
@@ -218,13 +228,10 @@ function TodayLog({ entries, projects, onDelete }) {
   }
 
   return (
-    <>
-      <div className="section-header mt24">today's log</div>
-      <div className="tts-log">
-        {active && renderEntry(active)}
-        {completed.map(renderEntry)}
-      </div>
-    </>
+    <div className="tts-log">
+      {active && renderEntry(active)}
+      {completed.map(renderEntry)}
+    </div>
   )
 }
 
@@ -278,7 +285,6 @@ function WeeklyOverview({ entries, projects }) {
   const DAY_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
   const p2 = n => String(n).padStart(2, '0')
 
-  // Compute per-project row data
   const dayTotals = [0, 0, 0, 0, 0]
   let grandTotal = 0
   const projectRows = activeProjects.map(p => {
@@ -291,7 +297,6 @@ function WeeklyOverview({ entries, projects }) {
 
   return (
     <>
-      <div className="section-header mt24">weekly overview</div>
       <div className="tts-week-nav">
         <button className="btn btn-sm" onClick={prevWeek}>←</button>
         <span className="tts-week-cw">CW {cw} · {cwYear}</span>
@@ -312,7 +317,6 @@ function WeeklyOverview({ entries, projects }) {
             </tr>
           </thead>
           <tbody>
-            {/* start · end bounds row */}
             <tr>
               <td className="tts-wk-label tts-wk-bounds-label">start · end</td>
               {days.map((d, i) => {
@@ -325,7 +329,6 @@ function WeeklyOverview({ entries, projects }) {
               })}
               <td className="tts-wk-total-cell"></td>
             </tr>
-            {/* per-project rows */}
             {projectRows.map(({ p, rowTotals, rowTotal }) => (
               <tr key={p.id}>
                 <td className="tts-wk-label">
@@ -340,7 +343,6 @@ function WeeklyOverview({ entries, projects }) {
                 <td className="tts-wk-cell tts-wk-row-total">{fmtCell(rowTotal)}</td>
               </tr>
             ))}
-            {/* total row */}
             <tr className="tts-wk-total-row">
               <td className="tts-wk-label">total</td>
               {dayTotals.map((ms, i) => (
@@ -364,10 +366,12 @@ export default function TimeTracker() {
     const s = localStorage.getItem('tts_global_start')
     return s ? new Date(s) : null
   })
-  const [, setTick]       = useState(0)
+  const [tab, setTab]   = useState('log')
+  const [, setTick]     = useState(0)
   const [adjustModal, setAdjustModal]   = useState(null)
   const [projectModal, setProjectModal] = useState(null)
   const [error, setError] = useState(null)
+  const swipeRef = useRef({ startX: 0, startY: 0 })
 
   useEffect(() => {
     Promise.all([tts.getProjects(), tts.getEntries()])
@@ -380,7 +384,6 @@ export default function TimeTracker() {
     return () => clearInterval(id)
   }, [])
 
-  // If page reloads mid-session, restore globalStart from the earliest today entry
   useEffect(() => {
     if (!localStorage.getItem('tts_global_start') && entries.some(e => !e.end_time)) {
       const todayEs = entries.filter(e => isToday(e.start_time))
@@ -397,6 +400,24 @@ export default function TimeTracker() {
 
   const activeEntry     = entries.find(e => !e.end_time)
   const activeProjectId = activeEntry?.project_id
+
+  // ── Swipe navigation ───────────────────────────────────────────────────────
+
+  function onTouchStart(e) {
+    swipeRef.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY }
+  }
+
+  function onTouchEnd(e) {
+    const dx = e.changedTouches[0].clientX - swipeRef.current.startX
+    const dy = e.changedTouches[0].clientY - swipeRef.current.startY
+    if (Math.abs(dx) > 50 && Math.abs(dy) < 80) {
+      setTab(t => {
+        const i = TAB_KEYS.indexOf(t)
+        if (dx < 0) return i < TAB_KEYS.length - 1 ? TAB_KEYS[i + 1] : t
+        return i > 0 ? TAB_KEYS[i - 1] : t
+      })
+    }
+  }
 
   // ── Global timer controls ──────────────────────────────────────────────────
 
@@ -521,10 +542,8 @@ export default function TimeTracker() {
 
     let sessionMs = 0
     if (activeEntry?.project_id === pid) {
-      // Active: grows from 0 since last click; updates when start time is adjusted
       sessionMs = now - new Date(activeEntry.start_time).getTime()
     } else {
-      // Inactive: show duration of the last completed segment today
       const lastCompleted = today
         .filter(e => e.end_time)
         .sort((a, b) => new Date(b.end_time) - new Date(a.end_time))[0]
@@ -560,11 +579,11 @@ export default function TimeTracker() {
         <div className="topbar-left">
           <Link to="/productivity"><button className="topbar-back btn btn-sm">←</button></Link>
           <span className="topbar-title">tts</span>
-          <span style={{ fontSize: 10, color: '#bbb', letterSpacing: '0.05em' }}>v3.4</span>
+          <span style={{ fontSize: 10, color: '#bbb', letterSpacing: '0.05em' }}>v3.5</span>
         </div>
       </div>
 
-      <div className="page">
+      <div className="page" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
         {error && (
           <div style={{ background: '#2a0000', border: '1px solid #f44336', color: '#f44336', fontSize: 12, padding: '8px 12px', marginBottom: 16 }}>
             {error}
@@ -572,112 +591,146 @@ export default function TimeTracker() {
           </div>
         )}
 
-        {/* ── Global timer ── */}
-        <div className="tts-global">
-          <div className="tts-timer" style={{ color: globalStart ? '#f0f0f0' : '#2a2a2a' }}>
-            {fmtMs(globalElapsed)}
-          </div>
-          <button
-            className={`tts-toggle ${globalStart ? 'tts-stop' : 'tts-start'}`}
-            onClick={globalStart ? stopGlobal : startGlobal}
-          >
-            {globalStart ? 'STOP' : 'START'}
-          </button>
-        </div>
-
-        {activeProject && (
-          <div className="tts-active-bar">
-            <span className="tts-pulse" style={{ background: activeProject.color }} />
-            <span style={{ color: activeProject.color, fontSize: 11, letterSpacing: '0.1em' }}>
-              {activeProject.name}
-            </span>
-          </div>
-        )}
-
-        {/* ── Project cards ── */}
-        {activeProjects.length > 0 && (
-          <div className="tts-cards">
-            {activeProjects.map(p => {
-              const isActive = p.id === activeProjectId
-              const { sessionMs, todayMs, totalMs } = projectStats(p.id)
-              return (
-                <button
-                  key={p.id}
-                  className={`tts-card${isActive ? ' tts-card-on' : ''}`}
-                  style={isActive ? { borderColor: p.color } : undefined}
-                  onClick={() => handleCardClick(p.id)}
-                >
-                  <div className="tts-card-stripe" style={{ background: p.color }} />
-                  <div className="tts-card-name" style={{ color: isActive ? p.color : '#f0f0f0' }}>
-                    {p.name}
-                    {isActive && <span className="tts-now-badge" style={{ color: p.color }}>ACTIVE</span>}
-                  </div>
-                  <div className="tts-card-rows">
-                    <div className="tts-card-row">
-                      <span className="tts-row-lbl">session</span>
-                      <span className="tts-row-val" style={{ color: isActive ? p.color : '#666' }}>
-                        {fmtMsStat(sessionMs)}
-                      </span>
-                    </div>
-                    <div className="tts-card-row">
-                      <span className="tts-row-lbl">today</span>
-                      <span className="tts-row-val">{fmtMsStat(todayMs)}</span>
-                    </div>
-                    <div className="tts-card-row">
-                      <span className="tts-row-lbl">total</span>
-                      <span className="tts-row-val">{fmtMsStat(totalMs)}</span>
-                    </div>
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-        )}
-
-        {/* ── Today's Log ── */}
-        <TodayLog entries={entries} projects={projects} onDelete={deleteEntry} />
-
-        {/* ── Weekly Overview ── */}
-        <WeeklyOverview entries={entries} projects={projects} />
-
-        {/* ── Project management ── */}
-        <div className="section-header mt24">projects</div>
-        <div className="tts-mgmt-list">
-          {activeProjects.map(p => (
-            <div key={p.id} className="tts-mgmt-row">
-              <span className="color-dot" style={{ background: p.color }} />
-              <button className="tts-mgmt-name" onClick={() => setProjectModal(p)}>
-                {p.name}
-              </button>
-              <button
-                className="btn btn-sm tts-del-btn"
-                onClick={() => deleteOrArchive(p.id)}
-                title={entries.some(e => e.project_id === p.id) ? 'archive' : 'delete'}
-              >
-                −
-              </button>
-            </div>
+        {/* ── Tabs ── */}
+        <div className="tabs">
+          {TABS.map(t => (
+            <button
+              key={t.key}
+              className={`tab${tab === t.key ? ' active' : ''}`}
+              onClick={() => setTab(t.key)}
+            >
+              {t.label}
+            </button>
           ))}
         </div>
-        <button className="btn btn-sm mt8" onClick={() => setProjectModal({})}>+ add project</button>
 
-        {archivedProjects.length > 0 && (
+        {/* ── log: global timer + project cards ── */}
+        {tab === 'log' && (
           <>
-            <div className="section-header mt24" style={{ color: '#2a2a2a' }}>archived</div>
+            <div className="tts-global">
+              <div className="tts-timer" style={{ color: globalStart ? '#f0f0f0' : '#2a2a2a' }}>
+                {fmtMs(globalElapsed)}
+              </div>
+              <button
+                className={`tts-toggle ${globalStart ? 'tts-stop' : 'tts-start'}`}
+                onClick={globalStart ? stopGlobal : startGlobal}
+              >
+                {globalStart ? 'STOP' : 'START'}
+              </button>
+            </div>
+
+            {activeProject && (
+              <div className="tts-active-bar">
+                <span className="tts-pulse" style={{ background: activeProject.color }} />
+                <span style={{ color: activeProject.color, fontSize: 11, letterSpacing: '0.1em' }}>
+                  {activeProject.name}
+                </span>
+              </div>
+            )}
+
+            {activeProjects.length > 0 ? (
+              <div className="tts-cards">
+                {activeProjects.map(p => {
+                  const isActive = p.id === activeProjectId
+                  const { sessionMs, todayMs, totalMs } = projectStats(p.id)
+                  return (
+                    <button
+                      key={p.id}
+                      className={`tts-card${isActive ? ' tts-card-on' : ''}`}
+                      style={isActive ? { borderColor: p.color } : undefined}
+                      onClick={() => handleCardClick(p.id)}
+                    >
+                      <div className="tts-card-stripe" style={{ background: p.color }} />
+                      <div className="tts-card-name" style={{ color: isActive ? p.color : '#f0f0f0' }}>
+                        {p.name}
+                        {isActive && <span className="tts-now-badge" style={{ color: p.color }}>ACTIVE</span>}
+                      </div>
+                      <div className="tts-card-rows">
+                        <div className="tts-card-row">
+                          <span className="tts-row-lbl">session</span>
+                          <span className="tts-row-val" style={{ color: isActive ? p.color : '#666' }}>
+                            {fmtMsStat(sessionMs)}
+                          </span>
+                        </div>
+                        <div className="tts-card-row">
+                          <span className="tts-row-lbl">today</span>
+                          <span className="tts-row-val">{fmtMsStat(todayMs)}</span>
+                        </div>
+                        <div className="tts-card-row">
+                          <span className="tts-row-lbl">total</span>
+                          <span className="tts-row-val">{fmtMsStat(totalMs)}</span>
+                        </div>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            ) : (
+              <div style={{ color: '#444', fontSize: 12, padding: '20px 0', textAlign: 'center', letterSpacing: '0.08em' }}>
+                no projects yet — add one in the org tab
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── day: today's log ── */}
+        {tab === 'day' && (
+          <TodayLog entries={entries} projects={projects} onDelete={deleteEntry} />
+        )}
+
+        {/* ── week: weekly overview ── */}
+        {tab === 'week' && (
+          <WeeklyOverview entries={entries} projects={projects} />
+        )}
+
+        {/* ── org: project management ── */}
+        {tab === 'org' && (
+          <>
             <div className="tts-mgmt-list">
-              {archivedProjects.map(p => (
-                <div key={p.id} className="tts-mgmt-row" style={{ opacity: 0.4 }}>
+              {activeProjects.map(p => (
+                <div key={p.id} className="tts-mgmt-row">
                   <span className="color-dot" style={{ background: p.color }} />
-                  <span className="tts-mgmt-name" style={{ color: '#666', cursor: 'default' }}>
+                  <button className="tts-mgmt-name" onClick={() => setProjectModal(p)}>
                     {p.name}
-                  </span>
-                  <button className="btn btn-sm" onClick={() => reactivate(p.id)} title="reactivate">
-                    +
+                  </button>
+                  <button
+                    className="btn btn-sm tts-del-btn"
+                    onClick={() => deleteOrArchive(p.id)}
+                    title={entries.some(e => e.project_id === p.id) ? 'archive' : 'delete'}
+                  >
+                    −
                   </button>
                 </div>
               ))}
             </div>
+            <button className="btn btn-sm mt8" onClick={() => setProjectModal({})}>+ add project</button>
+
+            {archivedProjects.length > 0 && (
+              <>
+                <div className="section-header mt24" style={{ color: '#2a2a2a' }}>archived</div>
+                <div className="tts-mgmt-list">
+                  {archivedProjects.map(p => (
+                    <div key={p.id} className="tts-mgmt-row" style={{ opacity: 0.4 }}>
+                      <span className="color-dot" style={{ background: p.color }} />
+                      <span className="tts-mgmt-name" style={{ color: '#666', cursor: 'default' }}>
+                        {p.name}
+                      </span>
+                      <button className="btn btn-sm" onClick={() => reactivate(p.id)} title="reactivate">
+                        +
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </>
+        )}
+
+        {/* ── stat: statistics stub ── */}
+        {tab === 'stat' && (
+          <div style={{ color: '#555', fontSize: 12, padding: '40px 0', textAlign: 'center', letterSpacing: '0.12em' }}>
+            statistics — coming soon
+          </div>
         )}
       </div>
 
