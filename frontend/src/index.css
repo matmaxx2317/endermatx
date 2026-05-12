@@ -146,7 +146,7 @@ input, textarea, select {
   font-size: 11px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: #555;
+  color: #777;
   margin-bottom: 12px;
   padding-bottom: 6px;
   border-bottom: 1px solid #1e1e1e;
@@ -424,7 +424,8 @@ input, textarea, select {
   overflow: hidden;
 }
 .tts-card:hover   { border-color: #333; background: #151515; }
-.tts-card-on      { border-color: #2a2a2a !important; background: #131313 !important; }
+.tts-card-on      { background: #131313; } /* border-color set via inline style from project color */
+.tts-card-on .tts-card-stripe { display: none; } /* full 4-side border replaces the stripe when active */
 
 .tts-card-stripe {
   position: absolute;
@@ -446,7 +447,7 @@ input, textarea, select {
 .tts-now-badge {
   font-size: 8px;
   letter-spacing: 0.15em;
-  color: #7effa0;
+  /* color set via inline style from project color */
 }
 
 .tts-card-rows {
@@ -467,12 +468,12 @@ input, textarea, select {
   font-size: 9px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #444;
+  color: #666;
 }
 
 .tts-row-val {
   font-size: 11px;
-  color: #666;
+  color: #888;
   font-variant-numeric: tabular-nums;
 }
 
@@ -581,8 +582,8 @@ input, textarea, select {
 .tts-log-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 .tts-log-info { flex: 1; display: flex; gap: 8px; align-items: baseline; min-width: 0; }
 .tts-log-project { color: #e0e0e0; letter-spacing: 0.04em; }
-.tts-log-meta { color: #555; font-size: 10px; }
-.tts-log-dur { color: #888; font-size: 10px; letter-spacing: 0.04em; flex-shrink: 0; }
+.tts-log-meta { color: #777; font-size: 10px; }
+.tts-log-dur { color: #aaa; font-size: 10px; letter-spacing: 0.04em; flex-shrink: 0; }
 .tts-log-live .tts-log-dur { color: #7effa0; }
 .tts-log-del {
   background: none; border: none; color: #2a2a2a; font-size: 14px;
@@ -595,7 +596,7 @@ input, textarea, select {
   display: flex; align-items: center; gap: 10px; margin-bottom: 8px;
 }
 .tts-week-cw {
-  flex: 1; text-align: center; font-size: 11px; color: #666; letter-spacing: 0.1em;
+  flex: 1; text-align: center; font-size: 11px; color: #888; letter-spacing: 0.1em;
 }
 .tts-week-wrap { overflow-x: auto; margin-bottom: 4px; }
 .tts-week-table {
@@ -605,23 +606,23 @@ input, textarea, select {
   padding: 5px 6px; text-align: right; border-bottom: 1px solid #1a1a1a;
 }
 .tts-wk-proj-col { width: 90px; }
-.tts-wk-day-col  { color: #555; font-weight: normal; letter-spacing: 0.05em; }
+.tts-wk-day-col  { color: #888; font-weight: normal; letter-spacing: 0.05em; }
 .tts-wk-today    { color: #7effa0 !important; }
-.tts-wk-date     { display: block; font-size: 9px; color: #333; margin-top: 2px; }
-.tts-wk-today .tts-wk-date { color: #2a5a2a; }
-.tts-wk-total-col { color: #444; font-weight: normal; letter-spacing: 0.05em; }
+.tts-wk-date     { display: block; font-size: 9px; color: #555; margin-top: 2px; }
+.tts-wk-today .tts-wk-date { color: #3a7a3a; }
+.tts-wk-total-col { color: #666; font-weight: normal; letter-spacing: 0.05em; }
 .tts-wk-label {
-  text-align: left; color: #555; font-size: 10px; white-space: nowrap; overflow: hidden;
+  text-align: left; color: #777; font-size: 10px; white-space: nowrap; overflow: hidden;
   text-overflow: ellipsis; max-width: 90px;
 }
-.tts-wk-bounds-label { color: #333; font-size: 9px; }
-.tts-wk-bounds-cell  { font-size: 9px; color: #444; text-align: center; line-height: 1.5; }
+.tts-wk-bounds-label { color: #555; font-size: 9px; }
+.tts-wk-bounds-cell  { font-size: 9px; color: #666; text-align: center; line-height: 1.5; }
 .tts-wk-dot {
   display: inline-block; width: 6px; height: 6px; border-radius: 50%;
   margin-right: 5px; vertical-align: middle; flex-shrink: 0;
 }
 .tts-wk-cell       { color: #aaa; }
-.tts-wk-empty      { color: #222; }
+.tts-wk-empty      { color: #333; }
 .tts-wk-row-total  { color: #ccc; border-left: 1px solid #1e1e1e; }
 .tts-wk-total-cell { }
 .tts-wk-total-row td {
