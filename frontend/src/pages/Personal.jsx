@@ -1,5 +1,4 @@
 import { Link } from 'react-router-dom'
-import Enderman from '../components/Enderman'
 
 const TOOLS = [
   { path: '/str', label: '01', name: 'str', desc: 'string tracker' },
@@ -9,16 +8,11 @@ const TOOLS = [
 export default function Personal() {
   return (
     <div className="landing-page">
-      <Enderman />
       <header className="landing-header">
-        <h1 className="landing-title">END<br />ERM<br />ATX</h1>
-        <p className="landing-sub">tools</p>
+        <Link to="/" className="landing-crumb">endermatx</Link>
+        <h1 className="landing-title">personal</h1>
       </header>
       <nav className="landing-grid">
-        <Link to="/" className="nav-card">
-          <div className="nav-card-label">←</div>
-          <div className="nav-card-name">back</div>
-        </Link>
         {TOOLS.map(t => (
           <Link key={t.path} to={t.path} className="nav-card">
             <div className="nav-card-label">{t.label}</div>

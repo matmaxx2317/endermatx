@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { pom } from '../api'
-import VersionBadge from '../components/VersionBadge'
 
 const WORK_MINS = 25
 const BREAK_MINS = 5
@@ -107,7 +106,6 @@ export default function Pomodoro() {
         <div className="topbar-left">
           <Link to="/"><button className="topbar-back btn btn-sm">←</button></Link>
           <span className="topbar-title">pom</span>
-          <VersionBadge version="v3.0" />
         </div>
       </div>
       <div className="page" style={{ textAlign: 'center', paddingTop: 48 }}>

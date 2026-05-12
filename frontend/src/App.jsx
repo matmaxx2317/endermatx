@@ -11,6 +11,20 @@ import IdeaInbox from './pages/IdeaInbox'
 import StringTracker from './pages/StringTracker'
 import ChordAligner from './pages/ChordAligner'
 
+function VersionFooter() {
+  return (
+    <div className="version-footer">
+      <a
+        href={`https://github.com/matmaxx2317/endermatx/commit/${__GIT_HASH_FULL__}`}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        v{__APP_VERSION__}-{__GIT_HASH__}
+      </a>
+    </div>
+  )
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -27,6 +41,7 @@ export default function App() {
         <Route path="/str" element={<StringTracker />} />
         <Route path="/crd" element={<ChordAligner />} />
       </Routes>
+      <VersionFooter />
     </BrowserRouter>
   )
 }
