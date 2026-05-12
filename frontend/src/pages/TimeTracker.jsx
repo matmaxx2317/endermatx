@@ -560,7 +560,7 @@ export default function TimeTracker() {
         <div className="topbar-left">
           <Link to="/productivity"><button className="topbar-back btn btn-sm">←</button></Link>
           <span className="topbar-title">tts</span>
-          <span style={{ fontSize: 10, color: '#bbb', letterSpacing: '0.05em' }}>v3.3</span>
+          <span style={{ fontSize: 10, color: '#bbb', letterSpacing: '0.05em' }}>v3.4</span>
         </div>
       </div>
 
@@ -604,12 +604,13 @@ export default function TimeTracker() {
                 <button
                   key={p.id}
                   className={`tts-card${isActive ? ' tts-card-on' : ''}`}
+                  style={isActive ? { borderColor: p.color } : undefined}
                   onClick={() => handleCardClick(p.id)}
                 >
                   <div className="tts-card-stripe" style={{ background: p.color }} />
                   <div className="tts-card-name" style={{ color: isActive ? p.color : '#f0f0f0' }}>
                     {p.name}
-                    {isActive && <span className="tts-now-badge">NOW</span>}
+                    {isActive && <span className="tts-now-badge" style={{ color: p.color }}>ACTIVE</span>}
                   </div>
                   <div className="tts-card-rows">
                     <div className="tts-card-row">
