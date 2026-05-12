@@ -5,6 +5,7 @@ import { tts } from '../api'
 const COLORS = [
   '#7effa0','#ff6b6b','#6bb5ff','#ffd56b','#d06bff',
   '#ff9f6b','#6bfff0','#ff6bd6','#b5ff6b','#6b7fff',
+  '#c8c8c8',
 ]
 
 const TABS = [
@@ -579,7 +580,7 @@ export default function TimeTracker() {
         <div className="topbar-left">
           <Link to="/productivity"><button className="topbar-back btn btn-sm">←</button></Link>
           <span className="topbar-title">tts</span>
-          <span style={{ fontSize: 10, color: '#bbb', letterSpacing: '0.05em' }}>v3.5</span>
+          <span style={{ fontSize: 10, color: '#bbb', letterSpacing: '0.05em' }}>v3.6</span>
         </div>
       </div>
 
