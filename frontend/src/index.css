@@ -723,3 +723,137 @@ input, textarea, select {
 .stat-dow-cell  { width: 100%; aspect-ratio: 1; }
 .stat-dow-label { font-size: 8px; color: #aaa; letter-spacing: 0.04em; }
 .stat-dow-count { font-size: 9px; color: #ccc; }
+
+/* ── TTS Stats tab ───────────────────────────────────────────── */
+.tts-stat-section { margin-bottom: 28px; }
+
+.tts-stat-heading {
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #555;
+  margin-bottom: 10px;
+}
+
+.tts-stat-empty {
+  font-size: 11px;
+  color: #333;
+  text-align: center;
+  padding: 14px 0;
+  letter-spacing: 0.08em;
+}
+
+/* Vertical bar chart */
+.tts-stat-vbars {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.tts-stat-vbar-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 36px;
+  flex: 1;
+  max-width: 80px;
+}
+
+.tts-stat-vbar-val {
+  font-size: 9px;
+  color: #888;
+  margin-bottom: 3px;
+  white-space: nowrap;
+  min-height: 12px;
+  line-height: 12px;
+}
+
+.tts-stat-vbar-track {
+  width: 100%;
+  height: 80px;
+  background: #191919;
+  display: flex;
+  align-items: flex-end;
+}
+
+.tts-stat-vbar-fill { width: 100%; }
+
+.tts-stat-vbar-name {
+  font-size: 8px;
+  color: #555;
+  margin-top: 4px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+}
+
+/* Horizontal stacked daily bars */
+.tts-stat-stack { display: flex; flex-direction: column; gap: 3px; }
+
+.tts-stat-stack-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tts-stat-stack-lbl {
+  width: 40px;
+  flex-shrink: 0;
+  font-size: 10px;
+  color: #777;
+  line-height: 1.3;
+}
+
+.tts-stat-stack-date { display: block; font-size: 8px; color: #444; }
+
+.tts-stat-stack-track {
+  flex: 1;
+  height: 16px;
+  background: #141414;
+}
+
+.tts-stat-stack-bar { height: 100%; display: flex; min-width: 0; }
+
+.tts-stat-stack-total {
+  width: 36px;
+  flex-shrink: 0;
+  font-size: 9px;
+  color: #666;
+  text-align: right;
+}
+
+/* Heatmap */
+.tts-stat-heat-wrap { overflow-x: auto; }
+
+.tts-stat-heat {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10px;
+}
+
+.tts-stat-heat th, .tts-stat-heat td { padding: 4px 5px; text-align: center; }
+
+.tts-stat-heat-phd { width: 80px; text-align: left; }
+
+.tts-stat-heat-dhd {
+  font-size: 9px;
+  color: #555;
+  font-weight: normal;
+  letter-spacing: 0.05em;
+}
+
+.tts-stat-heat-proj {
+  text-align: left;
+  color: #777;
+  font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 80px;
+}
+
+.tts-stat-heat-cell { font-size: 9px; color: #ccc; }

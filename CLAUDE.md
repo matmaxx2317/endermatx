@@ -27,6 +27,11 @@ Every piece of work follows this cycle — never deviate from it:
 
 **Critical rule:** Stay on the current open branch for ALL follow-up prompts in a session. Do NOT create a new branch for each prompt. Only move to a new branch after the user says something like "I merged the pull request to main and deleted your branch. Sync to main." Multiple prompts within the same work session should all land as commits on the same branch/PR.
 
+**GitHub issues workflow:**
+- Link commits to the issue using `fixes #N` or `refs #N` in the commit message.
+- Do NOT close issues — the user closes them manually after verifying on Railway.
+- Do NOT add test plans to pull requests. Instead, post the test plan as a **comment on the issue** so the user can work through it after deployment.
+
 ## Site structure
 
 Navigation is three levels deep:
@@ -124,7 +129,7 @@ Every subproject displays its version next to its title — small (`font-size:10
 
 | Tool | Path | Version |
 |------|------|---------|
-| tts  | `productivity/tts/index.html` | v3.7 |
+| tts  | `productivity/tts/index.html` | v3.8 |
 | cal  | `productivity/cal/index.html` | v3.0 |
 | pom  | `productivity/pom/index.html` | v3.0 |
 | mtg  | `productivity/mtg/index.html` | v3.0 |
