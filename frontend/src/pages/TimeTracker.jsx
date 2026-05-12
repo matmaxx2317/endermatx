@@ -872,7 +872,7 @@ export default function TimeTracker() {
                 })}
               </div>
             ) : (
-              <div style={{ color: '#444', fontSize: 12, padding: '20px 0', textAlign: 'center', letterSpacing: '0.08em' }}>
+              <div style={{ color: '#888', fontSize: 12, padding: '20px 0', textAlign: 'center', letterSpacing: '0.08em' }}>
                 no projects yet — add one in the org tab
               </div>
             )}
