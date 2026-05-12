@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { crd } from '../api'
-import VersionBadge from '../components/VersionBadge'
 
 function distributeChords(lyrics, chordsText) {
   const words = lyrics.trim().split(/\s+/).filter(Boolean)
@@ -102,7 +101,6 @@ export default function ChordAligner() {
         <div className="topbar-left">
           <Link to="/"><button className="topbar-back btn btn-sm">←</button></Link>
           <span className="topbar-title">crd</span>
-          <VersionBadge version="v3.0" />
         </div>
         <span style={{ fontSize: 11, color: saved ? '#4caf50' : '#555' }}>{saved ? 'saved' : '…'}</span>
       </div>

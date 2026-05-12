@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { mtg } from '../api'
-import VersionBadge from '../components/VersionBadge'
 
 function uid() { return Date.now() + Math.random().toString(36).slice(2) }
 
@@ -91,7 +90,6 @@ export default function Meetings() {
         <div className="topbar-left">
           <Link to="/"><button className="topbar-back btn btn-sm">←</button></Link>
           <span className="topbar-title">mtg</span>
-          <VersionBadge version="v3.0" />
         </div>
       </div>
       <div className="page">
