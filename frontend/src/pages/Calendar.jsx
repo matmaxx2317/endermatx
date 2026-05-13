@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { cal } from '../api'
 
@@ -248,6 +248,7 @@ export default function Calendar() {
   const [editForm, setEditForm]         = useState({ name:'', color: COLORS[0], start_date:'', end_date:'' })
   const [showSettings, setShowSettings] = useState(false)
   const [tooltip, setTooltip]           = useState(null) // { lines, x, y, below }
+  const tooltipRef                      = useRef(null)
 
   useEffect(() => {
     cal.getProjects().then(setProjects)
@@ -264,6 +265,20 @@ export default function Calendar() {
       document.removeEventListener('click', dismiss)
       document.removeEventListener('touchstart', dismiss)
     }
+  }, [tooltip])
+
+  // After tooltip renders, clamp it within the viewport and reveal it
+  useLayoutEffect(() => {
+    if (!tooltip || !tooltipRef.current) return
+    const el = tooltipRef.current
+    const { width } = el.getBoundingClientRect()
+    const MARGIN = 8
+    const vw = window.innerWidth
+    const centeredLeft = tooltip.x - width / 2
+    const clampedLeft  = Math.max(MARGIN, Math.min(centeredLeft, vw - width - MARGIN))
+    el.style.left      = clampedLeft + 'px'
+    el.style.transform = tooltip.below ? 'none' : 'translateY(-100%)'
+    el.style.opacity   = '1'
   }, [tooltip])
 
   function openTooltip(e, lines) {
@@ -576,7 +591,7 @@ export default function Calendar() {
       </div>
 
       {tooltip && (
-        <div style={{
+        <div ref={tooltipRef} style={{
           position: 'fixed',
           left: tooltip.x,
           top: tooltip.below ? tooltip.y + 6 : tooltip.y - 6,
@@ -590,6 +605,7 @@ export default function Calendar() {
           pointerEvents: 'none',
           whiteSpace: 'nowrap',
           lineHeight: 1.8,
+          opacity: 0,
         }}>
           {tooltip.lines.map((line, i) => <div key={i}>{line}</div>)}
         </div>
