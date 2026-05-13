@@ -247,11 +247,32 @@ export default function Calendar() {
   const [form, setForm]                 = useState({ ...DEFAULT_ADD })
   const [editForm, setEditForm]         = useState({ name:'', color: COLORS[0], start_date:'', end_date:'' })
   const [showSettings, setShowSettings] = useState(false)
+  const [tooltip, setTooltip]           = useState(null) // { lines, x, y, below }
 
   useEffect(() => {
     cal.getProjects().then(setProjects)
     cal.getSettings().then(setSettings)
   }, [])
+
+  // Dismiss tooltip on any outside click/touch
+  useEffect(() => {
+    if (!tooltip) return
+    const dismiss = () => setTooltip(null)
+    document.addEventListener('click', dismiss)
+    document.addEventListener('touchstart', dismiss)
+    return () => {
+      document.removeEventListener('click', dismiss)
+      document.removeEventListener('touchstart', dismiss)
+    }
+  }, [tooltip])
+
+  function openTooltip(e, lines) {
+    if (!lines.length) return
+    e.stopPropagation()
+    const rect = e.currentTarget.getBoundingClientRect()
+    const below = rect.top < 80
+    setTooltip({ lines, x: rect.left + rect.width / 2, y: below ? rect.bottom : rect.top, below })
+  }
 
   const countries = settings?.countries || []
 
@@ -506,11 +527,18 @@ export default function Calendar() {
                   const dateKey   = fixedKey(y, m + 1, d)
                   const dayHols   = holidays.get(dateKey) || []
                   const dayProjs  = projects.filter(p => isInRange(y, m, d, p.start_date, p.end_date))
-                  const holBg     = dayHols[0] ? HOLIDAY_BG[dayHols[0].country] : null
-                  const tooltip   = dayHols.map(h => `${h.name} (${h.country})`).join('\n') || undefined
+                  const holBg      = dayHols[0] ? HOLIDAY_BG[dayHols[0].country] : null
+                  const tipLines   = [
+                    ...dayHols.map(h => `${h.name} (${h.country})`),
+                    ...dayProjs.map(p => p.name),
+                  ]
 
                   return (
-                    <div key={d} title={tooltip} style={{
+                    <div key={d}
+                      onMouseEnter={e => openTooltip(e, tipLines)}
+                      onMouseLeave={() => setTooltip(null)}
+                      onClick={e => openTooltip(e, tipLines)}
+                      style={{
                       width: 28, height: 28,
                       background: holBg || '#0d1221',
                       border: isToday ? '1px solid #8855ff' : '1px solid #1a2840',
@@ -546,6 +574,26 @@ export default function Calendar() {
           )
         })}
       </div>
+
+      {tooltip && (
+        <div style={{
+          position: 'fixed',
+          left: tooltip.x,
+          top: tooltip.below ? tooltip.y + 6 : tooltip.y - 6,
+          transform: tooltip.below ? 'translateX(-50%)' : 'translate(-50%, -100%)',
+          background: '#0d1221',
+          border: '1px solid #2a3d5c',
+          padding: '6px 10px',
+          fontSize: 11,
+          color: '#9ab0d0',
+          zIndex: 200,
+          pointerEvents: 'none',
+          whiteSpace: 'nowrap',
+          lineHeight: 1.8,
+        }}>
+          {tooltip.lines.map((line, i) => <div key={i}>{line}</div>)}
+        </div>
+      )}
     </div>
   )
 }
