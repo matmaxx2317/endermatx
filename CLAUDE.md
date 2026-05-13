@@ -4,15 +4,36 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A collection of self-contained browser tools deployed to GitHub Pages at `matmaxx2317.github.io/endermatx`. No build system, no package manager, no dependencies. Every tool is a single `index.html` with all CSS and JS inline.
+A collection of browser-based personal tools — productivity apps, personal trackers, and games — served as a React SPA backed by a FastAPI + PostgreSQL API, deployed on Railway.
+
+## Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Frontend | React 18 + Vite, `react-router-dom` v6 |
+| Backend | FastAPI + uvicorn |
+| Database | PostgreSQL (Railway managed) |
+| Hosting | Railway (single service: FastAPI serves the built Vite SPA) |
+| Font | Inter via Google Fonts |
+
+**No external state management, no ORM migrations tool — SQLAlchemy creates tables via `Base.metadata.create_all` on startup.**
 
 ## Deployment
 
-Push to `main` → GitHub Pages deploys automatically. The root `index.html` polls the GitHub Actions API every 5 seconds to show live deploy status. Commit messages follow the pattern:
+Push to `main` → Railway rebuilds and redeploys automatically.
 
+Build command (in `railway.toml`):
 ```
-deploy: <path/to/file> - DD.MM.YYYY HH:MM
+pip install -r backend/requirements.txt && npm --prefix frontend install && npm --prefix frontend run build
 ```
+Start command:
+```
+uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+```
+
+FastAPI serves the Vite-built `frontend/dist/` as a SPA with a catch-all `/{full_path:path}` route. Legacy static games are mounted separately at `/games`.
+
+The home page calls `/api/info` to show the Railway deploy URL and server start time.
 
 ## Development workflow
 
@@ -32,113 +53,188 @@ Every piece of work follows this cycle — never deviate from it:
 - Do NOT close issues — the user closes them manually after verifying on Railway.
 - Do NOT add test plans to pull requests. Instead, post the test plan as a **comment on the issue** so the user can work through it after deployment.
 
-## Site structure
+## Local development
 
-Navigation is three levels deep:
+```bash
+# Terminal 1 — backend
+pip install -r backend/requirements.txt
+DATABASE_PUBLIC_URL=postgresql://localhost/endermatx uvicorn backend.main:app --reload
 
-```
-index.html              ← landing page (enderman animation + category cards)
-  productivity/         ← category page
-    tts/                ← time tracker
-    cal/                ← calendar
-    pom/                ← pomodoro
-    mtg/                ← meeting notes
-    idx/                ← idea inbox
-  personal/             ← category page
-    str/                ← string tracker
-    crd/                ← chord aligner
-  games/                ← category page
-    teleport-tap/       ← game
-    mobs-magic/         ← game
+# Terminal 2 — frontend (proxies /api → :8000)
+cd frontend && npm install && npm run dev   # Vite dev server at :5173
 ```
 
-The landing page and category pages share a common visual language: background `#2a2a2a`, monospace font, single-column card grid, stacked 3-line uppercase `<h1>`. Category pages have a ← back card as the first nav item.
+Vite proxies `/api/*` to `http://localhost:8000` (configured in `vite.config.js`).
 
-The landing page includes a CSS-animated enderman that walks across the page at variable speed and teleports every 3–5 seconds with purple particles (`#cc00ee`).
+## Repo structure
 
-## Architecture: shared patterns across all tools
+```
+backend/
+  main.py          ← FastAPI app, lifespan, static mounts, /api/info, EOD scheduler
+  database.py      ← SQLAlchemy engine (reads DATABASE_PUBLIC_URL / DATABASE_URL)
+  models.py        ← All SQLAlchemy table models
+  schemas.py       ← Pydantic request/response schemas
+  routers/
+    tts.py  cal.py  pom.py  mtg.py  idx.py  strings.py  crd.py
+frontend/
+  index.html       ← Vite entry (loads Inter font from Google Fonts)
+  vite.config.js   ← Injects __GIT_HASH__, __GIT_HASH_FULL__, __APP_VERSION__ at build
+  package.json     ← version field drives __APP_VERSION__ (x.y format)
+  src/
+    main.jsx       ← React entry
+    App.jsx        ← BrowserRouter + Routes + global <VersionFooter>
+    index.css      ← All shared styles (design tokens, topbar, page, cards, landing)
+    api.js         ← Typed fetch wrappers for every API endpoint
+    pages/         ← One file per route (Home, Productivity, Personal, Games, tools…)
+    components/    ← Shared components
+games/             ← Legacy static game files (served at /games by FastAPI StaticFiles)
+  teleport-tap/index.html
+  mobs-magic/index.html
+```
 
-Every tool follows the same structure. Understanding one means understanding all.
+The `productivity/`, `personal/`, and root `index.html` in the repo root are legacy static files — they are **not served** by the current stack. The React SPA handles all those routes.
 
-### Gist sync (cross-device persistence)
+## Site navigation structure
 
-All tools store data in a private GitHub Gist, synced via the GitHub API. Credentials (PAT + Gist ID) live in `localStorage` under tool-specific keys:
+Three levels deep, all handled by React Router:
 
-| Tool | localStorage keys | Gist filename |
-|------|------------------|---------------|
-| tts  | `tt_token`, `tt_gist_id` | `tt_data.json` |
-| cal  | `cal_token`, `cal_gist_id` | `cal_data.json` |
-| pom  | `pom_token`, `pom_gist_id` | `pom_data.json` |
-| mtg  | `mtg_token`, `mtg_gist_id` | `mtg_data.json` |
-| idx  | `idx_token`, `idx_gist_id` | `idx_data.json` |
-| str  | `str_token`, `str_gist_id` | `str_data.json` |
+```
+/                 ← Home (category cards)
+  /productivity   ← Productivity category page
+    /tts          ← Time tracker
+    /cal          ← Calendar
+    /pom          ← Pomodoro
+    /mtg          ← Meeting notes
+    /idx          ← Idea inbox
+  /personal       ← Personal category page
+    /str          ← String tracker
+    /crd          ← Chord aligner
+  /games          ← Games category page (React)
+    /games/teleport-tap/   ← Static legacy game (served from games/ dir)
+    /games/mobs-magic/     ← Static legacy game (served from games/ dir)
+```
 
-The sync flow in every tool:
-1. On init: `loadCredentials()` → `pullFromGist()` → render
-2. On state change: `schedulePush()` debounces `pushToGist()` by 1500ms
-3. A "Setup" modal accepts a GitHub PAT (scope: `gist`) and optional Gist ID. First device creates the Gist; subsequent devices enter the returned ID.
+Navigation pages (Home, Productivity, Personal, Games) use the `.landing-page` layout. Tool pages use the `.topbar` + `.page` layout.
+
+## Design system
+
+**Palette (hardcoded hex values, no CSS variables):**
+
+| Role | Value |
+|------|-------|
+| Page background | `#07091a` |
+| Surface / card | `#0d1221` |
+| Topbar / footer bg | `#070914` |
+| Border default | `#1a2840` |
+| Border hover | `#2a3d5c` |
+| Text primary | `#eef2ff` |
+| Text secondary | `#9ab0d0` |
+| Text muted / decorative | `#374d66` |
+| Focus / accent | `#4d6fa0` |
+
+**Typography:** Inter (400/500/600) loaded via Google Fonts in `frontend/index.html`. Fallback: `-apple-system, BlinkMacSystemFont, sans-serif`. No monospace anywhere in the UI.
+
+**Layout:**
+- Fixed topbar: `height: 32px`, `background: #070914`, `border-bottom: 1px solid #1a2840`, `z-index: 50`
+- Fixed version footer: `height: 32px`, same background/border-top, `z-index: 40`
+- Tool pages: `.page` — `margin-top: 32px`, `padding: 20px 16px 52px`, `max-width: 720px`, centered
+- Landing/category pages: `.landing-page` — centered column, `padding: 80px 20px 64px`
+
+**Navigation cards** (`.nav-card`): three-column flex row — label (`#374d66`, `0.6rem`), name (`#eef2ff`, `0.9rem`, `font-weight: 500`), arrow (`→`, `#374d66`). Background `#0d1221`, border `#1a2840`, hover border `#2a3d5c`.
+
+**Category page header:** `landing-crumb` link back to parent (tiny, `#374d66`), then `landing-title` (`1.25rem`, `font-weight: 600`, lowercase).
+
+## Backend patterns
+
+### Database (PostgreSQL)
+
+`backend/database.py` reads `DATABASE_PUBLIC_URL` (preferred) or `DATABASE_URL` from env, fixing the `postgres://` → `postgresql://` prefix. `pool_pre_ping=True` handles Railway's connection recycling.
+
+Tables are created via `Base.metadata.create_all` in the FastAPI `lifespan`. There are no migration files — schema changes require manual column additions or table drops in Railway's Postgres console.
+
+### Router conventions
+
+Each router (`backend/routers/*.py`) follows the same pattern:
+- `GET /api/<tool>/…` — list or fetch
+- `POST /api/<tool>/…` — create
+- `PUT /api/<tool>/…` — update (full replace)
+- `DELETE /api/<tool>/…` — delete
+- All return Pydantic schemas, not raw SQLAlchemy models.
+
+### EOD scheduler
+
+`main.py` runs an APScheduler `CronTrigger(hour=23, minute=0)` that auto-closes any open TTS timer entries at 23:00 daily.
+
+## Frontend patterns
+
+### API client (`frontend/src/api.js`)
+
+All backend calls go through typed wrappers in `api.js`. Never call `fetch` directly in a page component. Each tool namespace (`tts`, `cal`, `pom`, `mtg`, `idx`, `str`, `crd`) exports typed methods.
 
 ### State model
 
-Each tool keeps a single `state` (or `data`) object in memory. Mutations happen directly on this object, followed by a `renderX()` call and `schedulePush()`. There is no reactive framework — rendering is always triggered explicitly.
+Each tool page manages its own state with `useState` hooks. On mount it fetches from the API. On mutation it calls the API immediately or with a 1500 ms debounce for text fields (`scheduleSave`). There is no global state store.
 
-### UI conventions
+### Version baking
 
-- Landing/category pages: background `#2a2a2a`; tool pages: background `#0d0d0d` or `#0e0e0e`; font everywhere: `'Courier New', Courier, monospace`
-- Sync status shown in a fixed top bar (`#syncBar`) with color-coded states: syncing (yellow), synced (green/tool-color), error (red). Left side shows tool name + version; right side shows status dot + "Setup" button.
-- HTML escaping uses an inline `escHtml()` / `esc()` helper — always use it when rendering user-supplied strings into innerHTML
-- IDs use numeric timestamps (`Date.now()`) as unique identifiers for projects/entries/meetings/guitars
+`vite.config.js` injects three build-time globals:
+
+| Global | Source |
+|--------|--------|
+| `__GIT_HASH__` | `git rev-parse --short HEAD` (7 chars) |
+| `__GIT_HASH_FULL__` | `git rev-parse HEAD` |
+| `__APP_VERSION__` | `package.json` `version` trimmed to `x.y` |
+
+Railway fallback: when `.git` is absent at build time, `RAILWAY_GIT_COMMIT_SHA` env var is used.
+
+### Version footer
+
+`App.jsx` renders a global `<VersionFooter>` fixed at the bottom of every page, showing `v{__APP_VERSION__}-{__GIT_HASH__}` as a link to the GitHub commit. This is the **only** place a version is displayed — there are no per-tool version labels.
+
+**When to bump `package.json` version:**
+- **Minor bump** (`1.0` → `1.1`) with every PR that changes any frontend page or component.
+- **Major bump** only when the user explicitly asks.
+- Format is always `x.y.0` in `package.json` (displayed as `x.y`).
+
+**Current version:** see `frontend/package.json`.
 
 ## Tools reference
 
-### Productivity (`productivity/`)
+### Productivity
 
-- **tts** (`productivity/tts/`) — Time tracker. Projects with colored labels; tracks time segments per project per session. Reports: week/month/all-time bar charts, heatmap (project × weekday), context-switch analysis.
-- **cal** (`productivity/cal/`) — Calendar. Month tiles across a configurable date range. Project timelines overlaid as colored date ranges. Holiday overlays for DE, AT, US, GB, FR, CN, JP (computed via Easter algorithm + fixed dates).
-- **pom** (`productivity/pom/`) — Pomodoro. 25-min work / 5-min break cycles. Timer state persists to Gist every 60 ticks so it survives page reloads. Snarky message pool in `MESSAGES` object, randomized via `pick()`.
-- **mtg** (`productivity/mtg/`) — Meeting notes. Meetings with title, date, attendees, freeform notes, and action items. "Summarize" generates a plain-text summary locally (no AI). Cross-meeting actions view with open/done/all filter.
-- **idx** (`productivity/idx/`) — Idea inbox. Frictionless capture (one input, Enter to log). Three views: IN / DO / BL — each with a counter. Statuses: `inbox`, `promoted` (DO), `deferred` (BL), `done`, `killed`. Transitions: IN→DO, IN→BL, BL→DO, DO→DONE, any→killed. Done and killed ideas are hidden from UI but kept in Gist for future stats. Click an inbox item to edit it inline. Ideas never demoted once promoted. Gist-synced.
+- **tts** (`/tts`) — Time tracker. Projects with colored labels; tracks time segments. Stats tab: all-time bars, this-week bars, daily stacked breakdown (week-navigable), project × weekday heatmap.
+- **cal** (`/cal`) — Calendar. Month tiles across a configurable date range. Project timelines as colored date ranges. Holiday overlays for DE, AT, US, GB, FR, CN, JP.
+- **pom** (`/pom`) — Pomodoro. 25-min work / 5-min break cycles. Timer state persists to DB. Snarky message pool.
+- **mtg** (`/mtg`) — Meeting notes. Meetings with title, date, attendees, freeform notes, action items. "Summarize" generates plain-text summary locally. Cross-meeting actions view.
+- **idx** (`/idx`) — Idea inbox. Frictionless capture (Enter to log). Three views: IN / DO / BL with counters. Statuses: `inbox`, `promoted`, `deferred`, `done`, `killed`.
 
-### Personal (`personal/`)
+### Personal
 
-- **str** (`personal/str/`) — String tracker. Tracks guitar string change dates with per-guitar thresholds (default 30 days). Status colors: fresh (< 3 days), warn-yellow (≥ 75% of threshold), warn-red (≥ threshold or never changed).
-- **crd** (`personal/crd/`) — Chord aligner. Paste lyrics + a reference audio URL; auto-aligns chord annotations to lyric positions.
+- **str** (`/str`) — String tracker. Guitar string change dates with per-guitar thresholds (default 30 days). Status: fresh (< 3 days), warn-yellow (≥ 75% threshold), warn-red (≥ threshold).
+- **crd** (`/crd`) — Chord aligner. Paste lyrics + reference audio URL; auto-aligns chord annotations to lyric positions.
 
-### Games (`games/`)
+### Games
 
-- **teleport-tap** (`games/teleport-tap/`) — Game.
-- **mobs-magic** (`games/mobs-magic/`) — Game.
+- **teleport-tap** (`/games/teleport-tap/`) — Legacy static game.
+- **mobs-magic** (`/games/mobs-magic/`) — Legacy static game.
 
 ## Adding a new tool
 
-1. Create `<category>/<name>/index.html` following the existing pattern (fixed `#syncBar`, setup modal, Gist sync functions, `schedulePush` debounce). Reference the root favicon with `../../favicon.svg`.
-2. Choose a new `localStorage` key prefix to avoid collisions.
-3. Add a `.card` entry to the appropriate category page (`productivity/index.html`, `personal/index.html`, or `games/index.html`) using a relative path like `<name>/` (no `../` prefix).
-4. The root `index.html` only lists categories — no changes needed there unless a new category is added.
+1. **Backend**: add model(s) to `backend/models.py`, schemas to `backend/schemas.py`, router to `backend/routers/<name>.py`, import and register in `backend/main.py` with prefix `/api/<name>`.
+2. **Frontend API**: add a namespace to `frontend/src/api.js`.
+3. **Frontend page**: create `frontend/src/pages/<Name>.jsx` following the topbar + page layout.
+4. **Routing**: add a `<Route>` in `frontend/src/App.jsx`.
+5. **Navigation**: add an entry to the appropriate category page (`Productivity.jsx`, `Personal.jsx`, or `Games.jsx`).
+6. **Version bump**: increment `package.json` minor version.
 
-## Versioning (all subprojects)
+## Build commands
 
-Every subproject displays its version next to its title — small (`font-size:10px`), gray (`color:#bbb`), not bold, with condensed letter-spacing (`0.05em`) — using the format `vMAJOR.MINOR` (e.g. `v1.0`, `v2.11`).
+```bash
+# Frontend
+cd frontend && npm run build   # outputs to frontend/dist/
 
-**Rules:**
-- **Minor bump** — with every commit that changes a tool's `index.html`, increment the minor part (e.g. `v2.11` → `v2.12`). The minor version is a plain integer: after `v2.9` comes `v2.10`, not `v3.0`.
-- **Major bump** — only when the user explicitly asks; reset minor to `0` (e.g. `v1.4` → `v2.0`).
-- Always read the current version from the file before bumping.
+# Backend (no compilation needed)
+uvicorn backend.main:app --reload
+```
 
-**Current versions** (update this table whenever a version changes):
-
-| Tool | Path | Version |
-|------|------|---------|
-| tts  | `productivity/tts/index.html` | v3.8 |
-| cal  | `productivity/cal/index.html` | v3.0 |
-| pom  | `productivity/pom/index.html` | v3.0 |
-| mtg  | `productivity/mtg/index.html` | v3.0 |
-| idx  | `productivity/idx/index.html` | v3.0 |
-| str  | `personal/str/index.html` | v3.0 |
-| crd  | `personal/crd/index.html` | v3.0 |
-| teleport-tap | `games/teleport-tap/index.html` | v3.0 |
-| mobs-magic | `games/mobs-magic/index.html` | v3.0 |
-
-## No build, lint, or test commands
-
-There are no npm scripts, no linters, and no automated tests. Preview by opening any `index.html` directly in a browser or serving with any static file server (e.g. `python3 -m http.server` from the repo root).
+There are no linters or automated tests. `npm run build` is the only correctness gate — fix any Vite errors it surfaces before pushing.
