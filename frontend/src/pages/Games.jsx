@@ -13,6 +13,11 @@ export default function Games() {
         <h1 className="landing-title">games</h1>
       </header>
       <nav className="landing-grid">
+        <Link to="/" className="nav-card">
+          <div className="nav-card-label"></div>
+          <div className="nav-card-name">← back</div>
+          <div className="nav-card-arrow"></div>
+        </Link>
         {GAMES.map(g => (
           <a key={g.href} href={g.href} className="nav-card">
             <div className="nav-card-label">{g.label}</div>
