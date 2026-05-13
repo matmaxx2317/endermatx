@@ -491,31 +491,31 @@ export default function Calendar() {
         {/* Edit form — absolute date entry */}
         {editId && (
           <form onSubmit={saveEdit} className="card" style={{ marginBottom: 16 }}>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-              <div style={{ flex: '1 1 160px' }}>
-                <label className="label">name</label>
-                <input className="input" value={editForm.name} onChange={e => setEF('name', e.target.value)} />
-              </div>
-              <div style={{ flex: '1 1 120px' }}>
+            <div style={{ marginBottom: 10 }}>
+              <label className="label">name</label>
+              <input className="input" value={editForm.name} onChange={e => setEF('name', e.target.value)} />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
+              <div>
                 <label className="label">start</label>
                 <input className="input" type="date" value={editForm.start_date} onChange={e => setEF('start_date', e.target.value)} />
               </div>
-              <div style={{ flex: '1 1 120px' }}>
+              <div>
                 <label className="label">end</label>
                 <input className="input" type="date" value={editForm.end_date} onChange={e => setEF('end_date', e.target.value)} />
               </div>
-              <div>
-                <label className="label">color</label>
-                <div style={{ display: 'flex', gap: 4 }}>
-                  {COLORS.map(c => (
-                    <button key={c} type="button" onClick={() => setEF('color', c)}
-                      style={{ width: 20, height: 20, background: c, borderRadius: 2,
-                               border: editForm.color === c ? '2px solid #fff' : '2px solid transparent' }} />
-                  ))}
-                </div>
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label className="label">color</label>
+              <div style={{ display: 'flex', gap: 4 }}>
+                {COLORS.map(c => (
+                  <button key={c} type="button" onClick={() => setEF('color', c)}
+                    style={{ width: 20, height: 20, background: c, borderRadius: 2,
+                             border: editForm.color === c ? '2px solid #fff' : '2px solid transparent' }} />
+                ))}
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+            <div style={{ display: 'flex', gap: 8 }}>
               <button type="submit" className="btn btn-primary btn-sm">save</button>
               <button type="button" className="btn btn-sm" onClick={() => setEditId(null)}>cancel</button>
               <button type="button" className="btn btn-danger btn-sm" style={{ marginLeft: 'auto' }}
