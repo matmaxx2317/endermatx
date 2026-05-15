@@ -73,7 +73,7 @@ export default function BpmCounter() {
         <button
           onPointerDown={handleTap}
           style={{
-            width: 180, height: 180, borderRadius: '50%',
+            width: '100%', height: 160, borderRadius: 16,
             background: flash ? 'rgba(77,111,160,0.2)' : '#0d1221',
             border: `2px solid ${flash ? '#4d6fa0' : '#1a2840'}`,
             color: '#9ab0d0', fontSize: 15, fontFamily: 'inherit',
@@ -84,12 +84,12 @@ export default function BpmCounter() {
           tap
         </button>
 
-        <div style={{ marginTop: 32, height: 24, display: 'flex', gap: 14, alignItems: 'center' }}>
+        <div style={{ marginTop: 12, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
           {taps.length > 0 && <>
-            <span style={{ fontSize: 12, color: '#374d66' }}>
-              {taps.length} tap{taps.length !== 1 ? 's' : ''}
-            </span>
-            <button className="btn btn-sm" onClick={reset}>reset</button>
+            <button className="btn btn-sm" onClick={reset}
+              style={{ width: '100%', padding: '10px 0' }}>
+              reset · {taps.length} tap{taps.length !== 1 ? 's' : ''}
+            </button>
           </>}
         </div>
 
