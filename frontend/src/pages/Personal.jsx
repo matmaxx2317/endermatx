@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 const TOOLS = [
   { path: '/str', label: '01', name: 'str', desc: 'string tracker' },
   { path: '/crd', label: '02', name: 'crd', desc: 'chord aligner' },
+  { path: '/bpm', label: '03', name: 'bpm', desc: 'bpm counter' },
 ]
 
 export default function Personal() {

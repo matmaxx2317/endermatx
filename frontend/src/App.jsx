@@ -10,6 +10,7 @@ import Meetings from './pages/Meetings'
 import IdeaInbox from './pages/IdeaInbox'
 import StringTracker from './pages/StringTracker'
 import ChordAligner from './pages/ChordAligner'
+import BpmCounter from './pages/BpmCounter'
 
 function VersionFooter() {
   return (
@@ -40,6 +41,7 @@ export default function App() {
         <Route path="/idx" element={<IdeaInbox />} />
         <Route path="/str" element={<StringTracker />} />
         <Route path="/crd" element={<ChordAligner />} />
+        <Route path="/bpm" element={<BpmCounter />} />
       </Routes>
       <VersionFooter />
     </BrowserRouter>
