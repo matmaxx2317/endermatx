@@ -9,10 +9,11 @@ _startup_time = datetime.now(timezone.utc)
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from .database import engine, Base, SessionLocal
 from .models import TtsEntry
@@ -79,11 +80,25 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="endermatx API", lifespan=lifespan)
 
+# Security headers on every response
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        return response
+
+app.add_middleware(SecurityHeadersMiddleware)
+
+# CORS: restrict to configured origins (defaults to local dev server)
+_raw_origins = os.environ.get("ALLOWED_ORIGINS", "http://localhost:5173")
+_allowed_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=_allowed_origins,
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["Content-Type"],
 )
 
 app.include_router(tts.router, prefix="/api/tts", tags=["tts"])
@@ -144,9 +159,14 @@ async def root():
 
 @app.get("/{full_path:path}")
 async def spa_fallback(full_path: str):
-    candidate = FRONTEND_DIST / full_path
-    if full_path and candidate.is_file():
-        return FileResponse(candidate)
+    dist = FRONTEND_DIST.resolve()
+    candidate = (FRONTEND_DIST / full_path).resolve()
+    try:
+        candidate.relative_to(dist)
+        if candidate.is_file():
+            return FileResponse(candidate)
+    except ValueError:
+        pass  # path traversal attempt — fall through to index.html
     index = FRONTEND_DIST / "index.html"
     if index.exists():
         return FileResponse(index)

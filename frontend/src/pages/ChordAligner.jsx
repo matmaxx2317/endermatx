@@ -115,7 +115,7 @@ export default function ChordAligner() {
             <textarea className="textarea" rows={4} value={manualChords} onChange={e => handleChordsChange(e.target.value)} placeholder="G G C G D G C G" />
             <label className="label mt8">audio / video URL</label>
             <input className="input" value={mediaUrl} onChange={e => handleUrlChange(e.target.value)} placeholder="https://…" />
-            {mediaUrl && (
+            {mediaUrl && /^https?:\/\//i.test(mediaUrl) && (
               <audio controls src={mediaUrl} style={{ marginTop: 8, width: '100%' }} />
             )}
           </div>
