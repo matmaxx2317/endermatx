@@ -2,6 +2,14 @@ import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { cal } from '../api'
 
+// ── Helpers ────────────────────────────────────────────────────
+// Format a yyyy-mm-dd string as dd.mm.yyyy without creating a Date object
+function fmtIsoDate(s) {
+  if (!s) return ''
+  const [y, m, d] = s.split('-')
+  return `${d}.${m}.${y}`
+}
+
 // ── Constants ──────────────────────────────────────────────────
 const MONTHS   = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 const COLORS   = ['#4a9eff','#e74c3c','#2ecc71','#f1c40f','#9b59b6','#e67e22','#1abc9c','#e91e63']
@@ -582,7 +590,7 @@ export default function Calendar() {
                 <div key={p.id} style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#9ab0d0' }}>
                   <span style={{ width: 6, height: 6, borderRadius: '50%', background: p.color }} />
                   {p.name}
-                  <span style={{ color: '#374d66' }}>{p.start_date} → {p.end_date}</span>
+                  <span style={{ color: '#374d66' }}>{fmtIsoDate(p.start_date)} → {fmtIsoDate(p.end_date)}</span>
                 </div>
               ))}
             </div>
