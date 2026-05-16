@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 const TOOLS = [
   { path: '/str', label: '01', name: 'str', desc: 'string tracker' },
   { path: '/bpm', label: '02', name: 'bpm', desc: 'bpm counter' },
+  { path: '/spt', label: '03', name: 'spt', desc: 'spotify explorer' },
 ]
 
 export default function Personal() {
