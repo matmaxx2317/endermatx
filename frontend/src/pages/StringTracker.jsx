@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { str } from '../api'
 
@@ -19,14 +19,86 @@ function fmtDate(iso) {
   return new Date(iso).toLocaleDateString()
 }
 
+function todayStr() {
+  return new Date().toISOString().slice(0, 10)
+}
+
 export default function StringTracker() {
   const [guitars, setGuitars] = useState([])
   const [adding, setAdding] = useState(false)
   const [name, setName] = useState('')
   const [threshold, setThreshold] = useState(30)
   const [expandedId, setExpandedId] = useState(null)
+  // per-guitar "changed on" date value
+  const [changedOnDates, setChangedOnDates] = useState({})
+
+  // swipe-to-delete state
+  const [swipeOffset, setSwipeOffset] = useState({ id: null, x: 0 })
+  const touchState = useRef({ id: null, startX: 0, startY: 0, cancelled: false, swiped: false, currentX: 0 })
+  const didSwipeRef = useRef(false)
 
   useEffect(() => { str.getGuitars().then(setGuitars) }, [])
+
+  function getChangedOnDate(id) {
+    return changedOnDates[id] ?? todayStr()
+  }
+
+  function setChangedOnDate(id, date) {
+    setChangedOnDates(prev => ({ ...prev, [id]: date }))
+  }
+
+  // ── touch handlers ───────────────────────────────────────────
+
+  function onTouchStart(e, id) {
+    const t = e.touches[0]
+    touchState.current = { id, startX: t.clientX, startY: t.clientY, cancelled: false, swiped: false, currentX: 0 }
+    didSwipeRef.current = false
+    setSwipeOffset({ id, x: 0 })
+  }
+
+  function onTouchMove(e, id) {
+    const ts = touchState.current
+    if (ts.id !== id || ts.cancelled) return
+    const t = e.touches[0]
+    const dx = t.clientX - ts.startX
+    const dy = t.clientY - ts.startY
+    // cancel if predominantly vertical before we commit to a horizontal swipe
+    if (!ts.swiped && Math.abs(dy) > Math.abs(dx)) {
+      touchState.current.cancelled = true
+      setSwipeOffset({ id: null, x: 0 })
+      return
+    }
+    if (dx < 0) {
+      const newX = Math.max(dx, -100)
+      touchState.current.swiped = true
+      touchState.current.currentX = newX
+      didSwipeRef.current = Math.abs(dx) > 10
+      setSwipeOffset({ id, x: newX })
+    }
+  }
+
+  function onTouchEnd(id) {
+    const ts = touchState.current
+    if (ts.id !== id || ts.cancelled) {
+      setSwipeOffset({ id: null, x: 0 })
+      return
+    }
+    if (ts.currentX < -80) {
+      deleteGuitar(id)
+    }
+    touchState.current = { ...ts, id: null, currentX: 0 }
+    setSwipeOffset({ id: null, x: 0 })
+  }
+
+  function handleCardClick(id) {
+    if (didSwipeRef.current) {
+      didSwipeRef.current = false
+      return
+    }
+    setExpandedId(prev => prev === id ? null : id)
+  }
+
+  // ── data actions ─────────────────────────────────────────────
 
   async function addGuitar(e) {
     e.preventDefault()
@@ -38,8 +110,10 @@ export default function StringTracker() {
     setAdding(false)
   }
 
-  async function recordChange(id) {
-    const g = await str.recordChange(id)
+  async function recordChange(id, dateStr) {
+    // noon UTC avoids date-display drift across UTC± timezones
+    const changedAt = dateStr ? dateStr + 'T12:00:00' : null
+    const g = await str.recordChange(id, changedAt)
     setGuitars(gs => gs.map(x => x.id === id ? g : x))
   }
 
@@ -69,41 +143,84 @@ export default function StringTracker() {
           const days = daysSince(g.last_changed)
           const color = statusColor(days, g.threshold_days)
           const expanded = expandedId === g.id
+          const swipeX = swipeOffset.id === g.id ? swipeOffset.x : 0
+          const snapping = swipeOffset.id !== g.id
+
           return (
-            <div key={g.id} className="card" style={{ marginBottom: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }} onClick={() => setExpandedId(expanded ? null : g.id)}>
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
-                <span style={{ flex: 1, fontSize: 14, color: '#ddd' }}>{g.name}</span>
-                <span style={{ fontSize: 12, color: color }}>
-                  {days === null ? 'never changed' : `${days}d ago`}
-                </span>
-                <span style={{ fontSize: 11, color: '#444' }}>/{g.threshold_days}d</span>
+            <div key={g.id} style={{ position: 'relative', marginBottom: 8, borderRadius: 8, overflow: 'hidden', border: '1px solid #1a2840' }}>
+              {/* delete zone revealed by left swipe */}
+              <div style={{
+                position: 'absolute', top: 0, right: 0, bottom: 0, width: 80,
+                background: '#c62828', display: 'flex', alignItems: 'center',
+                justifyContent: 'center', fontSize: 12, color: '#fff', userSelect: 'none',
+              }}>
+                delete
               </div>
 
-              {expanded && (
-                <div style={{ marginTop: 12, borderTop: '1px solid #1e1e1e', paddingTop: 12 }}>
-                  <div style={{ fontSize: 11, color: '#666', marginBottom: 8 }}>
-                    last changed: {fmtDate(g.last_changed)}
-                  </div>
-                  {g.history?.length > 0 && (
-                    <div style={{ marginBottom: 12 }}>
-                      <div className="label">change history</div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                        {[...g.history].reverse().slice(0, 10).map((h, i) => (
-                          <div key={i} style={{ fontSize: 12, color: '#555' }}>{fmtDate(h)}</div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <button className="btn btn-sm btn-primary" onClick={() => recordChange(g.id)}>just changed</button>
-                    {g.history?.length > 0 && (
-                      <button className="btn btn-sm" onClick={() => undoChange(g.id)}>undo</button>
-                    )}
-                    <button className="btn btn-sm btn-danger" style={{ marginLeft: 'auto' }} onClick={() => deleteGuitar(g.id)}>delete</button>
-                  </div>
+              {/* card content */}
+              <div
+                className="card"
+                style={{
+                  marginBottom: 0, border: 'none', borderRadius: 0,
+                  transform: `translateX(${swipeX}px)`,
+                  transition: snapping ? 'transform 0.2s ease' : 'none',
+                }}
+                onTouchStart={e => onTouchStart(e, g.id)}
+                onTouchMove={e => onTouchMove(e, g.id)}
+                onTouchEnd={() => onTouchEnd(g.id)}
+              >
+                <div
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}
+                  onClick={() => handleCardClick(g.id)}
+                >
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
+                  <span style={{ flex: 1, fontSize: 14, color: '#ddd' }}>{g.name}</span>
+                  <span style={{ fontSize: 12, color }}>
+                    {days === null ? 'never changed' : `${days}d ago`}
+                  </span>
+                  <span style={{ fontSize: 11, color: '#444' }}>/{g.threshold_days}d</span>
                 </div>
-              )}
+
+                {expanded && (
+                  <div style={{ marginTop: 12, borderTop: '1px solid #1e1e1e', paddingTop: 12 }}>
+                    <div style={{ fontSize: 11, color: '#666', marginBottom: 8 }}>
+                      last changed: {fmtDate(g.last_changed)}
+                    </div>
+                    {g.history?.length > 0 && (
+                      <div style={{ marginBottom: 12 }}>
+                        <div className="label">change history</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          {[...g.history].reverse().slice(0, 10).map((h, i) => (
+                            <div key={i} style={{ fontSize: 12, color: '#555' }}>{fmtDate(h)}</div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+                      <button className="btn btn-sm btn-primary" onClick={() => recordChange(g.id, null)}>just changed</button>
+                      {g.history?.length > 0 && (
+                        <button className="btn btn-sm" onClick={() => undoChange(g.id)}>undo</button>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <input
+                        type="date"
+                        className="input"
+                        style={{ flex: 1 }}
+                        value={getChangedOnDate(g.id)}
+                        max={todayStr()}
+                        onChange={e => setChangedOnDate(g.id, e.target.value)}
+                      />
+                      <button
+                        className="btn btn-sm btn-primary"
+                        onClick={() => recordChange(g.id, getChangedOnDate(g.id))}
+                      >
+                        changed on
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )
         })}

@@ -53,7 +53,7 @@ export const str = {
   createGuitar: (b)          => post('/str/guitars', b),
   updateGuitar: (id, b)      => put(`/str/guitars/${id}`, b),
   deleteGuitar: (id)         => del(`/str/guitars/${id}`),
-  recordChange: (id)         => post(`/str/guitars/${id}/change`),
+  recordChange: (id, changedAt) => post(`/str/guitars/${id}/change`, { changed_at: changedAt ?? null }),
   undoChange: (id)           => del(`/str/guitars/${id}/change`),
 }
 
