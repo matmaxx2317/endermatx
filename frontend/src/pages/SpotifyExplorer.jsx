@@ -13,33 +13,57 @@ export default function SpotifyExplorer() {
   const [connected, setConnected]   = useState(false)
   const [playlists, setPlaylists]   = useState([])
   const [selectedId, setSelectedId] = useState('')
-  const [tracks, setTracks]         = useState(null)   // enriched track array or null
-  const [status, setStatus]         = useState('')     // progress message
+  const [tracks, setTracks]         = useState(null)
+  const [status, setStatus]         = useState('')
   const [error, setError]           = useState('')
+  const [log, setLog]               = useState([])
 
-  // On mount: handle OAuth callback or restore existing session
+  function dbg(msg) {
+    setLog(prev => [...prev, `${new Date().toISOString().slice(11,23)} ${msg}`])
+  }
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const code   = params.get('code')
+    const oauthError = params.get('error')
+
+    dbg(`mount — code=${code ? code.slice(0,8)+'…' : 'none'} error=${oauthError ?? 'none'} connected=${spotify.isConnected()}`)
 
     async function init() {
-      if (code) {
-        // Clear the code from the URL immediately so refresh doesn't re-trigger it
+      if (oauthError) {
         window.history.replaceState({}, '', '/spt')
+        setError(`Spotify auth error: ${oauthError}`)
+        dbg(`oauth error: ${oauthError}`)
+        return
+      }
+      if (code) {
+        window.history.replaceState({}, '', '/spt')
+        dbg('calling handleCallback…')
         try {
           await spotify.handleCallback(code)
+          dbg('handleCallback ok')
           setConnected(true)
-          setPlaylists(await spotify.getPlaylists())
+          dbg('fetching playlists…')
+          const list = await spotify.getPlaylists()
+          dbg(`got ${list.length} playlists`)
+          setPlaylists(list)
         } catch (e) {
+          dbg(`error: ${e.message}`)
           setError(e.message)
         }
       } else if (spotify.isConnected()) {
+        dbg('already connected — fetching playlists…')
         setConnected(true)
         try {
-          setPlaylists(await spotify.getPlaylists())
+          const list = await spotify.getPlaylists()
+          dbg(`got ${list.length} playlists`)
+          setPlaylists(list)
         } catch (e) {
+          dbg(`error: ${e.message}`)
           setError(e.message)
         }
+      } else {
+        dbg('not connected, showing connect UI')
       }
     }
 
@@ -51,7 +75,8 @@ export default function SpotifyExplorer() {
     if (!id) return
     spotify.setClientId(id)
     setClientIdState(id)
-    await spotify.authorize()  // redirects away
+    dbg(`authorizing with client_id=${id.slice(0,8)}…`)
+    await spotify.authorize()
   }
 
   function disconnect() {
@@ -61,6 +86,7 @@ export default function SpotifyExplorer() {
     setTracks(null)
     setSelectedId('')
     setError('')
+    setLog([])
   }
 
   async function loadTracks() {
@@ -82,10 +108,7 @@ export default function SpotifyExplorer() {
     }
   }
 
-  // displayedTracks is separate from tracks so future filter controls
-  // can operate on this without re-fetching from Spotify
   const displayedTracks = useMemo(() => tracks ?? [], [tracks])
-
   const selectedPlaylist = playlists.find(p => p.id === selectedId)
 
   return (
@@ -97,6 +120,13 @@ export default function SpotifyExplorer() {
         </div>
       </div>
       <div className="page">
+
+        {/* Debug log — always visible */}
+        {log.length > 0 && (
+          <div style={{ fontFamily: 'monospace', fontSize: 11, background: '#050810', border: '1px solid #1a2840', borderRadius: 6, padding: 10, marginBottom: 16, whiteSpace: 'pre-wrap', wordBreak: 'break-all', color: '#9ab0d0' }}>
+            {log.join('\n')}
+          </div>
+        )}
 
         {!connected ? (
           <>
@@ -139,7 +169,6 @@ export default function SpotifyExplorer() {
           </>
         ) : (
           <>
-            {/* Playlist picker */}
             <div className="section-header">playlists</div>
             {playlists.length === 0 ? (
               <div style={{ fontSize: 13, color: '#555' }}>loading…</div>
@@ -175,7 +204,6 @@ export default function SpotifyExplorer() {
               <div style={{ fontSize: 12, color: '#f44336', marginTop: 10 }}>{error}</div>
             )}
 
-            {/* Track list */}
             {tracks && (
               <div style={{ marginTop: 20 }}>
                 <div className="section-header">
@@ -188,16 +216,11 @@ export default function SpotifyExplorer() {
                       className="card"
                       style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 10 }}
                     >
-                      {/* BPM */}
                       <div style={{ textAlign: 'right', flexShrink: 0, width: 36 }}>
                         <span style={{ fontSize: 14, fontWeight: 600, color: '#eef2ff' }}>{t.bpm}</span>
                         <div style={{ fontSize: 10, color: '#374d66' }}>bpm</div>
                       </div>
-
-                      {/* Separator */}
                       <div style={{ width: 1, height: 28, background: '#1a2840', flexShrink: 0 }} />
-
-                      {/* Track info */}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, color: '#eef2ff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {t.name}
@@ -206,8 +229,6 @@ export default function SpotifyExplorer() {
                           {t.artists.map(a => a.name).join(', ')}
                         </div>
                       </div>
-
-                      {/* Duration */}
                       <span style={{ fontSize: 11, color: '#374d66', flexShrink: 0 }}>
                         {fmtDuration(t.duration_ms)}
                       </span>
