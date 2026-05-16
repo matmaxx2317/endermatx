@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import BigInteger, Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import BigInteger, Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
 from .database import Base
 
@@ -45,30 +45,6 @@ class CalSettings(Base):
     countries = Column(JSONB, default=list)
 
 
-# ── pom ───────────────────────────────────────────────────────────────────────
-
-class PomState(Base):
-    __tablename__ = "pom_state"
-    id = Column(Integer, primary_key=True, default=1)
-    sessions = Column(JSONB, default=dict)
-    total_mins = Column(Float, default=0.0)
-    timer = Column(JSONB, nullable=True)
-
-
-# ── mtg ───────────────────────────────────────────────────────────────────────
-
-class Meeting(Base):
-    __tablename__ = "mtg_meetings"
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    title = Column(String, nullable=False)
-    date = Column(String, default="")
-    notes = Column(Text, default="")
-    attendees = Column(JSONB, default=list)
-    actions = Column(JSONB, default=list)
-    summary = Column(Text, default="")
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-
 # ── idx ───────────────────────────────────────────────────────────────────────
 
 class Idea(Base):
@@ -91,16 +67,3 @@ class Guitar(Base):
     history = Column(JSONB, default=list)
 
 
-# ── crd ───────────────────────────────────────────────────────────────────────
-
-class CrdState(Base):
-    __tablename__ = "crd_state"
-    id = Column(Integer, primary_key=True, default=1)
-    lyrics = Column(Text, default="")
-    manual_chords = Column(Text, default="")
-    media_url = Column(String, default="")
-    chords = Column(JSONB, default=list)
-    cursor = Column(Integer, default=0)
-    word_seq = Column(Integer, default=0)
-    lines = Column(JSONB, default=list)
-    manual_output = Column(Text, nullable=True)

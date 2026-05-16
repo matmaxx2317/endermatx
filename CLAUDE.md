@@ -75,7 +75,7 @@ backend/
   models.py        ← All SQLAlchemy table models
   schemas.py       ← Pydantic request/response schemas
   routers/
-    tts.py  cal.py  pom.py  mtg.py  idx.py  strings.py  crd.py
+    tts.py  cal.py  idx.py  strings.py
 frontend/
   index.html       ← Vite entry (loads Inter font from Google Fonts)
   vite.config.js   ← Injects __GIT_HASH__, __GIT_HASH_FULL__, __APP_VERSION__ at build
@@ -103,12 +103,10 @@ Three levels deep, all handled by React Router:
   /productivity   ← Productivity category page
     /tts          ← Time tracker
     /cal          ← Calendar
-    /pom          ← Pomodoro
-    /mtg          ← Meeting notes
     /idx          ← Idea inbox
   /personal       ← Personal category page
     /str          ← String tracker
-    /crd          ← Chord aligner
+    /bpm          ← BPM tap counter
   /games          ← Games category page (React)
     /games/teleport-tap/   ← Static legacy game (served from games/ dir)
     /games/mobs-magic/     ← Static legacy game (served from games/ dir)
@@ -169,7 +167,7 @@ Each router (`backend/routers/*.py`) follows the same pattern:
 
 ### API client (`frontend/src/api.js`)
 
-All backend calls go through typed wrappers in `api.js`. Never call `fetch` directly in a page component. Each tool namespace (`tts`, `cal`, `pom`, `mtg`, `idx`, `str`, `crd`) exports typed methods.
+All backend calls go through typed wrappers in `api.js`. Never call `fetch` directly in a page component. Each tool namespace (`tts`, `cal`, `idx`, `str`) exports typed methods.
 
 ### State model
 
@@ -204,14 +202,12 @@ Railway fallback: when `.git` is absent at build time, `RAILWAY_GIT_COMMIT_SHA` 
 
 - **tts** (`/tts`) — Time tracker. Projects with colored labels; tracks time segments. Stats tab: all-time bars, this-week bars, daily stacked breakdown (week-navigable), project × weekday heatmap.
 - **cal** (`/cal`) — Calendar. Month tiles across a configurable date range. Project timelines as colored date ranges. Holiday overlays for DE, AT, US, GB, FR, CN, JP.
-- **pom** (`/pom`) — Pomodoro. 25-min work / 5-min break cycles. Timer state persists to DB. Snarky message pool.
-- **mtg** (`/mtg`) — Meeting notes. Meetings with title, date, attendees, freeform notes, action items. "Summarize" generates plain-text summary locally. Cross-meeting actions view.
 - **idx** (`/idx`) — Idea inbox. Frictionless capture (Enter to log). Three views: IN / DO / BL with counters. Statuses: `inbox`, `promoted`, `deferred`, `done`, `killed`.
 
 ### Personal
 
 - **str** (`/str`) — String tracker. Guitar string change dates with per-guitar thresholds (default 30 days). Status: fresh (< 3 days), warn-yellow (≥ 75% threshold), warn-red (≥ threshold).
-- **crd** (`/crd`) — Chord aligner. Paste lyrics + reference audio URL; auto-aligns chord annotations to lyric positions.
+- **bpm** (`/bpm`) — BPM tap counter. Tap or press Space to measure tempo; auto-resets after 3 s of inactivity.
 
 ### Games
 

@@ -39,20 +39,6 @@ export const cal = {
   updateSettings: (b)        => put('/cal/settings', b),
 }
 
-// ── pom ───────────────────────────────────────────────────────
-export const pom = {
-  getState: ()               => get('/pom/state'),
-  updateState: (b)           => put('/pom/state', b),
-}
-
-// ── mtg ───────────────────────────────────────────────────────
-export const mtg = {
-  getMeetings: ()            => get('/mtg/meetings'),
-  createMeeting: (b)         => post('/mtg/meetings', b),
-  updateMeeting: (id, b)     => put(`/mtg/meetings/${id}`, b),
-  deleteMeeting: (id)        => del(`/mtg/meetings/${id}`),
-}
-
 // ── idx ───────────────────────────────────────────────────────
 export const idx = {
   getIdeas: ()               => get('/idx/ideas'),
@@ -71,8 +57,3 @@ export const str = {
   undoChange: (id)           => del(`/str/guitars/${id}/change`),
 }
 
-// ── crd ───────────────────────────────────────────────────────
-export const crd = {
-  getState: ()               => get('/crd/state'),
-  updateState: (b)           => put('/crd/state', b),
-}

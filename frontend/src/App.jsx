@@ -5,11 +5,8 @@ import Personal from './pages/Personal'
 import Games from './pages/Games'
 import TimeTracker from './pages/TimeTracker'
 import Calendar from './pages/Calendar'
-import Pomodoro from './pages/Pomodoro'
-import Meetings from './pages/Meetings'
 import IdeaInbox from './pages/IdeaInbox'
 import StringTracker from './pages/StringTracker'
-import ChordAligner from './pages/ChordAligner'
 import BpmCounter from './pages/BpmCounter'
 
 function VersionFooter() {
@@ -36,11 +33,8 @@ export default function App() {
         <Route path="/games" element={<Games />} />
         <Route path="/tts" element={<TimeTracker />} />
         <Route path="/cal" element={<Calendar />} />
-        <Route path="/pom" element={<Pomodoro />} />
-        <Route path="/mtg" element={<Meetings />} />
         <Route path="/idx" element={<IdeaInbox />} />
         <Route path="/str" element={<StringTracker />} />
-        <Route path="/crd" element={<ChordAligner />} />
         <Route path="/bpm" element={<BpmCounter />} />
       </Routes>
       <VersionFooter />
