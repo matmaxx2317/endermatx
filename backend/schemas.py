@@ -99,50 +99,6 @@ class CalSettingsOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
-# ── pom ───────────────────────────────────────────────────────────────────────
-
-class PomStateUpdate(BaseModel):
-    sessions:   Optional[dict[str, Any]] = None
-    total_mins: Optional[float]          = Field(None, ge=0)
-    timer:      Optional[dict[str, Any]] = None
-
-class PomStateOut(BaseModel):
-    sessions:   dict[str, Any]
-    total_mins: float
-    timer:      Optional[dict[str, Any]]
-    model_config = {"from_attributes": True}
-
-
-# ── mtg ───────────────────────────────────────────────────────────────────────
-
-class MeetingCreate(BaseModel):
-    title:     str            = Field(...,  max_length=200)
-    date:      str            = Field("",   max_length=20)
-    notes:     str            = Field("",   max_length=20000)
-    attendees: list[str]      = Field(default_factory=list)
-    actions:   list[dict[str, Any]] = Field(default_factory=list)
-    summary:   str            = Field("",   max_length=5000)
-
-class MeetingUpdate(BaseModel):
-    title:     Optional[str]                  = Field(None, max_length=200)
-    date:      Optional[str]                  = Field(None, max_length=20)
-    notes:     Optional[str]                  = Field(None, max_length=20000)
-    attendees: Optional[list[str]]            = None
-    actions:   Optional[list[dict[str, Any]]] = None
-    summary:   Optional[str]                  = Field(None, max_length=5000)
-
-class MeetingOut(BaseModel):
-    id: int
-    title: str
-    date: str
-    notes: str
-    attendees: list[str]
-    actions: list[dict[str, Any]]
-    summary: str
-    created_at: UtcDt
-    model_config = {"from_attributes": True}
-
-
 # ── idx ───────────────────────────────────────────────────────────────────────
 
 _VALID_STATUSES = {"inbox", "promoted", "deferred", "done", "killed"}
@@ -185,26 +141,3 @@ class GuitarOut(BaseModel):
     history: list[str]
     model_config = {"from_attributes": True}
 
-
-# ── crd ───────────────────────────────────────────────────────────────────────
-
-class CrdStateUpdate(BaseModel):
-    lyrics:       Optional[str]       = Field(None, max_length=50000)
-    manual_chords:Optional[str]       = Field(None, max_length=2000)
-    media_url:    Optional[str]       = Field(None, max_length=2000)
-    chords:       Optional[list[Any]] = None
-    cursor:       Optional[int]       = Field(None, ge=0)
-    word_seq:     Optional[int]       = Field(None, ge=0)
-    lines:        Optional[list[Any]] = None
-    manual_output:Optional[str]       = Field(None, max_length=50000)
-
-class CrdStateOut(BaseModel):
-    lyrics:        str
-    manual_chords: str
-    media_url:     str
-    chords:        list[Any]
-    cursor:        int
-    word_seq:      int
-    lines:         list[Any]
-    manual_output: Optional[str]
-    model_config = {"from_attributes": True}
