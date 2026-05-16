@@ -10,13 +10,15 @@ function daysSince(iso) {
 function statusColor(days, threshold) {
   if (days === null) return '#f44336'
   if (days >= threshold) return '#f44336'
-  if (days >= Math.floor(threshold * 0.75)) return '#ff9800'
+  if (days >= threshold * 0.8) return '#ff9800'
   return '#4caf50'
 }
 
 function fmtDate(iso) {
   if (!iso) return 'never'
-  return new Date(iso).toLocaleDateString()
+  const d = new Date(iso)
+  const p = n => String(n).padStart(2, '0')
+  return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()}`
 }
 
 function todayStr() {
@@ -142,6 +144,8 @@ export default function StringTracker() {
         {guitars.map(g => {
           const days = daysSince(g.last_changed)
           const color = statusColor(days, g.threshold_days)
+          // positive → days remaining; negative → days overdue; null → never changed
+          const remaining = days !== null ? g.threshold_days - days : null
           const expanded = expandedId === g.id
           const swipeX = swipeOffset.id === g.id ? swipeOffset.x : 0
           const snapping = swipeOffset.id !== g.id
@@ -175,10 +179,11 @@ export default function StringTracker() {
                 >
                   <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
                   <span style={{ flex: 1, fontSize: 14, color: '#ddd' }}>{g.name}</span>
-                  <span style={{ fontSize: 12, color }}>
-                    {days === null ? 'never changed' : `${days}d ago`}
-                  </span>
-                  <span style={{ fontSize: 11, color: '#444' }}>/{g.threshold_days}d</span>
+                  <span style={{ fontSize: 12, color }}>{days !== null ? `${days}d` : '—'}</span>
+                  <span style={{ fontSize: 12, color: '#374d66', margin: '0 2px' }}>|</span>
+                  <span style={{ fontSize: 12, color }}>{remaining !== null ? `${Math.abs(remaining)}d` : '—'}</span>
+                  <span style={{ fontSize: 12, color: '#374d66', margin: '0 2px' }}>|</span>
+                  <span style={{ fontSize: 12, color: '#374d66' }}>{g.threshold_days}d</span>
                 </div>
 
                 {expanded && (
