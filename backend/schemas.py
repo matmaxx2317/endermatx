@@ -133,6 +133,9 @@ class GuitarUpdate(BaseModel):
     name:           Optional[str] = Field(None, max_length=100)
     threshold_days: Optional[int] = Field(None, ge=1, le=3650)
 
+class GuitarChangeCreate(BaseModel):
+    changed_at: Optional[datetime] = None
+
 class GuitarOut(BaseModel):
     id: int
     name: str

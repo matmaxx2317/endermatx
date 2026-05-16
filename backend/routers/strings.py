@@ -43,15 +43,15 @@ def delete_guitar(gid: int, db: Session = Depends(get_db)):
 
 
 @router.post("/guitars/{gid}/change", response_model=schemas.GuitarOut)
-def record_change(gid: int, db: Session = Depends(get_db)):
+def record_change(gid: int, body: schemas.GuitarChangeCreate, db: Session = Depends(get_db)):
     guitar = db.get(models.Guitar, gid)
     if not guitar:
         raise HTTPException(404)
-    now = datetime.utcnow()
+    ts = body.changed_at if body.changed_at else datetime.utcnow()
     history = list(guitar.history or [])
-    history.append(now.isoformat())
+    history.append(ts.isoformat())
     guitar.history = history
-    guitar.last_changed = now
+    guitar.last_changed = ts
     db.commit()
     db.refresh(guitar)
     return guitar
