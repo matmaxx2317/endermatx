@@ -8,6 +8,7 @@ import Calendar from './pages/Calendar'
 import IdeaInbox from './pages/IdeaInbox'
 import StringTracker from './pages/StringTracker'
 import BpmCounter from './pages/BpmCounter'
+import SpotifyExplorer from './pages/SpotifyExplorer'
 
 function VersionFooter() {
   return (
@@ -36,6 +37,7 @@ export default function App() {
         <Route path="/idx" element={<IdeaInbox />} />
         <Route path="/str" element={<StringTracker />} />
         <Route path="/bpm" element={<BpmCounter />} />
+        <Route path="/spt" element={<SpotifyExplorer />} />
       </Routes>
       <VersionFooter />
     </BrowserRouter>
