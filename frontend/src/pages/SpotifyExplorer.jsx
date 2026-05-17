@@ -207,9 +207,10 @@ export default function SpotifyExplorer() {
                     >
                       <div style={{ textAlign: 'right', flexShrink: 0, width: 36 }}>
                         <span style={{ fontSize: 14, fontWeight: 600, color:
-                          t.bpmSource === 'getsongbpm' || t.bpmSource === 'cached' ? '#4ade80'
-                          : t.bpmSource === 'audio'  ? '#22d3ee'
-                          : t.bpmSource === 'failed' ? '#f44336'
+                          t.bpmSource === 'getsongbpm' ? '#4ade80'
+                          : t.bpmSource === 'cached'  ? '#e879f9'
+                          : t.bpmSource === 'audio'   ? '#22d3ee'
+                          : t.bpmSource === 'failed'  ? '#f44336'
                           : '#eef2ff'
                         }}>
                           {t.bpm ?? '—'}
