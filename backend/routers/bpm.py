@@ -32,7 +32,7 @@ def _getsongbpm_request(api_key: str, query: str):
     app_url = os.getenv("GETSONGBPM_APP_URL", "https://matmaxx.org/spt")
     return httpx.get(
         "https://api.getsong.co/search/",
-        params={"api_key": api_key, "type": "both", "lookup": query},
+        params={"api_key": api_key, "type": "song_name", "lookup": query},
         headers={
             "Referer": app_url,
             "Origin":  app_url,
