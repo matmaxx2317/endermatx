@@ -109,10 +109,7 @@ async function apiGet(url) {
   })
 
   if (res.status === 401) { logout(); throw new Error('Session expired — please reconnect') }
-  if (res.status === 403) throw new Error(
-    'Spotify denied access to audio features. Your app may need Extended Quota Mode for public use, ' +
-    'but in Development Mode you must add yourself as an authorised user in the Spotify dashboard.'
-  )
+  if (res.status === 403) throw new Error(`Spotify access denied (${res.status})`)
   if (!res.ok) throw new Error(`Spotify error ${res.status}`)
   return res.json()
 }
@@ -143,57 +140,18 @@ export async function getPlaylistTracks(playlistId, onProgress) {
   return tracks
 }
 
-export async function getAudioFeatures(trackIds, onProgress) {
-  const features = []
-  for (let i = 0; i < trackIds.length; i += 100) {
-    const ids  = trackIds.slice(i, i + 100).join(',')
-    const data = await apiGet(`/audio-features?ids=${ids}`)
-    features.push(...(data.audio_features || []))
-    onProgress?.('features', features.length)
-  }
-  return features
-}
-
-// Fetch artist details (includes genres) — used for future genre-based filtering
-export async function getArtists(artistIds) {
-  const artists = []
-  for (let i = 0; i < artistIds.length; i += 50) {
-    const ids  = artistIds.slice(i, i + 50).join(',')
-    const data = await apiGet(`/artists?ids=${ids}`)
-    artists.push(...(data.artists || []))
-  }
-  return artists
-}
-
 // ── High-level helpers ────────────────────────────────────────
 
-// Returns a flat array of enriched track objects sorted by BPM.
-// Preserves all audio feature fields and artist IDs for future filtering.
+// Returns track metadata only; BPM is resolved separately via bpm.js.
 export async function loadPlaylistTracks(playlistId, onProgress) {
-  const tracks   = await getPlaylistTracks(playlistId, onProgress)
-  const ids      = tracks.map(t => t.id)
-  const features = await getAudioFeatures(ids, onProgress)
-
-  const featureMap = new Map(features.filter(Boolean).map(f => [f.id, f]))
-
-  return tracks
-    .filter(t => featureMap.has(t.id))
-    .map(t => {
-      const f = featureMap.get(t.id)
-      return {
-        id:           t.id,
-        name:         t.name,
-        artists:      t.artists,          // [{ id, name }] — IDs needed for genre lookup
-        album:        t.album?.name ?? '',
-        duration_ms:  t.duration_ms,
-        bpm:          Math.round(f.tempo),
-        energy:       f.energy,           // 0–1
-        danceability: f.danceability,     // 0–1
-        valence:      f.valence,          // 0–1 (musical positivity)
-        key:          f.key,
-        time_sig:     f.time_signature,
-        _features:    f,                  // full object preserved for future filter predicates
-      }
-    })
-    .sort((a, b) => a.bpm - b.bpm)
+  const tracks = await getPlaylistTracks(playlistId, onProgress)
+  return tracks.map(t => ({
+    id:          t.id,
+    name:        t.name,
+    artists:     t.artists,
+    album:       t.album?.name ?? '',
+    duration_ms: t.duration_ms,
+    preview_url: t.preview_url ?? null,
+    bpm:         null,
+  }))
 }

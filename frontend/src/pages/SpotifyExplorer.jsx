@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import * as spotify from '../spotify'
+import { resolveBpms } from '../bpm'
 
 function fmtDuration(ms) {
   const s = Math.round(ms / 1000)
@@ -9,12 +10,12 @@ function fmtDuration(ms) {
 
 export default function SpotifyExplorer() {
   const [clientIdInput, setClientIdInput] = useState(() => spotify.getClientId())
-  // Initialise from localStorage so returning users see connected UI instantly
   const [connected, setConnected]   = useState(() => spotify.isConnected())
   const [playlists, setPlaylists]   = useState([])
   const [selectedId, setSelectedId] = useState('')
   const [tracks, setTracks]         = useState(null)
   const [status, setStatus]         = useState('')
+  const [bpmStatus, setBpmStatus]   = useState('')
   const [error, setError]           = useState('')
 
   // Handle OAuth callback — only token exchange, no API calls
@@ -48,6 +49,7 @@ export default function SpotifyExplorer() {
     setTracks(null)
     setSelectedId('')
     setError('')
+    setBpmStatus('')
   }
 
   async function loadPlaylists() {
@@ -66,14 +68,22 @@ export default function SpotifyExplorer() {
     if (!selectedId) return
     setTracks(null)
     setError('')
-    setStatus('starting…')
+    setBpmStatus('')
+    setStatus('loading tracks…')
     try {
-      const enriched = await spotify.loadPlaylistTracks(selectedId, (phase, n) => {
-        setStatus(phase === 'tracks'
-          ? `fetching tracks… ${n}`
-          : `fetching audio features… ${n}`)
+      const raw = await spotify.loadPlaylistTracks(selectedId, (_, n) => {
+        setStatus(`fetching tracks… ${n}`)
       })
-      setTracks(enriched)
+      setTracks(raw)
+      setStatus('')
+
+      // BPM resolution — updates tracks incrementally as each one resolves
+      setBpmStatus(`resolving BPMs… 0/${raw.length}`)
+      await resolveBpms(
+        raw,
+        (id, bpm) => setTracks(prev => prev?.map(t => t.id === id ? { ...t, bpm } : t) ?? prev),
+        (done, total) => setBpmStatus(done < total ? `resolving BPMs… ${done}/${total}` : ''),
+      )
     } catch (e) {
       setError(e.message)
     } finally {
@@ -81,11 +91,19 @@ export default function SpotifyExplorer() {
     }
   }
 
-  const displayedTracks  = useMemo(() => tracks ?? [], [tracks])
+  // Sort by BPM ascending; unresolved tracks sink to the bottom
+  const displayedTracks = useMemo(() => {
+    if (!tracks) return []
+    return [...tracks].sort((a, b) => {
+      if (a.bpm === null && b.bpm === null) return 0
+      if (a.bpm === null) return 1
+      if (b.bpm === null) return -1
+      return a.bpm - b.bpm
+    })
+  }, [tracks])
+
   const selectedPlaylist = playlists.find(p => p.id === selectedId)
 
-  // Spotify's simplified playlist object used to have `tracks.total`;
-  // newer API responses use `items.total` instead.
   function trackCount(p) {
     return (p.tracks ?? p.items)?.total ?? '?'
   }
@@ -157,7 +175,7 @@ export default function SpotifyExplorer() {
                   className="input"
                   style={{ flex: 1 }}
                   value={selectedId}
-                  onChange={e => { setSelectedId(e.target.value); setTracks(null); setError('') }}
+                  onChange={e => { setSelectedId(e.target.value); setTracks(null); setError(''); setBpmStatus('') }}
                 >
                   <option value="">— pick a playlist —</option>
                   {playlists.map(p => (
@@ -179,6 +197,9 @@ export default function SpotifyExplorer() {
             {status && (
               <div style={{ fontSize: 12, color: '#9ab0d0', marginTop: 10 }}>{status}</div>
             )}
+            {bpmStatus && (
+              <div style={{ fontSize: 12, color: '#9ab0d0', marginTop: 10 }}>{bpmStatus}</div>
+            )}
             {error && (
               <div style={{ fontSize: 12, color: '#f44336', marginTop: 10 }}>{error}</div>
             )}
@@ -196,7 +217,9 @@ export default function SpotifyExplorer() {
                       style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 10 }}
                     >
                       <div style={{ textAlign: 'right', flexShrink: 0, width: 36 }}>
-                        <span style={{ fontSize: 14, fontWeight: 600, color: '#eef2ff' }}>{t.bpm}</span>
+                        <span style={{ fontSize: 14, fontWeight: 600, color: '#eef2ff' }}>
+                          {t.bpm ?? '—'}
+                        </span>
                         <div style={{ fontSize: 10, color: '#374d66' }}>bpm</div>
                       </div>
                       <div style={{ width: 1, height: 28, background: '#1a2840', flexShrink: 0 }} />
@@ -217,8 +240,16 @@ export default function SpotifyExplorer() {
               </div>
             )}
 
-            <div style={{ marginTop: 24, borderTop: '1px solid #1a2840', paddingTop: 16 }}>
+            <div style={{ marginTop: 24, borderTop: '1px solid #1a2840', paddingTop: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <button className="btn btn-sm" onClick={disconnect}>disconnect spotify</button>
+              <a
+                href="https://getsongbpm.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ fontSize: 10, color: '#374d66', textDecoration: 'none' }}
+              >
+                BPM data: GetSongBPM
+              </a>
             </div>
           </>
         )}
