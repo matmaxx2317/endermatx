@@ -7,6 +7,25 @@ function fmtDuration(ms) {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 }
 
+// Fixed-position strip showing current state — immune to scroll and layout issues
+function StateBar({ connected, error, playlists }) {
+  const bg    = error ? '#7f0000' : connected ? '#1a3a1a' : '#1a1a3a'
+  const label = error
+    ? `error: ${error.slice(0, 60)}`
+    : connected
+      ? `connected · ${playlists.length} playlist(s) · ${window.location.search.slice(0, 30)}`
+      : `not connected · ${window.location.search.slice(0, 30)}`
+  return (
+    <div style={{
+      position: 'fixed', top: 32, left: 0, right: 0, zIndex: 9999,
+      background: bg, color: '#eef2ff', fontSize: 10, padding: '3px 8px',
+      borderBottom: '1px solid #333', wordBreak: 'break-all',
+    }}>
+      {label}
+    </div>
+  )
+}
+
 export default function SpotifyExplorer() {
   const [clientIdInput, setClientIdInput] = useState(() => spotify.getClientId())
   const [connected, setConnected]   = useState(false)
@@ -16,9 +35,6 @@ export default function SpotifyExplorer() {
   const [status, setStatus]         = useState('')
   const [error, setError]           = useState('')
 
-  // Scroll to top whenever we transition into the connected view so that
-  // the playlist picker is visible (scroll anchoring can shift the viewport
-  // down while async state updates accumulate above the fold)
   useEffect(() => {
     if (connected) window.scrollTo(0, 0)
   }, [connected])
@@ -100,7 +116,11 @@ export default function SpotifyExplorer() {
           <span className="topbar-title">spt</span>
         </div>
       </div>
-      <div className="page">
+
+      <StateBar connected={connected} error={error} playlists={playlists} />
+
+      {/* extra top margin to clear the StateBar */}
+      <div className="page" style={{ marginTop: 52 }}>
 
         {!connected ? (
           <>
