@@ -257,11 +257,18 @@ export default function Calendar() {
   const [showSettings, setShowSettings] = useState(false)
   const [tooltip, setTooltip]           = useState(null) // { lines, x, y, below }
   const tooltipRef                      = useRef(null)
+  const todayRef                        = useRef(null)
 
   useEffect(() => {
     cal.getProjects().then(setProjects)
     cal.getSettings().then(setSettings)
   }, [])
+
+  useEffect(() => {
+    if (settings && todayRef.current) {
+      todayRef.current.scrollIntoView({ block: 'center' })
+    }
+  }, [settings])
 
   // Dismiss tooltip on any outside click/touch
   useEffect(() => {
@@ -573,6 +580,7 @@ export default function Calendar() {
 
                   return (
                     <div key={d}
+                      ref={isToday ? todayRef : null}
                       onMouseEnter={e => openTooltip(e, tipLines)}
                       onMouseLeave={() => setTooltip(null)}
                       onClick={e => openTooltip(e, tipLines)}
