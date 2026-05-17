@@ -16,6 +16,7 @@ export default function SpotifyExplorer() {
   const [tracks, setTracks]         = useState(null)
   const [status, setStatus]         = useState('')
   const [bpmStatus, setBpmStatus]   = useState('')
+  const [bpmLog, setBpmLog]         = useState([])
   const [error, setError]           = useState('')
 
   // Handle OAuth callback — only token exchange, no API calls
@@ -50,6 +51,7 @@ export default function SpotifyExplorer() {
     setSelectedId('')
     setError('')
     setBpmStatus('')
+    setBpmLog([])
   }
 
   // Auto-load playlists whenever the connected state becomes true
@@ -67,6 +69,7 @@ export default function SpotifyExplorer() {
     setTracks(null)
     setError('')
     setBpmStatus('')
+    setBpmLog([])
     setStatus('loading tracks…')
     try {
       const raw = await spotify.loadPlaylistTracks(playlistId, (_, n) => {
@@ -81,6 +84,7 @@ export default function SpotifyExplorer() {
         raw,
         (id, bpm, src, cached) => setTracks(prev => prev?.map(t => t.id === id ? { ...t, bpm, bpmSource: src, bpmCached: cached } : t) ?? prev),
         (done, total) => setBpmStatus(done < total ? `resolving BPMs… ${done}/${total}` : ''),
+        entry => setBpmLog(prev => [...prev, entry]),
       )
     } catch (e) {
       setError(e.message)
@@ -168,6 +172,7 @@ export default function SpotifyExplorer() {
                 setTracks(null)
                 setError('')
                 setBpmStatus('')
+                setBpmLog([])
                 if (id) loadTracks(id)
               }}
               disabled={playlists.length === 0 || !!status}
@@ -185,6 +190,21 @@ export default function SpotifyExplorer() {
             )}
             {bpmStatus && (
               <div style={{ fontSize: 12, color: '#9ab0d0', marginTop: 10 }}>{bpmStatus}</div>
+            )}
+            {bpmLog.length > 0 && (
+              <div style={{ marginTop: 10, maxHeight: 160, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {bpmLog.map((e, i) => {
+                  const srcColor = e.source === 'getsongbpm' ? '#4ade80' : '#fb923c'
+                  const srcLabel = e.source === 'getsongbpm' ? 'getsong.co ' : 'musicbrainz'
+                  return (
+                    <div key={i} style={{ display: 'flex', gap: 8, fontSize: 11, fontFamily: 'monospace' }}>
+                      <span style={{ color: srcColor, flexShrink: 0 }}>{srcLabel}</span>
+                      <span style={{ color: '#374d66', flexShrink: 0 }}>{e.bpm ? `${e.bpm} bpm` : '—'}</span>
+                      <span style={{ color: '#9ab0d0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.name}</span>
+                    </div>
+                  )
+                })}
+              </div>
             )}
             {error && (
               <div style={{ fontSize: 12, color: '#f44336', marginTop: 10 }}>{error}</div>

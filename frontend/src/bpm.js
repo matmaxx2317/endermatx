@@ -63,7 +63,7 @@ const BATCH        = 2
 const BATCH_DELAY  = 600   // ms between getsong.co batches
 const MB_DELAY     = 1100  // ms between MusicBrainz requests (1 req/sec limit)
 
-export async function resolveBpms(tracks, onUpdate, onProgress) {
+export async function resolveBpms(tracks, onUpdate, onProgress, onLog) {
   // Tier 1: DB batch lookup
   const cached = await batchLookupDb(tracks.map(t => t.id))
   const cachedMap = new Map(cached.map(c => [c.spotify_id, { bpm: c.bpm, source: c.source }]))
@@ -89,9 +89,11 @@ export async function resolveBpms(tracks, onUpdate, onProgress) {
       const gResult = await lookupGetSongBpm(track.name, artist)
 
       if (gResult.bpm) {
+        onLog?.({ source: 'getsongbpm', name: track.name, bpm: gResult.bpm })
         onUpdate(track.id, gResult.bpm, 'getsongbpm', false)
         storeBpm({ spotify_id: track.id, title: track.name, artist, album: track.album, bpm: gResult.bpm, source: 'getsongbpm' })
       } else {
+        onLog?.({ source: 'getsongbpm', name: track.name, bpm: null })
         onUpdate(track.id, null, 'failed', false)
         failed.push(track)
       }
@@ -107,6 +109,7 @@ export async function resolveBpms(tracks, onUpdate, onProgress) {
     const artist = track.artists[0]?.name ?? ''
     const mbResult = await lookupMusicBrainz(track.name, artist)
 
+    onLog?.({ source: 'musicbrainz', name: track.name, bpm: mbResult.bpm })
     if (mbResult.bpm) {
       onUpdate(track.id, mbResult.bpm, 'musicbrainz', false)
       storeBpm({ spotify_id: track.id, title: track.name, artist, album: track.album, bpm: mbResult.bpm, source: 'musicbrainz' })
