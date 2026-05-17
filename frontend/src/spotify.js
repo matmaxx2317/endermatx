@@ -129,7 +129,7 @@ export async function getPlaylists(max = Infinity) {
 
 export async function getPlaylistTracks(playlistId, onProgress) {
   const tracks = []
-  let url = `/playlists/${encodeURIComponent(playlistId)}/tracks?limit=100`
+  let url = `/playlists/${encodeURIComponent(playlistId)}/items?limit=100`
   while (url) {
     const data = await apiGet(url)
     const valid = data.items.map(i => i?.track).filter(t => t?.id && !t.is_local)
