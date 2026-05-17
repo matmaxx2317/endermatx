@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import * as spotify from '../spotify'
 
 function fmtDuration(ms) {
@@ -8,7 +8,6 @@ function fmtDuration(ms) {
 }
 
 export default function SpotifyExplorer() {
-  const navigate = useNavigate()
   const [clientId, setClientIdState] = useState(() => spotify.getClientId())
   const [clientIdInput, setClientIdInput] = useState(() => spotify.getClientId())
   const [connected, setConnected]   = useState(false)
@@ -41,12 +40,10 @@ export default function SpotifyExplorer() {
         dbg('calling handleCallback…')
         try {
           await spotify.handleCallback(code)
-          dbg('handleCallback ok — cleaning URL via navigate')
-          // Use React Router's navigate so it knows about the URL change.
-          // Tokens are already in localStorage at this point, so if navigate
-          // causes a remount the component will recover via isConnected().
-          navigate('/spt', { replace: true })
-          dbg('navigate done — setting connected')
+          dbg('handleCallback ok — setting connected')
+          // Don't manipulate the URL — any history/navigate call here
+          // triggers React Router to re-render and resets scroll, causing
+          // the blank screen. The ?code= param is single-use and harmless.
           setConnected(true)
           dbg('fetching playlists…')
           const list = await spotify.getPlaylists()
