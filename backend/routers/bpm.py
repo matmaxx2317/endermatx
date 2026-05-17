@@ -28,6 +28,20 @@ def batch_lookup(body: schemas.BatchLookupRequest, db: Session = Depends(get_db)
     ).all()
 
 
+def _getsongbpm_request(api_key: str, query: str):
+    app_url = os.getenv("GETSONGBPM_APP_URL", "https://matmaxx.org/spt")
+    return httpx.get(
+        "https://api.getsongbpm.com/search/",
+        params={"api_key": api_key, "type": "both", "lookup": query},
+        headers={
+            "Referer": app_url,
+            "Origin":  app_url,
+            "User-Agent": "Mozilla/5.0 (compatible; endermatx/1.0)",
+        },
+        timeout=10,
+    )
+
+
 @router.get("/getsongbpm")
 def getsongbpm_lookup(title: str = Query(...), artist: str = Query(...)):
     api_key = os.getenv("GETSONGBPM_API_KEY", "")
@@ -36,11 +50,7 @@ def getsongbpm_lookup(title: str = Query(...), artist: str = Query(...)):
 
     query = f"{title} {artist}"
     try:
-        r = httpx.get(
-            "https://api.getsongbpm.com/search/",
-            params={"api_key": api_key, "type": "both", "lookup": query},
-            timeout=10,
-        )
+        r = _getsongbpm_request(api_key, query)
     except httpx.TimeoutException:
         raise HTTPException(504, "GetSongBPM timeout")
     except Exception:
@@ -67,6 +77,35 @@ def getsongbpm_lookup(title: str = Query(...), artist: str = Query(...)):
         return {"bpm": round(float(tempo))}
     except (ValueError, TypeError):
         return {"bpm": None, "debug": raw}
+
+
+@router.get("/test")
+def getsongbpm_test():
+    """Debug endpoint — hit /api/bpm/test in browser to see raw GetSongBPM response."""
+    api_key = os.getenv("GETSONGBPM_API_KEY", "")
+    if not api_key:
+        return {"error": "GETSONGBPM_API_KEY not set"}
+
+    app_url = os.getenv("GETSONGBPM_APP_URL", "https://matmaxx.org/spt")
+    query = "Never Gonna Give You Up Rick Astley"
+    try:
+        r = _getsongbpm_request(api_key, query)
+    except Exception as e:
+        return {"error": str(e)}
+
+    body = None
+    try:
+        body = r.json()
+    except Exception:
+        body = r.text
+
+    return {
+        "url":            str(r.url),
+        "status":         r.status_code,
+        "response_headers": dict(r.headers),
+        "referer_sent":   app_url,
+        "body":           body,
+    }
 
 
 @router.post("/store", response_model=schemas.TrackBpmOut)
