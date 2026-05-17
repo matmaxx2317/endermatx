@@ -29,7 +29,9 @@ async function storeBpm(entry) {
 async function lookupGetSongBpm(title, artist) {
   try {
     const params = new URLSearchParams({ title, artist })
-    const res = await fetch(`/api/bpm/getsongbpm?${params}`)
+    const res = await fetch(`/api/bpm/getsongbpm?${params}`, {
+      signal: AbortSignal.timeout(12000),
+    })
     const data = await res.json()
     if (!res.ok) return { bpm: null, err: data?.detail ?? `HTTP ${res.status}` }
     if (data.err) return { bpm: null, err: data.err, raw: data }
@@ -100,8 +102,8 @@ async function detectBpmFromAudio(previewUrl) {
 
 // ── Main resolution entry point ───────────────────────────────
 
-const BATCH        = 3
-const BATCH_DELAY  = 300  // ms between batches to avoid rate limiting
+const BATCH        = 2
+const BATCH_DELAY  = 600  // ms between batches to avoid rate limiting
 
 export async function resolveBpms(tracks, onUpdate, onProgress) {
   // Tier 1: DB batch lookup
