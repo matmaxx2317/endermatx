@@ -144,3 +144,21 @@ class GuitarOut(BaseModel):
     history: list[str]
     model_config = {"from_attributes": True}
 
+
+# ── spt ───────────────────────────────────────────────────────────────────────
+
+class TrackBpmIn(BaseModel):
+    spotify_id: str
+    title:      str
+    artist:     str
+    album:      str = ""
+    bpm:        int
+    source:     str
+
+class TrackBpmOut(TrackBpmIn):
+    created_at: UtcDt
+    model_config = {"from_attributes": True}
+
+class BatchLookupRequest(BaseModel):
+    spotify_ids: list[str]
+

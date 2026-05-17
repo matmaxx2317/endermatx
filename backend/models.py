@@ -67,3 +67,16 @@ class Guitar(Base):
     history = Column(JSONB, default=list)
 
 
+# ── spt ───────────────────────────────────────────────────────────────────────
+
+class TrackBpm(Base):
+    __tablename__ = "spt_track_bpm"
+    spotify_id = Column(String, primary_key=True)
+    title      = Column(String, nullable=False)
+    artist     = Column(String, nullable=False)
+    album      = Column(String, nullable=False, default="")
+    bpm        = Column(Integer, nullable=False)
+    source     = Column(String, nullable=False)   # 'getsongbpm' | 'audio'
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
