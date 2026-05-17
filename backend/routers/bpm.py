@@ -19,6 +19,23 @@ def get_db():
         db.close()
 
 
+@router.get("/stats")
+def bpm_stats(db: Session = Depends(get_db)):
+    from sqlalchemy import func, case
+    row = db.query(
+        func.count().label("total"),
+        func.sum(case((models.TrackBpm.source == "getsongbpm",  1), else_=0)).label("getsongbpm"),
+        func.sum(case((models.TrackBpm.source == "musicbrainz", 1), else_=0)).label("musicbrainz"),
+        func.sum(case((models.TrackBpm.source == "not_found",   1), else_=0)).label("not_found"),
+    ).one()
+    return {
+        "total":       row.total       or 0,
+        "getsongbpm":  row.getsongbpm  or 0,
+        "musicbrainz": row.musicbrainz or 0,
+        "not_found":   row.not_found   or 0,
+    }
+
+
 @router.post("/batch-lookup", response_model=list[schemas.TrackBpmOut])
 def batch_lookup(body: schemas.BatchLookupRequest, db: Session = Depends(get_db)):
     if not body.spotify_ids:
