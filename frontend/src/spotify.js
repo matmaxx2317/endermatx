@@ -130,8 +130,14 @@ export async function getPlaylists(max = Infinity) {
 export async function getPlaylistTracks(playlistId, onProgress) {
   const tracks = []
   let url = `/playlists/${encodeURIComponent(playlistId)}/items?limit=100`
+  let firstPage = true
   while (url) {
     const data = await apiGet(url)
+    if (firstPage) {
+      console.log('[spt] items[0]:', JSON.stringify(data.items?.[0]))
+      console.log('[spt] total items in page:', data.items?.length, '/ total:', data.total)
+      firstPage = false
+    }
     const valid = data.items.map(i => i?.track).filter(t => t?.id && !t.is_local)
     tracks.push(...valid)
     onProgress?.('tracks', tracks.length)
