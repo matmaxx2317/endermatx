@@ -428,7 +428,7 @@ export default function Calendar() {
 
         {/* Add form — relative date entry */}
         {showForm && !editId && (
-          <form onSubmit={saveAdd} className="card" style={{ marginBottom: 16 }}>
+          <form onSubmit={saveAdd} className="card" style={{ marginBottom: 16, position: 'sticky', top: 32, zIndex: 30, background: '#0d1221' }}>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 12 }}>
               <div style={{ flex: '1 1 160px' }}>
                 <label className="label">name</label>
@@ -505,7 +505,7 @@ export default function Calendar() {
 
         {/* Edit form — absolute date entry */}
         {editId && (
-          <form onSubmit={saveEdit} className="card" style={{ marginBottom: 16 }}>
+          <form onSubmit={saveEdit} className="card" style={{ marginBottom: 16, position: 'sticky', top: 32, zIndex: 30, background: '#0d1221' }}>
             <div style={{ marginBottom: 10 }}>
               <label className="label">name</label>
               <input className="input" value={editForm.name} onChange={e => setEF('name', e.target.value)} />
