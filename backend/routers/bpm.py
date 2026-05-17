@@ -144,6 +144,17 @@ def musicbrainz_lookup(title: str = Query(...), artist: str = Query(...)):
     return {"bpm": None}
 
 
+@router.delete("/all")
+def wipe_all(db: Session = Depends(get_db)):
+    try:
+        deleted = db.query(models.TrackBpm).delete()
+        db.commit()
+        return {"deleted": deleted}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(500, str(e))
+
+
 @router.post("/store", response_model=schemas.TrackBpmOut)
 def store_bpm(body: schemas.TrackBpmIn, db: Session = Depends(get_db)):
     existing = db.get(models.TrackBpm, body.spotify_id)
