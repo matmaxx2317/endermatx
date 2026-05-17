@@ -83,8 +83,9 @@ export default function SpotifyExplorer() {
   const [tracks, setTracks]         = useState(null)
   const [status, setStatus]         = useState('')
   const [bpmStatus, setBpmStatus]   = useState('')
-  const [bpmLog, setBpmLog]         = useState([])
-  const [error, setError]           = useState('')
+  const [bpmLog, setBpmLog]           = useState([])
+  const [globalStats, setGlobalStats] = useState(null)
+  const [error, setError]             = useState('')
 
   // Handle OAuth callback — only token exchange, no API calls
   useEffect(() => {
@@ -129,7 +130,12 @@ export default function SpotifyExplorer() {
       .then(setPlaylists)
       .catch(e => setError(e.message))
       .finally(() => setStatus(''))
+    fetch('/api/bpm/stats').then(r => r.json()).then(setGlobalStats).catch(() => {})
   }, [connected])
+
+  function refreshGlobalStats() {
+    fetch('/api/bpm/stats').then(r => r.json()).then(setGlobalStats).catch(() => {})
+  }
 
   async function loadTracks(playlistId) {
     if (!playlistId) return
@@ -153,6 +159,7 @@ export default function SpotifyExplorer() {
         (done, total) => setBpmStatus(done < total ? `resolving BPMs… ${done}/${total}` : ''),
         entry => setBpmLog(prev => [...prev, entry]),
       )
+      refreshGlobalStats()
     } catch (e) {
       setError(e.message)
     } finally {
@@ -238,6 +245,18 @@ export default function SpotifyExplorer() {
         ) : (
           <>
             <div className="section-header">playlists</div>
+
+            {globalStats?.total > 0 && (
+              <div style={{ marginBottom: 14 }}>
+                <BpmBar stats={{
+                  total:        globalStats.total,
+                  getsongbpm:   globalStats.getsongbpm,
+                  musicbrainz:  globalStats.musicbrainz,
+                  notFound:     globalStats.not_found,
+                  pending:      0,
+                }} />
+              </div>
+            )}
 
             <select
               className="input"
