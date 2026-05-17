@@ -17,7 +17,6 @@ export default function SpotifyExplorer() {
   const [status, setStatus]         = useState('')
   const [bpmStatus, setBpmStatus]   = useState('')
   const [error, setError]           = useState('')
-  const [debugInfo, setDebugInfo]   = useState(null)
 
   // Handle OAuth callback — only token exchange, no API calls
   useEffect(() => {
@@ -74,7 +73,7 @@ export default function SpotifyExplorer() {
     try {
       const raw = await spotify.loadPlaylistTracks(selectedId, (_, n) => {
         setStatus(`fetching tracks… ${n}`)
-      }, info => setDebugInfo(info))
+      })
       setTracks(raw)
       setStatus('')
 
@@ -203,12 +202,6 @@ export default function SpotifyExplorer() {
             )}
             {error && (
               <div style={{ fontSize: 12, color: '#f44336', marginTop: 10 }}>{error}</div>
-            )}
-
-            {debugInfo && (
-              <pre style={{ fontSize: 10, color: '#9ab0d0', background: '#0d1221', padding: 8, borderRadius: 4, marginTop: 10, overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
-                {JSON.stringify(debugInfo, null, 2)}
-              </pre>
             )}
 
             {tracks && (
