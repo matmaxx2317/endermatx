@@ -31,7 +31,7 @@ def batch_lookup(body: schemas.BatchLookupRequest, db: Session = Depends(get_db)
 def _getsongbpm_request(api_key: str, query: str):
     app_url = os.getenv("GETSONGBPM_APP_URL", "https://matmaxx.org/spt")
     return httpx.get(
-        "https://api.getsongbpm.com/search/",
+        "https://api.getsong.co/search/",
         params={"api_key": api_key, "type": "both", "lookup": query},
         headers={
             "Referer": app_url,
