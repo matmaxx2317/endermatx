@@ -64,45 +64,48 @@ const BATCH_DELAY  = 600   // ms between getsong.co batches
 const MB_DELAY     = 1100  // ms between MusicBrainz requests (1 req/sec limit)
 
 export async function resolveBpms(tracks, onUpdate, onProgress, onLog) {
-  // Tier 1: DB batch lookup
+  // Tier 1: DB batch lookup — real BPM entries used as cache; not_found entries retried
   const cached = await batchLookupDb(tracks.map(t => t.id))
-  const cachedMap = new Map(cached.map(c => [c.spotify_id, { bpm: c.bpm, source: c.source }]))
+  const realCache = new Map(
+    cached.filter(c => c.source !== 'not_found').map(c => [c.spotify_id, { bpm: c.bpm, source: c.source }])
+  )
 
   for (const t of tracks) {
-    if (cachedMap.has(t.id)) {
-      const { bpm, source } = cachedMap.get(t.id)
+    if (realCache.has(t.id)) {
+      const { bpm, source } = realCache.get(t.id)
       onUpdate(t.id, bpm, source, true)
     }
   }
 
-  const uncached = tracks.filter(t => !cachedMap.has(t.id))
-  if (!uncached.length) return
+  // Tracks to resolve: not cached OR previously marked not_found (retry every time)
+  const toResolve = tracks.filter(t => !realCache.has(t.id))
+  if (!toResolve.length) return
 
   // Tier 2: getsong.co (batched, concurrent)
   const failed = []
   let done = 0
 
-  for (let i = 0; i < uncached.length; i += BATCH) {
+  for (let i = 0; i < toResolve.length; i += BATCH) {
     if (i > 0) await new Promise(r => setTimeout(r, BATCH_DELAY))
-    await Promise.all(uncached.slice(i, i + BATCH).map(async track => {
+    await Promise.all(toResolve.slice(i, i + BATCH).map(async track => {
       const artist = track.artists[0]?.name ?? ''
       const gResult = await lookupGetSongBpm(track.name, artist)
 
+      onLog?.({ source: 'getsongbpm', name: track.name, bpm: gResult.bpm })
       if (gResult.bpm) {
-        onLog?.({ source: 'getsongbpm', name: track.name, bpm: gResult.bpm })
         onUpdate(track.id, gResult.bpm, 'getsongbpm', false)
         storeBpm({ spotify_id: track.id, title: track.name, artist, album: track.album, bpm: gResult.bpm, source: 'getsongbpm' })
       } else {
-        onLog?.({ source: 'getsongbpm', name: track.name, bpm: null })
         onUpdate(track.id, null, 'failed', false)
         failed.push(track)
       }
 
-      onProgress(++done, uncached.length)
+      onProgress(++done, toResolve.length)
     }))
   }
 
-  // Tier 3: MusicBrainz sequential fallback for getsong.co misses
+  // Tier 3: MusicBrainz sequential fallback
+  const resolvedByMb = new Set()
   for (let i = 0; i < failed.length; i++) {
     if (i > 0) await new Promise(r => setTimeout(r, MB_DELAY))
     const track  = failed[i]
@@ -111,8 +114,17 @@ export async function resolveBpms(tracks, onUpdate, onProgress, onLog) {
 
     onLog?.({ source: 'musicbrainz', name: track.name, bpm: mbResult.bpm })
     if (mbResult.bpm) {
+      resolvedByMb.add(track.id)
       onUpdate(track.id, mbResult.bpm, 'musicbrainz', false)
       storeBpm({ spotify_id: track.id, title: track.name, artist, album: track.album, bpm: mbResult.bpm, source: 'musicbrainz' })
+    }
+  }
+
+  // Store still-failed tracks as not_found (retried next playlist load)
+  for (const track of failed) {
+    if (!resolvedByMb.has(track.id)) {
+      const artist = track.artists[0]?.name ?? ''
+      storeBpm({ spotify_id: track.id, title: track.name, artist, album: track.album, bpm: 0, source: 'not_found' })
     }
   }
 }
