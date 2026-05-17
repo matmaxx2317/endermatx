@@ -119,15 +119,15 @@ async function apiGet(url) {
 
 // ── Public API ────────────────────────────────────────────────
 
-export async function getPlaylists() {
+export async function getPlaylists(max = Infinity) {
   const items = []
-  let url = '/me/playlists?limit=50'
-  while (url) {
+  let url = `/me/playlists?limit=${Math.min(max, 50)}`
+  while (url && items.length < max) {
     const data = await apiGet(url)
     items.push(...data.items.filter(Boolean))
-    url = data.next   // full URL returned by Spotify — apiGet handles it
+    url = data.next
   }
-  return items
+  return items.slice(0, max)
 }
 
 export async function getPlaylistTracks(playlistId, onProgress) {

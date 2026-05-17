@@ -37,14 +37,14 @@ export default function SpotifyExplorer() {
         try {
           await spotify.handleCallback(code)
           setConnected(true)
-          setPlaylists(await spotify.getPlaylists())
+          setPlaylists(await spotify.getPlaylists(1))
         } catch (e) {
           setError(e.message)
         }
       } else if (spotify.isConnected()) {
         setConnected(true)
         try {
-          setPlaylists(await spotify.getPlaylists())
+          setPlaylists(await spotify.getPlaylists(1))
         } catch (e) {
           setError(e.message)
         }
