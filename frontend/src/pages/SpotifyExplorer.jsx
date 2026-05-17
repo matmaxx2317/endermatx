@@ -209,7 +209,6 @@ export default function SpotifyExplorer() {
                           )}
                           <span style={{ fontSize: 14, fontWeight: 600, color:
                             t.bpmSource === 'getsongbpm' ? '#4ade80'
-                            : t.bpmSource === 'audio'   ? '#22d3ee'
                             : t.bpmSource === 'failed'  ? '#f44336'
                             : '#eef2ff'
                           }}>
@@ -236,7 +235,6 @@ export default function SpotifyExplorer() {
                 <div style={{ display: 'flex', gap: 16, marginTop: 12, flexWrap: 'wrap' }}>
                   {[
                     { color: '#4ade80', label: 'getsong.co' },
-                    { color: '#22d3ee', label: 'audio' },
                     { color: '#f44336', label: 'not found' },
                     { color: '#eef2ff', label: 'pending' },
                   ].map(({ color, label }) => (
