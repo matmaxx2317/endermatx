@@ -16,6 +16,7 @@ export default function SpotifyExplorer() {
   const [tracks, setTracks]         = useState(null)
   const [status, setStatus]         = useState('')
   const [bpmStatus, setBpmStatus]   = useState('')
+  const [bpmStats, setBpmStats]     = useState(null)
   const [error, setError]           = useState('')
 
   // Handle OAuth callback — only token exchange, no API calls
@@ -50,6 +51,7 @@ export default function SpotifyExplorer() {
     setSelectedId('')
     setError('')
     setBpmStatus('')
+    setBpmStats(null)
   }
 
   // Auto-load playlists whenever the connected state becomes true
@@ -67,6 +69,7 @@ export default function SpotifyExplorer() {
     setTracks(null)
     setError('')
     setBpmStatus('')
+    setBpmStats(null)
     setStatus('loading tracks…')
     try {
       const raw = await spotify.loadPlaylistTracks(selectedId, (_, n) => {
@@ -81,6 +84,7 @@ export default function SpotifyExplorer() {
         raw,
         (id, bpm) => setTracks(prev => prev?.map(t => t.id === id ? { ...t, bpm } : t) ?? prev),
         (done, total) => setBpmStatus(done < total ? `resolving BPMs… ${done}/${total}` : ''),
+        stats => setBpmStats(stats),
       )
     } catch (e) {
       setError(e.message)
@@ -191,6 +195,12 @@ export default function SpotifyExplorer() {
             )}
             {error && (
               <div style={{ fontSize: 12, color: '#f44336', marginTop: 10 }}>{error}</div>
+            )}
+
+            {bpmStats && (
+              <pre style={{ fontSize: 10, color: '#9ab0d0', background: '#0d1221', padding: 8, borderRadius: 4, marginTop: 10, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                {JSON.stringify(bpmStats, null, 2)}
+              </pre>
             )}
 
             {tracks && (

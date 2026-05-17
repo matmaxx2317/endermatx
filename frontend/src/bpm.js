@@ -30,11 +30,11 @@ async function lookupGetSongBpm(title, artist) {
   try {
     const params = new URLSearchParams({ title, artist })
     const res = await fetch(`/api/bpm/getsongbpm?${params}`)
-    if (!res.ok) return null
     const data = await res.json()
-    return typeof data.bpm === 'number' ? data.bpm : null
-  } catch {
-    return null
+    if (!res.ok) return { bpm: null, err: data?.detail ?? `HTTP ${res.status}` }
+    return { bpm: typeof data.bpm === 'number' ? data.bpm : null, raw: data }
+  } catch (e) {
+    return { bpm: null, err: e.message }
   }
 }
 
@@ -108,7 +108,7 @@ const BATCH = 5
  * onUpdate(spotifyId, bpm) — called each time a BPM is resolved
  * onProgress(done, total)  — called after each uncached track settles
  */
-export async function resolveBpms(tracks, onUpdate, onProgress) {
+export async function resolveBpms(tracks, onUpdate, onProgress, onStats) {
   // Tier 1: DB batch lookup
   const cached = await batchLookupDb(tracks.map(t => t.id))
   const cachedMap = new Map(cached.map(c => [c.spotify_id, c.bpm]))
@@ -120,26 +120,40 @@ export async function resolveBpms(tracks, onUpdate, onProgress) {
   const uncached = tracks.filter(t => !cachedMap.has(t.id))
   if (!uncached.length) return
 
-  // Tiers 2 + 3: process in parallel batches
+  const stats = { db: cachedMap.size, getsongbpm: 0, audio: 0, failed: 0, noPreview: 0, getsongbpmErr: null }
   let done = 0
+
   for (let i = 0; i < uncached.length; i += BATCH) {
     await Promise.all(uncached.slice(i, i + BATCH).map(async track => {
       const artist = track.artists[0]?.name ?? ''
 
-      let bpm    = await lookupGetSongBpm(track.name, artist)
+      const gResult = await lookupGetSongBpm(track.name, artist)
+      if (!stats.getsongbpmErr && gResult.err) stats.getsongbpmErr = gResult.err
+      let bpm    = gResult.bpm
       let source = bpm ? 'getsongbpm' : null
+      if (bpm) stats.getsongbpm++
 
-      if (!bpm && track.preview_url) {
-        bpm    = await detectBpmFromAudio(track.preview_url)
-        source = bpm ? 'audio' : null
+      if (!bpm) {
+        if (!track.preview_url) {
+          stats.noPreview++
+        } else {
+          bpm    = await detectBpmFromAudio(track.preview_url)
+          source = bpm ? 'audio' : null
+          if (bpm) stats.audio++
+        }
       }
 
       if (bpm) {
         onUpdate(track.id, bpm)
         storeBpm({ spotify_id: track.id, title: track.name, artist, album: track.album, bpm, source })
+      } else {
+        stats.failed++
       }
 
       onProgress(++done, uncached.length)
+      if (done === 1) onStats?.({ ...stats })  // report after first track
     }))
   }
+
+  onStats?.({ ...stats })  // final report
 }
