@@ -37,11 +37,13 @@ export default function SpotifyExplorer() {
         return
       }
       if (code) {
-        window.history.replaceState({}, '', '/spt')
         dbg('calling handleCallback…')
         try {
           await spotify.handleCallback(code)
-          dbg('handleCallback ok')
+          dbg('handleCallback ok — setting connected')
+          // Don't manipulate the URL — any history/navigate call here
+          // triggers React Router to re-render and resets scroll, causing
+          // the blank screen. The ?code= param is single-use and harmless.
           setConnected(true)
           dbg('fetching playlists…')
           const list = await spotify.getPlaylists()
