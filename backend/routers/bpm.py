@@ -81,31 +81,44 @@ def getsongbpm_lookup(title: str = Query(...), artist: str = Query(...)):
 
 @router.get("/test")
 def getsongbpm_test():
-    """Debug endpoint — hit /api/bpm/test in browser to see raw GetSongBPM response."""
+    """Probe multiple type values to find which one getsong.co accepts."""
     api_key = os.getenv("GETSONGBPM_API_KEY", "")
     if not api_key:
         return {"error": "GETSONGBPM_API_KEY not set"}
 
     app_url = os.getenv("GETSONGBPM_APP_URL", "https://matmaxx.org/spt")
-    query = "Never Gonna Give You Up Rick Astley"
-    try:
-        r = _getsongbpm_request(api_key, query)
-    except Exception as e:
-        return {"error": str(e)}
-
-    body = None
-    try:
-        body = r.json()
-    except Exception:
-        body = r.text
-
-    return {
-        "url":            str(r.url),
-        "status":         r.status_code,
-        "response_headers": dict(r.headers),
-        "referer_sent":   app_url,
-        "body":           body,
+    headers = {
+        "Referer":    app_url,
+        "Origin":     app_url,
+        "User-Agent": "Mozilla/5.0 (compatible; endermatx/1.0)",
     }
+
+    probes = [
+        {"type": "song",       "lookup": "Never Gonna Give You Up Rick Astley"},
+        {"type": "song",       "lookup": "Never Gonna Give You Up"},
+        {"type": "both",       "lookup": "Never Gonna Give You Up Rick Astley"},
+        {"type": "artist",     "lookup": "Rick Astley"},
+        {"type": "song_name",  "lookup": "Never Gonna Give You Up"},
+    ]
+
+    results = []
+    for p in probes:
+        try:
+            r = httpx.get(
+                "https://api.getsong.co/search/",
+                params={"api_key": api_key, **p},
+                headers=headers,
+                timeout=10,
+            )
+            try:
+                body = r.json()
+            except Exception:
+                body = r.text
+            results.append({"params": p, "status": r.status_code, "body": body})
+        except Exception as e:
+            results.append({"params": p, "error": str(e)})
+
+    return results
 
 
 @router.post("/store", response_model=schemas.TrackBpmOut)
