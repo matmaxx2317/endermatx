@@ -537,13 +537,28 @@ export default function Calendar() {
           const days      = daysInMonth(y, m)
           const today     = new Date()
           const thisMonth = today.getFullYear() === y && today.getMonth() === m
+          // Monday-first offset: how many blank cells before day 1
+          const offset    = (new Date(y, m, 1).getDay() + 6) % 7
+          const DOW_HDR   = ['Mo','Tu','We','Th','Fr','Sa','Su']
 
           return (
             <div key={`${y}-${m}`} style={{ marginBottom: 28 }}>
               <div style={{ fontSize: 11, color: '#5d7592', letterSpacing: '0.2em', marginBottom: 8, textTransform: 'uppercase' }}>
                 {MONTHS[m]} {y}
               </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+              {/* Day-of-week header */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 28px)', gap: 2, marginBottom: 2 }}>
+                {DOW_HDR.map(d => (
+                  <div key={d} style={{ width: 28, textAlign: 'center', fontSize: 9, color: '#374d66', letterSpacing: '0.05em', padding: '2px 0' }}>
+                    {d}
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 28px)', gap: 2 }}>
+                {/* Leading blank cells */}
+                {Array.from({ length: offset }, (_, i) => (
+                  <div key={`blank-${i}`} style={{ width: 28, height: 28 }} />
+                ))}
                 {Array.from({ length: days }, (_, i) => {
                   const d         = i + 1
                   const isToday   = thisMonth && today.getDate() === d
