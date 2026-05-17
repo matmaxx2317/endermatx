@@ -127,15 +127,14 @@ export async function getPlaylists(max = Infinity) {
   return items.slice(0, max)
 }
 
-export async function getPlaylistTracks(playlistId, onProgress) {
+export async function getPlaylistTracks(playlistId, onProgress, onDebug) {
   const tracks = []
   let url = `/playlists/${encodeURIComponent(playlistId)}/items?limit=100`
   let firstPage = true
   while (url) {
     const data = await apiGet(url)
     if (firstPage) {
-      console.log('[spt] items[0]:', JSON.stringify(data.items?.[0]))
-      console.log('[spt] total items in page:', data.items?.length, '/ total:', data.total)
+      onDebug?.({ total: data.total, pageSize: data.items?.length, item0: data.items?.[0] })
       firstPage = false
     }
     const valid = data.items.map(i => i?.track).filter(t => t?.id && !t.is_local)
@@ -149,8 +148,8 @@ export async function getPlaylistTracks(playlistId, onProgress) {
 // ── High-level helpers ────────────────────────────────────────
 
 // Returns track metadata only; BPM is resolved separately via bpm.js.
-export async function loadPlaylistTracks(playlistId, onProgress) {
-  const tracks = await getPlaylistTracks(playlistId, onProgress)
+export async function loadPlaylistTracks(playlistId, onProgress, onDebug) {
+  const tracks = await getPlaylistTracks(playlistId, onProgress, onDebug)
   return tracks.map(t => ({
     id:          t.id,
     name:        t.name,
