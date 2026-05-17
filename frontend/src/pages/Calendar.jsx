@@ -547,17 +547,17 @@ export default function Calendar() {
                 {MONTHS[m]} {y}
               </div>
               {/* Day-of-week header */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 28px)', gap: 2, marginBottom: 2 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, marginBottom: 2 }}>
                 {DOW_HDR.map(d => (
-                  <div key={d} style={{ width: 28, textAlign: 'center', fontSize: 9, color: '#374d66', letterSpacing: '0.05em', padding: '2px 0' }}>
+                  <div key={d} style={{ textAlign: 'center', fontSize: 9, color: '#374d66', letterSpacing: '0.05em', padding: '2px 0' }}>
                     {d}
                   </div>
                 ))}
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 28px)', gap: 2 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
                 {/* Leading blank cells */}
                 {Array.from({ length: offset }, (_, i) => (
-                  <div key={`blank-${i}`} style={{ width: 28, height: 28 }} />
+                  <div key={`blank-${i}`} style={{ aspectRatio: '1' }} />
                 ))}
                 {Array.from({ length: days }, (_, i) => {
                   const d         = i + 1
@@ -577,7 +577,7 @@ export default function Calendar() {
                       onMouseLeave={() => setTooltip(null)}
                       onClick={e => openTooltip(e, tipLines)}
                       style={{
-                      width: 28, height: 28,
+                      aspectRatio: '1',
                       background: holBg || '#0d1221',
                       border: isToday ? '1px solid #8855ff' : '1px solid #1a2840',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
