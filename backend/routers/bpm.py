@@ -93,6 +93,40 @@ def getsongbpm_lookup(title: str = Query(...), artist: str = Query(...)):
         return {"bpm": None, "debug": raw}
 
 
+@router.get("/musicbrainz")
+def musicbrainz_lookup(title: str = Query(...), artist: str = Query(...)):
+    query = f'recording:"{title}" AND artistname:"{artist}"'
+    try:
+        r = httpx.get(
+            "https://musicbrainz.org/ws/2/recording/",
+            params={"query": query, "limit": 5, "fmt": "json"},
+            headers={"User-Agent": "endermatx/1.0 (https://matmaxx.org)"},
+            timeout=10,
+        )
+    except httpx.TimeoutException:
+        raise HTTPException(504, "MusicBrainz timeout")
+    except Exception:
+        return {"bpm": None}
+
+    if not r.is_success:
+        return {"bpm": None, "err": f"MusicBrainz HTTP {r.status_code}"}
+
+    try:
+        data = r.json()
+    except Exception:
+        return {"bpm": None}
+
+    for rec in (data or {}).get("recordings") or []:
+        bpm = rec.get("bpm")
+        if bpm:
+            try:
+                return {"bpm": round(float(bpm))}
+            except (ValueError, TypeError):
+                continue
+
+    return {"bpm": None}
+
+
 @router.post("/store", response_model=schemas.TrackBpmOut)
 def store_bpm(body: schemas.TrackBpmIn, db: Session = Depends(get_db)):
     existing = db.get(models.TrackBpm, body.spotify_id)
