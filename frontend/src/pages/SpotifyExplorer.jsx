@@ -8,6 +8,73 @@ function fmtDuration(ms) {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 }
 
+const BAR_SEGMENTS = [
+  { key: 'getsongbpm',   color: '#4ade80', label: 'getsong.co'  },
+  { key: 'musicbrainz',  color: '#fb923c', label: 'musicbrainz' },
+  { key: 'notFound',     color: '#f44336', label: 'not found'   },
+  { key: 'pending',      color: '#1a2840', label: 'pending'      },
+]
+
+function BpmBar({ stats }) {
+  const { total, getsongbpm, musicbrainz, notFound, pending } = stats
+  if (!total) return null
+  const counts = { getsongbpm, musicbrainz, notFound, pending }
+  const [hovered, setHovered] = useState(null)
+
+  return (
+    <div style={{ marginTop: 16 }}>
+      {/* Stacked bar */}
+      <div style={{ display: 'flex', height: 10, borderRadius: 5, overflow: 'hidden', background: '#1a2840' }}>
+        {BAR_SEGMENTS.map(seg => {
+          const pct = (counts[seg.key] / total) * 100
+          if (!pct) return null
+          return (
+            <div
+              key={seg.key}
+              style={{ width: `${pct}%`, background: seg.color, transition: 'width 0.4s', cursor: 'default' }}
+              onMouseEnter={() => setHovered(seg.key)}
+              onMouseLeave={() => setHovered(null)}
+              title={`${seg.label}: ${counts[seg.key]}`}
+            />
+          )
+        })}
+      </div>
+      {/* Legend */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px', marginTop: 8 }}>
+        {BAR_SEGMENTS.map(seg => {
+          const n = counts[seg.key]
+          if (!n && seg.key !== 'getsongbpm') return null
+          const pct = Math.round((n / total) * 100)
+          const isHovered = hovered === seg.key
+          return (
+            <div
+              key={seg.key}
+              style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'default' }}
+              onMouseEnter={() => setHovered(seg.key)}
+              onMouseLeave={() => setHovered(null)}
+            >
+              <div style={{ width: 8, height: 8, borderRadius: 2, background: seg.color, flexShrink: 0 }} />
+              <span style={{ fontSize: 11, color: isHovered ? '#eef2ff' : '#9ab0d0' }}>
+                {seg.label}
+              </span>
+              <span style={{ fontSize: 11, color: isHovered ? seg.color : '#374d66', minWidth: 18, textAlign: 'right' }}>
+                {n}
+              </span>
+              {isHovered && (
+                <span style={{ fontSize: 10, color: '#374d66' }}>({pct}%)</span>
+              )}
+            </div>
+          )
+        })}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginLeft: 'auto' }}>
+          <span style={{ fontSize: 11, color: '#374d66' }}>total</span>
+          <span style={{ fontSize: 11, color: '#9ab0d0' }}>{total}</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function SpotifyExplorer() {
   const [clientIdInput, setClientIdInput] = useState(() => spotify.getClientId())
   const [connected, setConnected]   = useState(() => spotify.isConnected())
@@ -92,6 +159,15 @@ export default function SpotifyExplorer() {
       setStatus('')
     }
   }
+
+  const bpmStats = useMemo(() => {
+    if (!tracks || !tracks.length) return null
+    const getsongbpm  = tracks.filter(t => t.bpmSource === 'getsongbpm').length
+    const musicbrainz = tracks.filter(t => t.bpmSource === 'musicbrainz').length
+    const notFound    = tracks.filter(t => t.bpmSource === 'failed').length
+    const pending     = tracks.filter(t => !t.bpmSource).length
+    return { total: tracks.length, getsongbpm, musicbrainz, notFound, pending }
+  }, [tracks])
 
   // Sort by BPM ascending; unresolved tracks sink to the bottom
   const displayedTracks = useMemo(() => {
@@ -209,6 +285,8 @@ export default function SpotifyExplorer() {
             {error && (
               <div style={{ fontSize: 12, color: '#f44336', marginTop: 10 }}>{error}</div>
             )}
+
+            {bpmStats && <BpmBar stats={bpmStats} />}
 
             {tracks && (
               <div style={{ marginTop: 20 }}>

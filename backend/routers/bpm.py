@@ -131,6 +131,14 @@ def musicbrainz_lookup(title: str = Query(...), artist: str = Query(...)):
 def store_bpm(body: schemas.TrackBpmIn, db: Session = Depends(get_db)):
     existing = db.get(models.TrackBpm, body.spotify_id)
     if existing:
+        # Upgrade a previous not_found entry when a real BPM is now available
+        if existing.source == 'not_found' and body.source != 'not_found':
+            existing.bpm    = body.bpm
+            existing.source = body.source
+            existing.title  = body.title
+            existing.artist = body.artist
+            db.commit()
+            db.refresh(existing)
         return existing
     entry = models.TrackBpm(**body.model_dump(), created_at=datetime.utcnow())
     db.add(entry)
