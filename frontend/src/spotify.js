@@ -154,5 +154,6 @@ export async function loadPlaylistTracks(playlistId, onProgress) {
     preview_url: t.preview_url ?? null,
     bpm:         null,
     bpmSource:   null,
+    bpmCached:   false,
   }))
 }

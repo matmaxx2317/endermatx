@@ -108,10 +108,13 @@ const BATCH_DELAY  = 600  // ms between batches to avoid rate limiting
 export async function resolveBpms(tracks, onUpdate, onProgress) {
   // Tier 1: DB batch lookup
   const cached = await batchLookupDb(tracks.map(t => t.id))
-  const cachedMap = new Map(cached.map(c => [c.spotify_id, c.bpm]))
+  const cachedMap = new Map(cached.map(c => [c.spotify_id, { bpm: c.bpm, source: c.source }]))
 
   for (const t of tracks) {
-    if (cachedMap.has(t.id)) onUpdate(t.id, cachedMap.get(t.id), 'cached')
+    if (cachedMap.has(t.id)) {
+      const { bpm, source } = cachedMap.get(t.id)
+      onUpdate(t.id, bpm, source, true)
+    }
   }
 
   const uncached = tracks.filter(t => !cachedMap.has(t.id))
@@ -134,10 +137,10 @@ export async function resolveBpms(tracks, onUpdate, onProgress) {
       }
 
       if (bpm) {
-        onUpdate(track.id, bpm, source)
+        onUpdate(track.id, bpm, source, false)
         storeBpm({ spotify_id: track.id, title: track.name, artist, album: track.album, bpm, source })
       } else {
-        onUpdate(track.id, null, 'failed')
+        onUpdate(track.id, null, 'failed', false)
       }
 
       onProgress(++done, uncached.length)
