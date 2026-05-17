@@ -43,7 +43,7 @@ function BpmBar({ stats }) {
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px', marginTop: 8 }}>
         {BAR_SEGMENTS.map(seg => {
           const n = counts[seg.key]
-          if (!n && seg.key !== 'getsongbpm') return null
+          if (!n && seg.key !== 'getsongbpm' && seg.key !== 'notFound') return null
           const pct = Math.round((n / total) * 100)
           const isHovered = hovered === seg.key
           return (
