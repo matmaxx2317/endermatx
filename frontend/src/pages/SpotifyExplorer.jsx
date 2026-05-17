@@ -43,7 +43,7 @@ function BpmBar({ stats }) {
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px', marginTop: 8 }}>
         {BAR_SEGMENTS.map(seg => {
           const n = counts[seg.key]
-          if (!n && seg.key !== 'getsongbpm') return null
+          if (!n && seg.key !== 'getsongbpm' && seg.key !== 'notFound') return null
           const pct = Math.round((n / total) * 100)
           const isHovered = hovered === seg.key
           return (
@@ -85,6 +85,7 @@ export default function SpotifyExplorer() {
   const [bpmStatus, setBpmStatus]   = useState('')
   const [bpmLog, setBpmLog]           = useState([])
   const [globalStats, setGlobalStats] = useState(null)
+  const [wipeMsg, setWipeMsg]         = useState('')
   const [error, setError]             = useState('')
 
   // Handle OAuth callback — only token exchange, no API calls
@@ -135,6 +136,22 @@ export default function SpotifyExplorer() {
 
   function refreshGlobalStats() {
     fetch('/api/bpm/stats').then(r => r.json()).then(setGlobalStats).catch(() => {})
+  }
+
+  async function wipeDb() {
+    if (!window.confirm('Delete all BPM data from the database?')) return
+    try {
+      const res  = await fetch('/api/bpm/all', { method: 'DELETE' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.detail ?? `HTTP ${res.status}`)
+      setWipeMsg(`deleted ${data.deleted} rows`)
+      setTracks(null)
+      setBpmLog([])
+      refreshGlobalStats()
+    } catch (e) {
+      setWipeMsg(`error: ${e.message}`)
+    }
+    setTimeout(() => setWipeMsg(''), 4000)
   }
 
   async function loadTracks(playlistId) {
@@ -370,16 +387,26 @@ export default function SpotifyExplorer() {
               </div>
             )}
 
-            <div style={{ marginTop: 24, borderTop: '1px solid #1a2840', paddingTop: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <button className="btn btn-sm" onClick={disconnect}>disconnect spotify</button>
-              <a
-                href="https://getsong.co"
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ fontSize: 10, color: '#374d66', textDecoration: 'none' }}
-              >
-                BPM data: GetSong.co
-              </a>
+            <div style={{ marginTop: 24, borderTop: '1px solid #1a2840', paddingTop: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button className="btn btn-sm" onClick={disconnect}>disconnect spotify</button>
+                  <button className="btn btn-sm" onClick={wipeDb} style={{ color: '#f44336' }}>wipe database</button>
+                </div>
+                <a
+                  href="https://getsong.co"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ fontSize: 10, color: '#374d66', textDecoration: 'none' }}
+                >
+                  BPM data: GetSong.co
+                </a>
+              </div>
+              {wipeMsg && (
+                <div style={{ fontSize: 12, marginTop: 8, color: wipeMsg.startsWith('error') ? '#f44336' : '#4ade80' }}>
+                  {wipeMsg}
+                </div>
+              )}
             </div>
           </>
         )}
