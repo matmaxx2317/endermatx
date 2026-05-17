@@ -79,7 +79,7 @@ export default function SpotifyExplorer() {
       setBpmStatus(`resolving BPMs… 0/${raw.length}`)
       await resolveBpms(
         raw,
-        (id, bpm, src) => setTracks(prev => prev?.map(t => t.id === id ? { ...t, bpm, bpmSource: src } : t) ?? prev),
+        (id, bpm, src, cached) => setTracks(prev => prev?.map(t => t.id === id ? { ...t, bpm, bpmSource: src, bpmCached: cached } : t) ?? prev),
         (done, total) => setBpmStatus(done < total ? `resolving BPMs… ${done}/${total}` : ''),
       )
     } catch (e) {
@@ -202,16 +202,20 @@ export default function SpotifyExplorer() {
                       className="card"
                       style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 10 }}
                     >
-                      <div style={{ textAlign: 'right', flexShrink: 0, width: 36 }}>
-                        <span style={{ fontSize: 14, fontWeight: 600, color:
-                          t.bpmSource === 'getsongbpm' ? '#4ade80'
-                          : t.bpmSource === 'cached'  ? '#e879f9'
-                          : t.bpmSource === 'audio'   ? '#22d3ee'
-                          : t.bpmSource === 'failed'  ? '#f44336'
-                          : '#eef2ff'
-                        }}>
-                          {t.bpm ?? '—'}
-                        </span>
+                      <div style={{ textAlign: 'right', flexShrink: 0, width: 40 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 3 }}>
+                          {t.bpmCached && (
+                            <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#e879f9', flexShrink: 0 }} />
+                          )}
+                          <span style={{ fontSize: 14, fontWeight: 600, color:
+                            t.bpmSource === 'getsongbpm' ? '#4ade80'
+                            : t.bpmSource === 'audio'   ? '#22d3ee'
+                            : t.bpmSource === 'failed'  ? '#f44336'
+                            : '#eef2ff'
+                          }}>
+                            {t.bpm ?? '—'}
+                          </span>
+                        </div>
                         <div style={{ fontSize: 10, color: '#374d66' }}>bpm</div>
                       </div>
                       <div style={{ width: 1, height: 28, background: '#1a2840', flexShrink: 0 }} />
@@ -231,7 +235,6 @@ export default function SpotifyExplorer() {
                 </div>
                 <div style={{ display: 'flex', gap: 16, marginTop: 12, flexWrap: 'wrap' }}>
                   {[
-                    { color: '#e879f9', label: 'db cache' },
                     { color: '#4ade80', label: 'getsong.co' },
                     { color: '#22d3ee', label: 'audio' },
                     { color: '#f44336', label: 'not found' },
@@ -242,6 +245,10 @@ export default function SpotifyExplorer() {
                       <span style={{ fontSize: 10, color: '#374d66' }}>{label}</span>
                     </div>
                   ))}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#e879f9', flexShrink: 0 }} />
+                    <span style={{ fontSize: 10, color: '#374d66' }}>db cache</span>
+                  </div>
                 </div>
               </div>
             )}
