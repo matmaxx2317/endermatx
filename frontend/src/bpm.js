@@ -111,7 +111,7 @@ export async function resolveBpms(tracks, onUpdate, onProgress) {
   const cachedMap = new Map(cached.map(c => [c.spotify_id, c.bpm]))
 
   for (const t of tracks) {
-    if (cachedMap.has(t.id)) onUpdate(t.id, cachedMap.get(t.id))
+    if (cachedMap.has(t.id)) onUpdate(t.id, cachedMap.get(t.id), 'cached')
   }
 
   const uncached = tracks.filter(t => !cachedMap.has(t.id))
@@ -134,8 +134,10 @@ export async function resolveBpms(tracks, onUpdate, onProgress) {
       }
 
       if (bpm) {
-        onUpdate(track.id, bpm)
+        onUpdate(track.id, bpm, source)
         storeBpm({ spotify_id: track.id, title: track.name, artist, album: track.album, bpm, source })
+      } else {
+        onUpdate(track.id, null, 'failed')
       }
 
       onProgress(++done, uncached.length)

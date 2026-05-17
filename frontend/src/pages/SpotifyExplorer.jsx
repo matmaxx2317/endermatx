@@ -79,7 +79,7 @@ export default function SpotifyExplorer() {
       setBpmStatus(`resolving BPMs… 0/${raw.length}`)
       await resolveBpms(
         raw,
-        (id, bpm) => setTracks(prev => prev?.map(t => t.id === id ? { ...t, bpm } : t) ?? prev),
+        (id, bpm, src) => setTracks(prev => prev?.map(t => t.id === id ? { ...t, bpm, bpmSource: src } : t) ?? prev),
         (done, total) => setBpmStatus(done < total ? `resolving BPMs… ${done}/${total}` : ''),
       )
     } catch (e) {
@@ -206,7 +206,13 @@ export default function SpotifyExplorer() {
                       style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 10 }}
                     >
                       <div style={{ textAlign: 'right', flexShrink: 0, width: 36 }}>
-                        <span style={{ fontSize: 14, fontWeight: 600, color: '#eef2ff' }}>
+                        <span style={{ fontSize: 14, fontWeight: 600, color:
+                          t.bpmSource === 'getsongbpm' ? '#4ade80'
+                          : t.bpmSource === 'cached'  ? '#e879f9'
+                          : t.bpmSource === 'audio'   ? '#22d3ee'
+                          : t.bpmSource === 'failed'  ? '#f44336'
+                          : '#eef2ff'
+                        }}>
                           {t.bpm ?? '—'}
                         </span>
                         <div style={{ fontSize: 10, color: '#374d66' }}>bpm</div>
