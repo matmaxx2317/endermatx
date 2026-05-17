@@ -157,7 +157,7 @@ export default function SpotifyExplorer() {
         raw,
         (id, bpm, src, cached) => setTracks(prev => prev?.map(t => t.id === id ? { ...t, bpm, bpmSource: src, bpmCached: cached } : t) ?? prev),
         (done, total) => setBpmStatus(done < total ? `resolving BPMs… ${done}/${total}` : ''),
-        entry => setBpmLog(prev => [...prev, entry]),
+        entry => setBpmLog(prev => [entry, ...prev]),
       )
       refreshGlobalStats()
     } catch (e) {
