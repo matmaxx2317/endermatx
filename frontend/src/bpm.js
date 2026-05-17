@@ -41,10 +41,27 @@ async function lookupGetSongBpm(title, artist) {
   }
 }
 
+// ── Tier 3: MusicBrainz fallback ─────────────────────────────
+
+async function lookupMusicBrainz(title, artist) {
+  try {
+    const params = new URLSearchParams({ title, artist })
+    const res = await fetch(`/api/bpm/musicbrainz?${params}`, {
+      signal: AbortSignal.timeout(12000),
+    })
+    const data = await res.json()
+    if (!res.ok) return { bpm: null }
+    return { bpm: typeof data.bpm === 'number' ? data.bpm : null }
+  } catch {
+    return { bpm: null }
+  }
+}
+
 // ── Main resolution entry point ───────────────────────────────
 
 const BATCH        = 2
-const BATCH_DELAY  = 600  // ms between batches to avoid rate limiting
+const BATCH_DELAY  = 600   // ms between getsong.co batches
+const MB_DELAY     = 1100  // ms between MusicBrainz requests (1 req/sec limit)
 
 export async function resolveBpms(tracks, onUpdate, onProgress) {
   // Tier 1: DB batch lookup
@@ -61,24 +78,38 @@ export async function resolveBpms(tracks, onUpdate, onProgress) {
   const uncached = tracks.filter(t => !cachedMap.has(t.id))
   if (!uncached.length) return
 
+  // Tier 2: getsong.co (batched, concurrent)
+  const failed = []
   let done = 0
 
   for (let i = 0; i < uncached.length; i += BATCH) {
     if (i > 0) await new Promise(r => setTimeout(r, BATCH_DELAY))
     await Promise.all(uncached.slice(i, i + BATCH).map(async track => {
       const artist = track.artists[0]?.name ?? ''
-
       const gResult = await lookupGetSongBpm(track.name, artist)
-      const bpm    = gResult.bpm
 
-      if (bpm) {
-        onUpdate(track.id, bpm, 'getsongbpm', false)
-        storeBpm({ spotify_id: track.id, title: track.name, artist, album: track.album, bpm, source: 'getsongbpm' })
+      if (gResult.bpm) {
+        onUpdate(track.id, gResult.bpm, 'getsongbpm', false)
+        storeBpm({ spotify_id: track.id, title: track.name, artist, album: track.album, bpm: gResult.bpm, source: 'getsongbpm' })
       } else {
         onUpdate(track.id, null, 'failed', false)
+        failed.push(track)
       }
 
       onProgress(++done, uncached.length)
     }))
+  }
+
+  // Tier 3: MusicBrainz sequential fallback for getsong.co misses
+  for (let i = 0; i < failed.length; i++) {
+    if (i > 0) await new Promise(r => setTimeout(r, MB_DELAY))
+    const track  = failed[i]
+    const artist = track.artists[0]?.name ?? ''
+    const mbResult = await lookupMusicBrainz(track.name, artist)
+
+    if (mbResult.bpm) {
+      onUpdate(track.id, mbResult.bpm, 'musicbrainz', false)
+      storeBpm({ spotify_id: track.id, title: track.name, artist, album: track.album, bpm: mbResult.bpm, source: 'musicbrainz' })
+    }
   }
 }
