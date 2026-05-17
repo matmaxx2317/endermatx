@@ -7,67 +7,31 @@ function fmtDuration(ms) {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 }
 
-// Fixed-position strip showing current state — immune to scroll and layout issues
-function StateBar({ connected, error, playlists }) {
-  const bg    = error ? '#7f0000' : connected ? '#1a3a1a' : '#1a1a3a'
-  const label = error
-    ? `error: ${error.slice(0, 60)}`
-    : connected
-      ? `connected · ${playlists.length} playlist(s) · ${window.location.search.slice(0, 30)}`
-      : `not connected · ${window.location.search.slice(0, 30)}`
-  return (
-    <div style={{
-      position: 'fixed', top: 32, left: 0, right: 0, zIndex: 9999,
-      background: bg, color: '#eef2ff', fontSize: 10, padding: '3px 8px',
-      borderBottom: '1px solid #333', wordBreak: 'break-all',
-    }}>
-      {label}
-    </div>
-  )
-}
-
 export default function SpotifyExplorer() {
   const [clientIdInput, setClientIdInput] = useState(() => spotify.getClientId())
-  const [connected, setConnected]   = useState(false)
+  // Initialise from localStorage so returning users see connected UI instantly
+  const [connected, setConnected]   = useState(() => spotify.isConnected())
   const [playlists, setPlaylists]   = useState([])
   const [selectedId, setSelectedId] = useState('')
   const [tracks, setTracks]         = useState(null)
   const [status, setStatus]         = useState('')
   const [error, setError]           = useState('')
 
-  useEffect(() => {
-    if (connected) window.scrollTo(0, 0)
-  }, [connected])
-
+  // Handle OAuth callback — only token exchange, no API calls
   useEffect(() => {
     const params     = new URLSearchParams(window.location.search)
     const code       = params.get('code')
     const oauthError = params.get('error')
 
-    async function init() {
-      if (oauthError) {
-        setError(`Spotify auth error: ${oauthError}`)
-        return
-      }
-      if (code) {
-        try {
-          await spotify.handleCallback(code)
-          setConnected(true)
-          setPlaylists(await spotify.getPlaylists(1))
-        } catch (e) {
-          setError(e.message)
-        }
-      } else if (spotify.isConnected()) {
-        setConnected(true)
-        try {
-          setPlaylists(await spotify.getPlaylists(1))
-        } catch (e) {
-          setError(e.message)
-        }
-      }
+    if (oauthError) {
+      setError(`Spotify auth error: ${oauthError}`)
+      return
     }
-
-    init()
+    if (code) {
+      spotify.handleCallback(code)
+        .then(() => setConnected(true))
+        .catch(e => setError(e.message))
+    }
   }, [])
 
   async function connect() {
@@ -84,6 +48,18 @@ export default function SpotifyExplorer() {
     setTracks(null)
     setSelectedId('')
     setError('')
+  }
+
+  async function loadPlaylists() {
+    setError('')
+    setStatus('loading playlists…')
+    try {
+      setPlaylists(await spotify.getPlaylists())
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setStatus('')
+    }
   }
 
   async function loadTracks() {
@@ -108,6 +84,12 @@ export default function SpotifyExplorer() {
   const displayedTracks  = useMemo(() => tracks ?? [], [tracks])
   const selectedPlaylist = playlists.find(p => p.id === selectedId)
 
+  // Spotify's simplified playlist object used to have `tracks.total`;
+  // newer API responses use `items.total` instead.
+  function trackCount(p) {
+    return (p.tracks ?? p.items)?.total ?? '?'
+  }
+
   return (
     <div>
       <div className="topbar">
@@ -116,11 +98,7 @@ export default function SpotifyExplorer() {
           <span className="topbar-title">spt</span>
         </div>
       </div>
-
-      <StateBar connected={connected} error={error} playlists={playlists} />
-
-      {/* extra top margin to clear the StateBar */}
-      <div className="page" style={{ marginTop: 52 }}>
+      <div className="page">
 
         {!connected ? (
           <>
@@ -164,8 +142,15 @@ export default function SpotifyExplorer() {
         ) : (
           <>
             <div className="section-header">playlists</div>
+
             {playlists.length === 0 ? (
-              <div style={{ fontSize: 13, color: '#555' }}>loading…</div>
+              <button
+                className="btn btn-sm btn-primary"
+                onClick={loadPlaylists}
+                disabled={!!status}
+              >
+                load playlists
+              </button>
             ) : (
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <select
@@ -177,7 +162,7 @@ export default function SpotifyExplorer() {
                   <option value="">— pick a playlist —</option>
                   {playlists.map(p => (
                     <option key={p.id} value={p.id}>
-                      {p.name} ({p.tracks.total})
+                      {p.name} ({trackCount(p)})
                     </option>
                   ))}
                 </select>
