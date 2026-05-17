@@ -100,7 +100,8 @@ async function detectBpmFromAudio(previewUrl) {
 
 // ── Main resolution entry point ───────────────────────────────
 
-const BATCH = 5
+const BATCH        = 3
+const BATCH_DELAY  = 300  // ms between batches to avoid rate limiting
 
 export async function resolveBpms(tracks, onUpdate, onProgress) {
   // Tier 1: DB batch lookup
@@ -117,6 +118,7 @@ export async function resolveBpms(tracks, onUpdate, onProgress) {
   let done = 0
 
   for (let i = 0; i < uncached.length; i += BATCH) {
+    if (i > 0) await new Promise(r => setTimeout(r, BATCH_DELAY))
     await Promise.all(uncached.slice(i, i + BATCH).map(async track => {
       const artist = track.artists[0]?.name ?? ''
 
