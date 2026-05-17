@@ -46,21 +46,27 @@ def getsongbpm_lookup(title: str = Query(...), artist: str = Query(...)):
     except Exception:
         return {"bpm": None}
 
-    if not r.is_success:
-        return {"bpm": None}
+    raw = None
+    try:
+        raw = r.json()
+    except Exception:
+        return {"bpm": None, "debug": f"HTTP {r.status_code}, non-JSON body"}
 
-    results = (r.json() or {}).get("search") or []
+    if not r.is_success:
+        return {"bpm": None, "debug": raw}
+
+    results = (raw or {}).get("search") or []
     if not results:
-        return {"bpm": None}
+        return {"bpm": None, "debug": raw}
 
     tempo = results[0].get("tempo")
     if not tempo:
-        return {"bpm": None}
+        return {"bpm": None, "debug": raw}
 
     try:
         return {"bpm": round(float(tempo))}
     except (ValueError, TypeError):
-        return {"bpm": None}
+        return {"bpm": None, "debug": raw}
 
 
 @router.post("/store", response_model=schemas.TrackBpmOut)

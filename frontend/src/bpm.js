@@ -120,7 +120,7 @@ export async function resolveBpms(tracks, onUpdate, onProgress, onStats) {
   const uncached = tracks.filter(t => !cachedMap.has(t.id))
   if (!uncached.length) return
 
-  const stats = { db: cachedMap.size, getsongbpm: 0, audio: 0, failed: 0, noPreview: 0, getsongbpmErr: null }
+  const stats = { db: cachedMap.size, getsongbpm: 0, audio: 0, failed: 0, noPreview: 0, getsongbpmErr: null, getsongbpmRaw: null }
   let done = 0
 
   for (let i = 0; i < uncached.length; i += BATCH) {
@@ -129,6 +129,7 @@ export async function resolveBpms(tracks, onUpdate, onProgress, onStats) {
 
       const gResult = await lookupGetSongBpm(track.name, artist)
       if (!stats.getsongbpmErr && gResult.err) stats.getsongbpmErr = gResult.err
+      if (!stats.getsongbpmRaw && !gResult.bpm && gResult.raw?.debug !== undefined) stats.getsongbpmRaw = gResult.raw.debug
       let bpm    = gResult.bpm
       let source = bpm ? 'getsongbpm' : null
       if (bpm) stats.getsongbpm++
