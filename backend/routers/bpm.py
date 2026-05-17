@@ -50,10 +50,10 @@ def getsongbpm_lookup(title: str = Query(...), artist: str = Query(...)):
     try:
         raw = r.json()
     except Exception:
-        return {"bpm": None, "debug": f"HTTP {r.status_code}, non-JSON body"}
+        return {"bpm": None, "err": f"GetSongBPM HTTP {r.status_code}, non-JSON body"}
 
     if not r.is_success:
-        return {"bpm": None, "debug": raw}
+        return {"bpm": None, "err": f"GetSongBPM HTTP {r.status_code}", "debug": raw}
 
     results = (raw or {}).get("search") or []
     if not results:
