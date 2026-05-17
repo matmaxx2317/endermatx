@@ -242,12 +242,12 @@ export default function SpotifyExplorer() {
             <div style={{ marginTop: 24, borderTop: '1px solid #1a2840', paddingTop: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <button className="btn btn-sm" onClick={disconnect}>disconnect spotify</button>
               <a
-                href="https://getsongbpm.com"
+                href="https://getsong.co"
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{ fontSize: 10, color: '#374d66', textDecoration: 'none' }}
               >
-                BPM data: GetSongBPM
+                BPM data: GetSong.co
               </a>
             </div>
           </>
