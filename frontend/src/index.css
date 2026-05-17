@@ -883,3 +883,73 @@ input, textarea, select {
 }
 
 .tts-stat-heat-cell { font-size: 9px; color: #e0e0e0; }
+
+/* ── Month view ── */
+.tts-month-dow {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  margin-bottom: 2px;
+}
+.tts-month-dow-cell {
+  text-align: center;
+  font-size: 9px;
+  color: #374d66;
+  padding: 3px 0;
+  letter-spacing: 0.05em;
+}
+.tts-month-week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  margin-bottom: 2px;
+}
+.tts-month-cell {
+  background: #0d1221;
+  border: 1px solid #1a2840;
+  padding: 4px 5px;
+  min-height: 52px;
+  display: flex;
+  flex-direction: column;
+}
+.tts-month-out { opacity: 0.28; }
+.tts-month-today {
+  border-color: #2a4a2a;
+  background: #071a0e;
+}
+.tts-month-daynum {
+  font-size: 9px;
+  color: #9ab0d0;
+  margin-bottom: 4px;
+  line-height: 1;
+}
+.tts-month-today .tts-month-daynum { color: #7effa0; }
+.tts-month-bars {
+  display: flex;
+  border-radius: 1px;
+  overflow: hidden;
+  gap: 1px;
+  flex-shrink: 0;
+}
+.tts-month-total {
+  font-size: 8px;
+  color: #9ab0d0;
+  margin-top: 3px;
+  line-height: 1;
+}
+.tts-month-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #1a2840;
+}
+.tts-month-legend-item { display: flex; align-items: center; gap: 5px; }
+.tts-month-legend-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.tts-month-legend-name { font-size: 9px; color: #9ab0d0; }

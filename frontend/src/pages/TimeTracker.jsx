@@ -14,6 +14,7 @@ const TABS = [
   { key: 'week', label: 'week' },
   { key: 'org',  label: 'org'  },
   { key: 'stat', label: 'stat' },
+  { key: 'mon',  label: 'mon'  },
 ]
 const TAB_KEYS = TABS.map(t => t.key)
 
@@ -382,15 +383,6 @@ function Stats({ entries, projects }) {
     return `${parseInt(hex.slice(1,3),16)},${parseInt(hex.slice(3,5),16)},${parseInt(hex.slice(5,7),16)}`
   }
 
-  function fmtH(ms) {
-    if (ms < 60000) return ''
-    const h = Math.floor(ms / 3600000)
-    const m = Math.floor((ms % 3600000) / 60000)
-    if (h >= 10) return `${h}h`
-    if (h > 0) return m > 0 ? `${h}h${m}m` : `${h}h`
-    return `${m}m`
-  }
-
   // Chart 1: all-time totals, sorted desc
   const allTime = activeProjects
     .map(p => ({ p, ms: projMs(p.id) }))
@@ -552,6 +544,124 @@ function Stats({ entries, projects }) {
           )
         }
       </div>
+    </div>
+  )
+}
+
+// ── Month View ─────────────────────────────────────────────────────────────────
+
+const MONTH_LABELS = ['January','February','March','April','May','June',
+  'July','August','September','October','November','December']
+const DOW_MON = ['Mo','Tu','We','Th','Fr','Sa','Su']
+
+function fmtH(ms) {
+  if (ms < 60000) return ''
+  const h = Math.floor(ms / 3600000)
+  const m = Math.floor((ms % 3600000) / 60000)
+  if (h >= 10) return `${h}h`
+  if (h > 0) return m > 0 ? `${h}h${m}m` : `${h}h`
+  return `${m}m`
+}
+
+function MonthView({ entries, projects }) {
+  const [month, setMonth] = useState(() => {
+    const d = new Date()
+    d.setDate(1)
+    d.setHours(0, 0, 0, 0)
+    return d
+  })
+  const now = Date.now()
+  const today = new Date()
+  const activeProjects = projects.filter(p => !p.archived)
+
+  const firstDay = new Date(month)
+  const lastDay  = new Date(month.getFullYear(), month.getMonth() + 1, 0)
+  const gridStart = getMondayOf(firstDay)
+  const lastMonday = getMondayOf(lastDay)
+  const gridEnd = new Date(lastMonday)
+  gridEnd.setDate(gridEnd.getDate() + 6)
+
+  const allDays = []
+  for (let d = new Date(gridStart); d <= gridEnd; d.setDate(d.getDate() + 1)) {
+    allDays.push(new Date(d))
+  }
+  const weeks = []
+  for (let i = 0; i < allDays.length; i += 7) {
+    weeks.push(allDays.slice(i, i + 7))
+  }
+
+  function daySegs(date) {
+    return activeProjects
+      .map(p => {
+        const ms = entries
+          .filter(e => e.project_id === p.id && isSameDay(e.start_time, date))
+          .reduce((acc, e) => {
+            const end = e.end_time ? new Date(e.end_time).getTime() : now
+            return acc + Math.max(0, end - new Date(e.start_time).getTime())
+          }, 0)
+        return { p, ms }
+      })
+      .filter(s => s.ms > 0)
+  }
+
+  const maxDayMs = Math.max(
+    ...allDays.map(d => daySegs(d).reduce((a, s) => a + s.ms, 0)),
+    1
+  )
+
+  return (
+    <div>
+      <div className="tts-week-nav">
+        <button className="btn btn-sm" onClick={() => setMonth(m => new Date(m.getFullYear(), m.getMonth() - 1, 1))}>←</button>
+        <span className="tts-week-cw">{MONTH_LABELS[month.getMonth()]} {month.getFullYear()}</span>
+        <button className="btn btn-sm" onClick={() => setMonth(m => new Date(m.getFullYear(), m.getMonth() + 1, 1))}>→</button>
+      </div>
+      <div className="tts-month-dow">
+        {DOW_MON.map(d => <div key={d} className="tts-month-dow-cell">{d}</div>)}
+      </div>
+      {weeks.map((week, wi) => (
+        <div key={wi} className="tts-month-week">
+          {week.map(day => {
+            const isCurrentMonth = day.getMonth() === month.getMonth()
+            const isDayToday = isSameDay(day, today)
+            const segs = daySegs(day)
+            const totalMs = segs.reduce((a, s) => a + s.ms, 0)
+            const barH = totalMs > 0 ? Math.max(3, Math.round(totalMs / maxDayMs * 20)) : 0
+            return (
+              <div
+                key={day.toDateString()}
+                className={`tts-month-cell${isDayToday ? ' tts-month-today' : ''}${!isCurrentMonth ? ' tts-month-out' : ''}`}
+              >
+                <div className="tts-month-daynum">{day.getDate()}</div>
+                {segs.length > 0 && (
+                  <>
+                    <div className="tts-month-bars" style={{ height: barH }}>
+                      {segs.map(s => (
+                        <div
+                          key={s.p.id}
+                          style={{ flex: s.ms, background: s.p.color, opacity: 0.85 }}
+                          title={`${s.p.name}: ${fmtH(s.ms)}`}
+                        />
+                      ))}
+                    </div>
+                    <div className="tts-month-total">{fmtH(totalMs)}</div>
+                  </>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      ))}
+      {activeProjects.length > 0 && (
+        <div className="tts-month-legend">
+          {activeProjects.map(p => (
+            <div key={p.id} className="tts-month-legend-item">
+              <span className="tts-month-legend-dot" style={{ background: p.color }} />
+              <span className="tts-month-legend-name">{p.name}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -933,6 +1043,11 @@ export default function TimeTracker() {
         {/* ── stat: statistics ── */}
         {tab === 'stat' && (
           <Stats entries={entries} projects={projects} />
+        )}
+
+        {/* ── mon: monthly calendar ── */}
+        {tab === 'mon' && (
+          <MonthView entries={entries} projects={projects} />
         )}
       </div>
 
