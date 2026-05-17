@@ -98,6 +98,7 @@ export async function resolveBpms(tracks, onUpdate, onProgress, onLog) {
       } else {
         onUpdate(track.id, null, 'failed', false)
         failed.push(track)
+        storeBpm({ spotify_id: track.id, title: track.name, artist, album: track.album, bpm: 0, source: 'not_found' })
       }
 
       onProgress(++done, toResolve.length)
@@ -105,7 +106,6 @@ export async function resolveBpms(tracks, onUpdate, onProgress, onLog) {
   }
 
   // Tier 3: MusicBrainz sequential fallback
-  const resolvedByMb = new Set()
   for (let i = 0; i < failed.length; i++) {
     if (i > 0) await new Promise(r => setTimeout(r, MB_DELAY))
     const track  = failed[i]
@@ -114,17 +114,9 @@ export async function resolveBpms(tracks, onUpdate, onProgress, onLog) {
 
     onLog?.({ source: 'musicbrainz', name: track.name, bpm: mbResult.bpm })
     if (mbResult.bpm) {
-      resolvedByMb.add(track.id)
       onUpdate(track.id, mbResult.bpm, 'musicbrainz', false)
       storeBpm({ spotify_id: track.id, title: track.name, artist, album: track.album, bpm: mbResult.bpm, source: 'musicbrainz' })
     }
   }
 
-  // Store still-failed tracks as not_found (retried next playlist load)
-  for (const track of failed) {
-    if (!resolvedByMb.has(track.id)) {
-      const artist = track.artists[0]?.name ?? ''
-      storeBpm({ spotify_id: track.id, title: track.name, artist, album: track.album, bpm: 0, source: 'not_found' })
-    }
-  }
 }
