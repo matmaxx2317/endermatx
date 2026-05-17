@@ -32,6 +32,7 @@ async function lookupGetSongBpm(title, artist) {
     const res = await fetch(`/api/bpm/getsongbpm?${params}`)
     const data = await res.json()
     if (!res.ok) return { bpm: null, err: data?.detail ?? `HTTP ${res.status}` }
+    if (data.err) return { bpm: null, err: data.err, raw: data }
     return { bpm: typeof data.bpm === 'number' ? data.bpm : null, raw: data }
   } catch (e) {
     return { bpm: null, err: e.message }
