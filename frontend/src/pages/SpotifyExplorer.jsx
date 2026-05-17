@@ -52,17 +52,15 @@ export default function SpotifyExplorer() {
     setBpmStatus('')
   }
 
-  async function loadPlaylists() {
-    setError('')
+  // Auto-load playlists whenever the connected state becomes true
+  useEffect(() => {
+    if (!connected) return
     setStatus('loading playlists…')
-    try {
-      setPlaylists(await spotify.getPlaylists())
-    } catch (e) {
-      setError(e.message)
-    } finally {
-      setStatus('')
-    }
-  }
+    spotify.getPlaylists()
+      .then(setPlaylists)
+      .catch(e => setError(e.message))
+      .finally(() => setStatus(''))
+  }, [connected])
 
   async function loadTracks() {
     if (!selectedId) return
@@ -161,38 +159,29 @@ export default function SpotifyExplorer() {
           <>
             <div className="section-header">playlists</div>
 
-            {playlists.length === 0 ? (
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <select
+                className="input"
+                style={{ flex: 1 }}
+                value={selectedId}
+                onChange={e => { setSelectedId(e.target.value); setTracks(null); setError(''); setBpmStatus('') }}
+                disabled={playlists.length === 0}
+              >
+                <option value="">— pick a playlist —</option>
+                {playlists.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} ({trackCount(p)})
+                  </option>
+                ))}
+              </select>
               <button
                 className="btn btn-sm btn-primary"
-                onClick={loadPlaylists}
-                disabled={!!status}
+                onClick={loadTracks}
+                disabled={!selectedId || !!status}
               >
-                load playlists
+                load
               </button>
-            ) : (
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <select
-                  className="input"
-                  style={{ flex: 1 }}
-                  value={selectedId}
-                  onChange={e => { setSelectedId(e.target.value); setTracks(null); setError(''); setBpmStatus('') }}
-                >
-                  <option value="">— pick a playlist —</option>
-                  {playlists.map(p => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} ({trackCount(p)})
-                    </option>
-                  ))}
-                </select>
-                <button
-                  className="btn btn-sm btn-primary"
-                  onClick={loadTracks}
-                  disabled={!selectedId || !!status}
-                >
-                  load
-                </button>
-              </div>
-            )}
+            </div>
 
             {status && (
               <div style={{ fontSize: 12, color: '#9ab0d0', marginTop: 10 }}>{status}</div>
