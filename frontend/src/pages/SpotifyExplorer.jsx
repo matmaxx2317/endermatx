@@ -8,7 +8,6 @@ function fmtDuration(ms) {
 }
 
 export default function SpotifyExplorer() {
-  const [clientId, setClientIdState] = useState(() => spotify.getClientId())
   const [clientIdInput, setClientIdInput] = useState(() => spotify.getClientId())
   const [connected, setConnected]   = useState(false)
   const [playlists, setPlaylists]   = useState([])
@@ -16,56 +15,39 @@ export default function SpotifyExplorer() {
   const [tracks, setTracks]         = useState(null)
   const [status, setStatus]         = useState('')
   const [error, setError]           = useState('')
-  const [log, setLog]               = useState([])
 
-  function dbg(msg) {
-    setLog(prev => [...prev, `${new Date().toISOString().slice(11,23)} ${msg}`])
-  }
+  // Scroll to top whenever we transition into the connected view so that
+  // the playlist picker is visible (scroll anchoring can shift the viewport
+  // down while async state updates accumulate above the fold)
+  useEffect(() => {
+    if (connected) window.scrollTo(0, 0)
+  }, [connected])
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const code   = params.get('code')
+    const params     = new URLSearchParams(window.location.search)
+    const code       = params.get('code')
     const oauthError = params.get('error')
-
-    dbg(`mount — code=${code ? code.slice(0,8)+'…' : 'none'} error=${oauthError ?? 'none'} connected=${spotify.isConnected()}`)
 
     async function init() {
       if (oauthError) {
-        window.history.replaceState({}, '', '/spt')
         setError(`Spotify auth error: ${oauthError}`)
-        dbg(`oauth error: ${oauthError}`)
         return
       }
       if (code) {
-        dbg('calling handleCallback…')
         try {
           await spotify.handleCallback(code)
-          dbg('handleCallback ok — setting connected')
-          // Don't manipulate the URL — any history/navigate call here
-          // triggers React Router to re-render and resets scroll, causing
-          // the blank screen. The ?code= param is single-use and harmless.
           setConnected(true)
-          dbg('fetching playlists…')
-          const list = await spotify.getPlaylists()
-          dbg(`got ${list.length} playlists`)
-          setPlaylists(list)
+          setPlaylists(await spotify.getPlaylists())
         } catch (e) {
-          dbg(`error: ${e.message}`)
           setError(e.message)
         }
       } else if (spotify.isConnected()) {
-        dbg('already connected — fetching playlists…')
         setConnected(true)
         try {
-          const list = await spotify.getPlaylists()
-          dbg(`got ${list.length} playlists`)
-          setPlaylists(list)
+          setPlaylists(await spotify.getPlaylists())
         } catch (e) {
-          dbg(`error: ${e.message}`)
           setError(e.message)
         }
-      } else {
-        dbg('not connected, showing connect UI')
       }
     }
 
@@ -76,8 +58,6 @@ export default function SpotifyExplorer() {
     const id = clientIdInput.trim()
     if (!id) return
     spotify.setClientId(id)
-    setClientIdState(id)
-    dbg(`authorizing with client_id=${id.slice(0,8)}…`)
     await spotify.authorize()
   }
 
@@ -88,7 +68,6 @@ export default function SpotifyExplorer() {
     setTracks(null)
     setSelectedId('')
     setError('')
-    setLog([])
   }
 
   async function loadTracks() {
@@ -110,7 +89,7 @@ export default function SpotifyExplorer() {
     }
   }
 
-  const displayedTracks = useMemo(() => tracks ?? [], [tracks])
+  const displayedTracks  = useMemo(() => tracks ?? [], [tracks])
   const selectedPlaylist = playlists.find(p => p.id === selectedId)
 
   return (
@@ -122,13 +101,6 @@ export default function SpotifyExplorer() {
         </div>
       </div>
       <div className="page">
-
-        {/* Debug log — always visible */}
-        {log.length > 0 && (
-          <div style={{ fontFamily: 'monospace', fontSize: 11, background: '#050810', border: '1px solid #1a2840', borderRadius: 6, padding: 10, marginBottom: 16, whiteSpace: 'pre-wrap', wordBreak: 'break-all', color: '#9ab0d0' }}>
-            {log.join('\n')}
-          </div>
-        )}
 
         {!connected ? (
           <>
