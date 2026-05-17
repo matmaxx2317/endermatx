@@ -62,14 +62,14 @@ export default function SpotifyExplorer() {
       .finally(() => setStatus(''))
   }, [connected])
 
-  async function loadTracks() {
-    if (!selectedId) return
+  async function loadTracks(playlistId) {
+    if (!playlistId) return
     setTracks(null)
     setError('')
     setBpmStatus('')
     setStatus('loading tracks…')
     try {
-      const raw = await spotify.loadPlaylistTracks(selectedId, (_, n) => {
+      const raw = await spotify.loadPlaylistTracks(playlistId, (_, n) => {
         setStatus(`fetching tracks… ${n}`)
       })
       setTracks(raw)
@@ -159,29 +159,26 @@ export default function SpotifyExplorer() {
           <>
             <div className="section-header">playlists</div>
 
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <select
-                className="input"
-                style={{ flex: 1 }}
-                value={selectedId}
-                onChange={e => { setSelectedId(e.target.value); setTracks(null); setError(''); setBpmStatus('') }}
-                disabled={playlists.length === 0}
-              >
-                <option value="">— pick a playlist —</option>
-                {playlists.map(p => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} ({trackCount(p)})
-                  </option>
-                ))}
-              </select>
-              <button
-                className="btn btn-sm btn-primary"
-                onClick={loadTracks}
-                disabled={!selectedId || !!status}
-              >
-                load
-              </button>
-            </div>
+            <select
+              className="input"
+              value={selectedId}
+              onChange={e => {
+                const id = e.target.value
+                setSelectedId(id)
+                setTracks(null)
+                setError('')
+                setBpmStatus('')
+                if (id) loadTracks(id)
+              }}
+              disabled={playlists.length === 0 || !!status}
+            >
+              <option value="">— pick a playlist —</option>
+              {playlists.map(p => (
+                <option key={p.id} value={p.id}>
+                  {p.name} ({trackCount(p)})
+                </option>
+              ))}
+            </select>
 
             {status && (
               <div style={{ fontSize: 12, color: '#9ab0d0', marginTop: 10 }}>{status}</div>
@@ -229,6 +226,20 @@ export default function SpotifyExplorer() {
                       <span style={{ fontSize: 11, color: '#374d66', flexShrink: 0 }}>
                         {fmtDuration(t.duration_ms)}
                       </span>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: 16, marginTop: 12, flexWrap: 'wrap' }}>
+                  {[
+                    { color: '#e879f9', label: 'db cache' },
+                    { color: '#4ade80', label: 'getsong.co' },
+                    { color: '#22d3ee', label: 'audio' },
+                    { color: '#f44336', label: 'not found' },
+                    { color: '#eef2ff', label: 'pending' },
+                  ].map(({ color, label }) => (
+                    <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
+                      <span style={{ fontSize: 10, color: '#374d66' }}>{label}</span>
                     </div>
                   ))}
                 </div>
