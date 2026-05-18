@@ -62,7 +62,7 @@ export default function BpmCounter() {
           <span className="topbar-title">bpm</span>
         </div>
         <div className="topbar-right">
-          <span className="topbar-version">v1.0</span>
+          <span className="topbar-version">v4.0</span>
         </div>
       </div>
       <div className="page" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 60 }}>
