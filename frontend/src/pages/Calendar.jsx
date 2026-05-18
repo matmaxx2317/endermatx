@@ -272,14 +272,14 @@ export default function Calendar() {
     }
   }, [settings])
 
-  // Track form panel height so the calendar grid can be pushed down
+  // Track fixed controls panel height so the calendar grid can be pushed down
   useEffect(() => {
     const el = formPanelRef.current
     if (!el) { setFormPanelH(0); return }
     const ro = new ResizeObserver(([entry]) => setFormPanelH(entry.contentRect.height))
     ro.observe(el)
     return () => ro.disconnect()
-  }, [showForm, editId])
+  }, [showForm, editId, projects])
 
   // Dismiss tooltip on any outside click/touch
   useEffect(() => {
@@ -419,26 +419,8 @@ export default function Calendar() {
           </div>
         )}
 
-        {/* Project chips */}
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16, alignItems: 'center' }}>
-          {projects.map(p => (
-            <span key={p.id} onClick={() => startEdit(p)}
-              style={{ display: 'flex', alignItems: 'center', gap: 6,
-                background: editId === p.id ? '#1a2840' : '#0d1221',
-                border: `1px solid ${editId === p.id ? '#2a3d5c' : '#1a2840'}`,
-                padding: '4px 10px', fontSize: 12, cursor: 'pointer', color: '#ccc' }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.color }} />
-              {p.name}
-            </span>
-          ))}
-          <button className="btn btn-sm" onClick={() => {
-            setShowForm(s => !s); setEditId(null)
-            setForm({ ...DEFAULT_ADD, color: COLORS[projects.length % COLORS.length] })
-          }}>+ add</button>
-        </div>
-
-        {/* Spacer that matches the fixed form panel height */}
-        {(showForm || editId) && <div style={{ height: formPanelH }} />}
+        {/* Spacer that matches the fixed controls panel height */}
+        <div style={{ height: formPanelH }} />
 
         {/* Calendar grid */}
         {settings && months().map(({ y, m }) => {
@@ -522,13 +504,30 @@ export default function Calendar() {
         })}
       </div>
 
-      {/* Fixed form panel — always in view regardless of scroll position */}
-      {(showForm || editId) && (
-        <div ref={formPanelRef} style={{
-          position: 'fixed', top: 32, left: 0, right: 0, zIndex: 30,
-          background: '#07091a', borderBottom: '1px solid #1a2840',
-        }}>
-          <div style={{ maxWidth: 900, margin: '0 auto', padding: '12px 16px' }}>
+      {/* Fixed controls panel — chips, add button, and forms always in view */}
+      <div ref={formPanelRef} style={{
+        position: 'fixed', top: 32, left: 0, right: 0, zIndex: 30,
+        background: '#07091a', borderBottom: '1px solid #1a2840',
+      }}>
+        <div style={{ maxWidth: 900, margin: '0 auto', padding: '10px 16px' }}>
+          {/* Project chips + add button */}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: (showForm || editId) ? 10 : 0 }}>
+            {projects.map(p => (
+              <span key={p.id} onClick={() => startEdit(p)}
+                style={{ display: 'flex', alignItems: 'center', gap: 6,
+                  background: editId === p.id ? '#1a2840' : '#0d1221',
+                  border: `1px solid ${editId === p.id ? '#2a3d5c' : '#1a2840'}`,
+                  padding: '4px 10px', fontSize: 12, cursor: 'pointer', color: '#ccc' }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.color }} />
+                {p.name}
+              </span>
+            ))}
+            <button className="btn btn-sm" onClick={() => {
+              setShowForm(s => !s); setEditId(null)
+              setForm({ ...DEFAULT_ADD, color: COLORS[projects.length % COLORS.length] })
+            }}>+ add</button>
+          </div>
+          <div style={{ maxWidth: 900, margin: '0 auto' }}>
             {showForm && !editId && (
               <form onSubmit={saveAdd} className="card" style={{ marginBottom: 0 }}>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 12 }}>
@@ -636,7 +635,7 @@ export default function Calendar() {
             )}
           </div>
         </div>
-      )}
+      </div>
 
       {tooltip && (
         <div ref={tooltipRef} style={{
