@@ -41,7 +41,22 @@ async function lookupGetSongBpm(title, artist) {
   }
 }
 
-// ── Tier 3: MusicBrainz fallback ─────────────────────────────
+// ── Tier 3: SoundNet via RapidAPI ────────────────────────────
+
+async function lookupSoundNet(spotifyId) {
+  try {
+    const res = await fetch(`/api/bpm/soundnet?spotify_id=${encodeURIComponent(spotifyId)}`, {
+      signal: AbortSignal.timeout(12000),
+    })
+    const data = await res.json()
+    if (!res.ok) return { bpm: null }
+    return { bpm: typeof data.bpm === 'number' ? data.bpm : null }
+  } catch {
+    return { bpm: null }
+  }
+}
+
+// ── Tier 4: MusicBrainz fallback ─────────────────────────────
 
 async function lookupMusicBrainz(title, artist) {
   try {
@@ -59,8 +74,9 @@ async function lookupMusicBrainz(title, artist) {
 
 // ── Main resolution entry point ───────────────────────────────
 
-const GETSONG_DELAY = 400   // ms between getsong.co calls
-const MB_DELAY      = 1100  // ms between MusicBrainz requests (1 req/sec limit)
+const GETSONG_DELAY  = 400   // ms between getsong.co calls
+const SOUNDNET_DELAY = 300   // ms between SoundNet calls
+const MB_DELAY       = 1100  // ms between MusicBrainz requests (1 req/sec limit)
 
 export async function resolveBpms(tracks, onUpdate, onProgress, onLog) {
   // Tier 1: DB batch lookup — real BPM entries used as cache; not_found entries retried
@@ -96,19 +112,29 @@ export async function resolveBpms(tracks, onUpdate, onProgress, onLog) {
       onUpdate(track.id, gResult.bpm, 'getsongbpm', false)
       storeBpm({ spotify_id: track.id, title: track.name, artist, album: track.album, bpm: gResult.bpm, source: 'getsongbpm' })
     } else {
-      // Tier 3: MusicBrainz fallback immediately for this track
-      const wait = MB_DELAY - (Date.now() - lastMbCall)
-      if (wait > 0) await new Promise(r => setTimeout(r, wait))
-      const mbResult = await lookupMusicBrainz(track.name, artist)
-      lastMbCall = Date.now()
-      onLog?.({ source: 'musicbrainz', name: track.name, bpm: mbResult.bpm })
+      // Tier 3: SoundNet fallback (uses Spotify ID directly)
+      await new Promise(r => setTimeout(r, SOUNDNET_DELAY))
+      const snResult = await lookupSoundNet(track.id)
+      onLog?.({ source: 'soundnet', name: track.name, bpm: snResult.bpm })
 
-      if (mbResult.bpm) {
-        onUpdate(track.id, mbResult.bpm, 'musicbrainz', false)
-        storeBpm({ spotify_id: track.id, title: track.name, artist, album: track.album, bpm: mbResult.bpm, source: 'musicbrainz' })
+      if (snResult.bpm) {
+        onUpdate(track.id, snResult.bpm, 'soundnet', false)
+        storeBpm({ spotify_id: track.id, title: track.name, artist, album: track.album, bpm: snResult.bpm, source: 'soundnet' })
       } else {
-        onUpdate(track.id, null, 'failed', false)
-        storeBpm({ spotify_id: track.id, title: track.name, artist, album: track.album, bpm: 0, source: 'not_found' })
+        // Tier 4: MusicBrainz fallback
+        const wait = MB_DELAY - (Date.now() - lastMbCall)
+        if (wait > 0) await new Promise(r => setTimeout(r, wait))
+        const mbResult = await lookupMusicBrainz(track.name, artist)
+        lastMbCall = Date.now()
+        onLog?.({ source: 'musicbrainz', name: track.name, bpm: mbResult.bpm })
+
+        if (mbResult.bpm) {
+          onUpdate(track.id, mbResult.bpm, 'musicbrainz', false)
+          storeBpm({ spotify_id: track.id, title: track.name, artist, album: track.album, bpm: mbResult.bpm, source: 'musicbrainz' })
+        } else {
+          onUpdate(track.id, null, 'failed', false)
+          storeBpm({ spotify_id: track.id, title: track.name, artist, album: track.album, bpm: 0, source: 'not_found' })
+        }
       }
     }
 

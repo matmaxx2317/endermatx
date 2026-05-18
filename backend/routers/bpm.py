@@ -25,12 +25,14 @@ def bpm_stats(db: Session = Depends(get_db)):
     row = db.query(
         func.count().label("total"),
         func.sum(case((models.TrackBpm.source == "getsongbpm",  1), else_=0)).label("getsongbpm"),
+        func.sum(case((models.TrackBpm.source == "soundnet",    1), else_=0)).label("soundnet"),
         func.sum(case((models.TrackBpm.source == "musicbrainz", 1), else_=0)).label("musicbrainz"),
         func.sum(case((models.TrackBpm.source == "not_found",   1), else_=0)).label("not_found"),
     ).one()
     return {
         "total":       row.total       or 0,
         "getsongbpm":  row.getsongbpm  or 0,
+        "soundnet":    row.soundnet    or 0,
         "musicbrainz": row.musicbrainz or 0,
         "not_found":   row.not_found   or 0,
     }
@@ -140,6 +142,44 @@ def musicbrainz_lookup(title: str = Query(...), artist: str = Query(...)):
                 return {"bpm": round(float(bpm))}
             except (ValueError, TypeError):
                 continue
+
+    return {"bpm": None}
+
+
+@router.get("/soundnet")
+def soundnet_lookup(spotify_id: str = Query(...)):
+    api_key = os.getenv("SOUNDNET_API_KEY", "")
+    if not api_key:
+        raise HTTPException(503, "SoundNet not configured")
+
+    try:
+        r = httpx.get(
+            f"https://track-analysis.p.rapidapi.com/pktx/spotify/{spotify_id}",
+            headers={
+                "X-RapidAPI-Key":  api_key,
+                "X-RapidAPI-Host": "track-analysis.p.rapidapi.com",
+            },
+            timeout=10,
+        )
+    except httpx.TimeoutException:
+        raise HTTPException(504, "SoundNet timeout")
+    except Exception:
+        return {"bpm": None}
+
+    if not r.is_success:
+        return {"bpm": None, "err": f"SoundNet HTTP {r.status_code}"}
+
+    try:
+        data = r.json()
+    except Exception:
+        return {"bpm": None}
+
+    tempo = data.get("tempo")
+    if tempo:
+        try:
+            return {"bpm": round(float(tempo))}
+        except (ValueError, TypeError):
+            pass
 
     return {"bpm": None}
 

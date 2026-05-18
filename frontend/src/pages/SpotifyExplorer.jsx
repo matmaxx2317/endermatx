@@ -10,6 +10,7 @@ function fmtDuration(ms) {
 
 const BAR_SEGMENTS = [
   { key: 'getsongbpm',   color: '#4ade80', label: 'getsong.co'  },
+  { key: 'soundnet',     color: '#22d3ee', label: 'soundnet'    },
   { key: 'musicbrainz',  color: '#fb923c', label: 'musicbrainz' },
   { key: 'notFound',     color: '#f44336', label: 'not found'   },
   { key: 'pending',      color: '#1a2840', label: 'pending'      },
@@ -43,7 +44,7 @@ function BpmBar({ stats }) {
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px', marginTop: 8 }}>
         {BAR_SEGMENTS.map(seg => {
           const n = counts[seg.key]
-          if (!n && seg.key !== 'getsongbpm' && seg.key !== 'notFound') return null
+          if (!n && seg.key !== 'getsongbpm' && seg.key !== 'soundnet' && seg.key !== 'notFound') return null
           const pct = Math.round((n / total) * 100)
           const isHovered = hovered === seg.key
           return (
@@ -187,10 +188,11 @@ export default function SpotifyExplorer() {
   const bpmStats = useMemo(() => {
     if (!tracks || !tracks.length) return null
     const getsongbpm  = tracks.filter(t => t.bpmSource === 'getsongbpm').length
+    const soundnet    = tracks.filter(t => t.bpmSource === 'soundnet').length
     const musicbrainz = tracks.filter(t => t.bpmSource === 'musicbrainz').length
     const notFound    = tracks.filter(t => t.bpmSource === 'failed').length
     const pending     = tracks.filter(t => !t.bpmSource).length
-    return { total: tracks.length, getsongbpm, musicbrainz, notFound, pending }
+    return { total: tracks.length, getsongbpm, soundnet, musicbrainz, notFound, pending }
   }, [tracks])
 
   // Sort by BPM ascending; unresolved tracks sink to the bottom
@@ -268,6 +270,7 @@ export default function SpotifyExplorer() {
                 <BpmBar stats={{
                   total:        globalStats.total,
                   getsongbpm:   globalStats.getsongbpm,
+                  soundnet:     globalStats.soundnet,
                   musicbrainz:  globalStats.musicbrainz,
                   notFound:     globalStats.not_found,
                   pending:      0,
@@ -306,8 +309,8 @@ export default function SpotifyExplorer() {
             {bpmLog.length > 0 && (
               <div style={{ marginTop: 10, maxHeight: 160, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 1 }}>
                 {bpmLog.map((e, i) => {
-                  const srcColor = e.source === 'getsongbpm' ? '#4ade80' : '#fb923c'
-                  const srcLabel = e.source === 'getsongbpm' ? 'getsong.co ' : 'musicbrainz'
+                  const srcColor = e.source === 'getsongbpm' ? '#4ade80' : e.source === 'soundnet' ? '#22d3ee' : '#fb923c'
+                  const srcLabel = e.source === 'getsongbpm' ? 'getsong.co ' : e.source === 'soundnet' ? 'soundnet   ' : 'musicbrainz'
                   return (
                     <div key={i} style={{ display: 'flex', gap: 8, fontSize: 11, fontFamily: 'monospace' }}>
                       <span style={{ color: srcColor, flexShrink: 0 }}>{srcLabel}</span>
@@ -343,6 +346,7 @@ export default function SpotifyExplorer() {
                           )}
                           <span style={{ fontSize: 14, fontWeight: 600, color:
                             t.bpmSource === 'getsongbpm'   ? '#4ade80'
+                            : t.bpmSource === 'soundnet'    ? '#22d3ee'
                             : t.bpmSource === 'musicbrainz' ? '#fb923c'
                             : t.bpmSource === 'failed'      ? '#f44336'
                             : '#eef2ff'
@@ -370,6 +374,7 @@ export default function SpotifyExplorer() {
                 <div style={{ display: 'flex', gap: 16, marginTop: 12, flexWrap: 'wrap' }}>
                   {[
                     { color: '#4ade80', label: 'getsong.co' },
+                    { color: '#22d3ee', label: 'soundnet' },
                     { color: '#fb923c', label: 'musicbrainz' },
                     { color: '#f44336', label: 'not found' },
                     { color: '#eef2ff', label: 'pending' },
