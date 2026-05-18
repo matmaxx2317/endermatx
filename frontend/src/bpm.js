@@ -61,7 +61,7 @@ async function lookupDeezer(title, artist) {
 // ── Main resolution entry point ───────────────────────────────
 
 const GETSONG_DELAY = 400  // ms between getsong.co calls
-const DEEZER_DELAY  = 400  // ms between Deezer calls (2 requests per track internally)
+const DEEZER_DELAY  = 400  // ms between Deezer calls
 
 export async function resolveBpms(tracks, onUpdate, onProgress, onLog) {
   // Tier 1: DB batch lookup — real BPM entries used as cache; not_found entries retried
@@ -81,13 +81,24 @@ export async function resolveBpms(tracks, onUpdate, onProgress, onLog) {
   if (!toResolve.length) return
 
   let done = 0
+  let needDelay = false  // only delay before getsong.co/Deezer calls
 
-  for (let i = 0; i < toResolve.length; i++) {
-    if (i > 0) await new Promise(r => setTimeout(r, GETSONG_DELAY))
-    const track  = toResolve[i]
+  for (const track of toResolve) {
     const artist = track.artists[0]?.name ?? ''
 
-    // Tier 2: getsong.co
+    // Tier 0: Spotify Audio Features (already fetched by loadPlaylistTracks, no API call needed)
+    if (track.spotifyBpm) {
+      onLog?.({ name: track.name, artist, bpm: track.spotifyBpm, spotify: 'pass' })
+      onUpdate(track.id, track.spotifyBpm, 'spotify', false)
+      storeBpm({ spotify_id: track.id, title: track.name, artist, album: track.album, bpm: track.spotifyBpm, source: 'spotify' })
+      onProgress(++done, toResolve.length)
+      continue
+    }
+
+    // Tier 2: getsong.co (rate-limited)
+    if (needDelay) await new Promise(r => setTimeout(r, GETSONG_DELAY))
+    needDelay = true
+
     const gResult = await lookupGetSongBpm(track.name, artist)
 
     if (gResult.bpm) {

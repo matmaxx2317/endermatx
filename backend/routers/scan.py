@@ -36,6 +36,7 @@ class ScanTrack(BaseModel):
     name: str
     artist: str
     album: str = ""
+    spotify_bpm: int | None = None
 
 
 class ScanStartRequest(BaseModel):
@@ -44,10 +45,9 @@ class ScanStartRequest(BaseModel):
     playlists_done: int = 0
 
 
-def _append_log(name: str, artist: str, bpm, getsongbpm: str, deezer: str | None = None) -> None:
-    entry: dict[str, Any] = {"name": name, "artist": artist, "bpm": bpm, "getsongbpm": getsongbpm}
-    if deezer is not None:
-        entry["deezer"] = deezer
+def _append_log(name: str, artist: str, bpm, **sources) -> None:
+    entry: dict[str, Any] = {"name": name, "artist": artist, "bpm": bpm}
+    entry.update(sources)
     _state["log"].append(entry)
 
 
@@ -100,11 +100,21 @@ def _do_scan(tracks: list[ScanTrack]) -> None:
     to_resolve = [t for t in tracks if t.spotify_id not in cached_ids]
     _state["tracks_done"] = len(cached_ids)
 
-    for i, track in enumerate(to_resolve):
-        if i > 0:
-            time.sleep(_GETSONG_DELAY)
+    need_delay = False  # only delay before getsong.co/Deezer calls
 
-        # Tier 2: getsong.co
+    for track in to_resolve:
+
+        # Tier 0: Spotify Audio Features (pre-fetched by the browser, no external call)
+        if track.spotify_bpm:
+            _append_log(track.name, track.artist, track.spotify_bpm, spotify="pass")
+            _store_bpm_db(track, track.spotify_bpm, "spotify")
+            _state["tracks_done"] += 1
+            continue
+
+        # Tier 2: getsong.co (rate-limited)
+        if need_delay:
+            time.sleep(_GETSONG_DELAY)
+        need_delay = True
         bpm = None
         if api_key:
             results = _getsong_results(api_key, track.name)
@@ -157,6 +167,7 @@ def _do_scan(tracks: list[ScanTrack]) -> None:
                 _store_bpm_db(track, 0, "not_found")
 
         _state["tracks_done"] += 1
+
 
     _state["status"]      = "done"
     _state["finished_at"] = datetime.utcnow().isoformat() + "Z"

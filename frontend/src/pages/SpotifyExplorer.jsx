@@ -17,6 +17,7 @@ function fmtElapsed(ms) {
 }
 
 const BAR_SEGMENTS = [
+  { key: 'spotify',    color: '#1db954', label: 'spotify'    },
   { key: 'getsongbpm', color: '#4ade80', label: 'getsong.co' },
   { key: 'deezer',     color: '#a78bfa', label: 'deezer'     },
   { key: 'notFound',   color: '#f44336', label: 'not found'  },
@@ -24,9 +25,9 @@ const BAR_SEGMENTS = [
 ]
 
 function BpmBar({ stats }) {
-  const { total, getsongbpm, deezer, notFound, pending } = stats
+  const { total, spotify, getsongbpm, deezer, notFound, pending } = stats
   if (!total) return null
-  const counts = { getsongbpm, deezer, notFound, pending }
+  const counts = { spotify, getsongbpm, deezer, notFound, pending }
   const [hovered, setHovered] = useState(null)
 
   return (
@@ -49,7 +50,7 @@ function BpmBar({ stats }) {
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px', marginTop: 8 }}>
         {BAR_SEGMENTS.map(seg => {
           const n = counts[seg.key]
-          if (!n && seg.key !== 'getsongbpm' && seg.key !== 'deezer' && seg.key !== 'notFound') return null
+          if (!n && seg.key !== 'spotify' && seg.key !== 'getsongbpm' && seg.key !== 'deezer' && seg.key !== 'notFound') return null
           const pct = Math.round((n / total) * 100)
           const isHovered = hovered === seg.key
           return (
@@ -94,9 +95,16 @@ function LogEntry({ e }) {
         <span style={{ color: e.bpm ? '#4ade80' : '#9ab0d0', fontWeight: 500 }}>{bpmText}</span>
       </div>
       <div style={{ fontSize: 10, fontFamily: 'monospace', display: 'flex', gap: 14 }}>
-        <span style={{ color: '#374d66' }}>
-          getsong.co: <span style={{ color: e.getsongbpm === 'pass' ? '#4ade80' : '#f44336' }}>{e.getsongbpm}</span>
-        </span>
+        {e.spotify && (
+          <span style={{ color: '#374d66' }}>
+            spotify: <span style={{ color: e.spotify === 'pass' ? '#4ade80' : '#f44336' }}>{e.spotify}</span>
+          </span>
+        )}
+        {e.getsongbpm && (
+          <span style={{ color: '#374d66' }}>
+            getsong.co: <span style={{ color: e.getsongbpm === 'pass' ? '#4ade80' : '#f44336' }}>{e.getsongbpm}</span>
+          </span>
+        )}
         {e.deezer && (
           <span style={{ color: '#374d66' }}>
             deezer: <span style={{ color: e.deezer === 'pass' ? '#4ade80' : '#f44336' }}>{e.deezer}</span>
@@ -246,8 +254,8 @@ export default function SpotifyExplorer() {
   useEffect(() => {
     if (!connected) return
     setStatus('loading playlists…')
-    spotify.getPlaylists()
-      .then(setPlaylists)
+    Promise.all([spotify.getMe(), spotify.getPlaylists()])
+      .then(([me, all]) => setPlaylists(all.filter(p => p.owner?.id === me.id)))
       .catch(e => setError(e.message))
       .finally(() => setStatus(''))
     fetch('/api/bpm/stats').then(r => r.json()).then(setGlobalStats).catch(() => {})
@@ -282,11 +290,11 @@ export default function SpotifyExplorer() {
     setScanProgress({ playlistsDone: 0, playlistsTotal: playlists.length, tracksDone: 0, tracksTotal: 0 })
     setScanMode('fetching')
 
-    // Phase 1: fetch all Spotify tracks in the browser (needs OAuth token)
-    const seen = new Map()
+    // Phase 1: fetch raw tracks from all playlists in the browser (needs OAuth token)
+    const seen = new Map()  // spotify_id → raw Spotify track object
     for (let i = 0; i < playlists.length; i++) {
       try {
-        const raw = await spotify.loadPlaylistTracks(playlists[i].id)
+        const raw = await spotify.getPlaylistTracks(playlists[i].id)
         for (const t of raw) { if (!seen.has(t.id)) seen.set(t.id, t) }
       } catch { /* skip failed playlist */ }
       setScanProgress(prev => ({ ...prev, playlistsDone: i + 1, tracksTotal: seen.size }))
@@ -295,12 +303,19 @@ export default function SpotifyExplorer() {
     const allTracks = Array.from(seen.values())
     setScanProgress(prev => ({ ...prev, tracksTotal: allTracks.length }))
 
+    // Phase 1.5: batch-fetch Spotify audio features for all unique tracks (one call per 100)
+    const features = await spotify.getAudioFeatures(allTracks.map(t => t.id))
+    const tempoMap = new Map(
+      features.filter(f => f?.tempo > 0).map(f => [f.id, Math.round(f.tempo)])
+    )
+
     // Phase 2: hand off to backend for persistent BPM resolution
     const scanTracks = allTracks.map(t => ({
-      spotify_id: t.id,
-      name:       t.name,
-      artist:     t.artists[0]?.name ?? '',
-      album:      t.album ?? '',
+      spotify_id:  t.id,
+      name:        t.name,
+      artist:      t.artists[0]?.name ?? '',
+      album:       t.album?.name ?? '',
+      spotify_bpm: tempoMap.get(t.id) ?? null,
     }))
 
     try {
@@ -354,11 +369,12 @@ export default function SpotifyExplorer() {
 
   const bpmStats = useMemo(() => {
     if (!tracks || !tracks.length) return null
+    const spotify    = tracks.filter(t => t.bpmSource === 'spotify').length
     const getsongbpm = tracks.filter(t => t.bpmSource === 'getsongbpm').length
     const deezer     = tracks.filter(t => t.bpmSource === 'deezer').length
     const notFound   = tracks.filter(t => t.bpmSource === 'failed').length
     const pending    = tracks.filter(t => !t.bpmSource).length
-    return { total: tracks.length, getsongbpm, deezer, notFound, pending }
+    return { total: tracks.length, spotify, getsongbpm, deezer, notFound, pending }
   }, [tracks])
 
   const displayedTracks = useMemo(() => {
@@ -376,9 +392,10 @@ export default function SpotifyExplorer() {
 
   const globalBarStats = globalStats?.total > 0 ? {
     total:      globalStats.total,
-    getsongbpm: globalStats.getsongbpm,
-    deezer:     globalStats.deezer,
-    notFound:   globalStats.not_found,
+    spotify:    globalStats.spotify    ?? 0,
+    getsongbpm: globalStats.getsongbpm ?? 0,
+    deezer:     globalStats.deezer     ?? 0,
+    notFound:   globalStats.not_found  ?? 0,
     pending:    0,
   } : null
 
@@ -392,7 +409,7 @@ export default function SpotifyExplorer() {
           <span className="topbar-title">spt</span>
         </div>
         <div className="topbar-right">
-          <span className="topbar-version">v4.5</span>
+          <span className="topbar-version">v4.6</span>
         </div>
       </div>
       <div className="page">
@@ -542,7 +559,8 @@ export default function SpotifyExplorer() {
                             <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#e879f9', flexShrink: 0 }} />
                           )}
                           <span style={{ fontSize: 14, fontWeight: 600, color:
-                            t.bpmSource === 'getsongbpm' ? '#4ade80'
+                            t.bpmSource === 'spotify'    ? '#1db954'
+                            : t.bpmSource === 'getsongbpm' ? '#4ade80'
                             : t.bpmSource === 'deezer'   ? '#a78bfa'
                             : t.bpmSource === 'failed'   ? '#f44336'
                             : '#eef2ff'
@@ -567,6 +585,7 @@ export default function SpotifyExplorer() {
                 </div>
                 <div style={{ display: 'flex', gap: 16, marginTop: 12, flexWrap: 'wrap' }}>
                   {[
+                    { color: '#1db954', label: 'spotify' },
                     { color: '#4ade80', label: 'getsong.co' },
                     { color: '#a78bfa', label: 'deezer' },
                     { color: '#f44336', label: 'not found' },
