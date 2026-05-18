@@ -401,9 +401,12 @@ export default function Calendar() {
           <Link to="/"><button className="topbar-back btn btn-sm">←</button></Link>
           <span className="topbar-title">cal</span>
         </div>
-        <button className="btn btn-sm" onClick={() => setShowSettings(s => !s)}>
-          {showSettings ? 'close' : 'settings'}
-        </button>
+        <div className="topbar-right">
+          <span className="topbar-version">v1.0</span>
+          <button className="btn btn-sm" onClick={() => setShowSettings(s => !s)}>
+            {showSettings ? 'close' : 'settings'}
+          </button>
+        </div>
       </div>
       <div className="page" style={{ maxWidth: 900 }}>
 
