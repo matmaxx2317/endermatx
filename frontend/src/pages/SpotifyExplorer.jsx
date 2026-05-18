@@ -311,11 +311,21 @@ export default function SpotifyExplorer() {
                 {bpmLog.map((e, i) => {
                   const srcColor = e.source === 'getsongbpm' ? '#4ade80' : e.source === 'soundnet' ? '#22d3ee' : '#fb923c'
                   const srcLabel = e.source === 'getsongbpm' ? 'getsong.co ' : e.source === 'soundnet' ? 'soundnet   ' : 'musicbrainz'
+                  const detail = !e.bpm && (e.source === 'soundnet' || e.source === 'musicbrainz')
+                    ? (e.err ?? (e.raw != null ? JSON.stringify(e.raw).slice(0, 120) : 'no response'))
+                    : null
                   return (
-                    <div key={i} style={{ display: 'flex', gap: 8, fontSize: 11, fontFamily: 'monospace' }}>
-                      <span style={{ color: srcColor, flexShrink: 0 }}>{srcLabel}</span>
-                      <span style={{ color: '#374d66', flexShrink: 0 }}>{e.bpm ? `${e.bpm} bpm` : '—'}</span>
-                      <span style={{ color: '#9ab0d0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.name}</span>
+                    <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      <div style={{ display: 'flex', gap: 8, fontSize: 11, fontFamily: 'monospace' }}>
+                        <span style={{ color: srcColor, flexShrink: 0 }}>{srcLabel}</span>
+                        <span style={{ color: '#374d66', flexShrink: 0 }}>{e.bpm ? `${e.bpm} bpm` : '—'}</span>
+                        <span style={{ color: '#9ab0d0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.name}</span>
+                      </div>
+                      {detail && (
+                        <div style={{ fontSize: 10, color: '#4d6fa0', fontFamily: 'monospace', paddingLeft: 88, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {detail}
+                        </div>
+                      )}
                     </div>
                   )
                 })}
