@@ -41,9 +41,27 @@ async function lookupGetSongBpm(title, artist) {
   }
 }
 
+// ── Tier 3: Deezer (free, no auth) ───────────────────────────
+
+async function lookupDeezer(title, artist) {
+  try {
+    const params = new URLSearchParams({ title, artist })
+    const res = await fetch(`/api/bpm/deezer?${params}`, {
+      signal: AbortSignal.timeout(15000),
+    })
+    const data = await res.json()
+    if (!res.ok) return { bpm: null, err: data?.detail ?? `HTTP ${res.status}` }
+    if (data.err) return { bpm: null, err: data.err }
+    return { bpm: typeof data.bpm === 'number' ? data.bpm : null }
+  } catch (e) {
+    return { bpm: null, err: e.message }
+  }
+}
+
 // ── Main resolution entry point ───────────────────────────────
 
 const GETSONG_DELAY = 400  // ms between getsong.co calls
+const DEEZER_DELAY  = 400  // ms between Deezer calls (2 requests per track internally)
 
 export async function resolveBpms(tracks, onUpdate, onProgress, onLog) {
   // Tier 1: DB batch lookup — real BPM entries used as cache; not_found entries retried
@@ -69,6 +87,7 @@ export async function resolveBpms(tracks, onUpdate, onProgress, onLog) {
     const track  = toResolve[i]
     const artist = track.artists[0]?.name ?? ''
 
+    // Tier 2: getsong.co
     const gResult = await lookupGetSongBpm(track.name, artist)
     onLog?.({ source: 'getsongbpm', name: track.name, bpm: gResult.bpm })
 
@@ -76,8 +95,18 @@ export async function resolveBpms(tracks, onUpdate, onProgress, onLog) {
       onUpdate(track.id, gResult.bpm, 'getsongbpm', false)
       storeBpm({ spotify_id: track.id, title: track.name, artist, album: track.album, bpm: gResult.bpm, source: 'getsongbpm' })
     } else {
-      onUpdate(track.id, null, 'failed', false)
-      storeBpm({ spotify_id: track.id, title: track.name, artist, album: track.album, bpm: 0, source: 'not_found' })
+      // Tier 3: Deezer
+      await new Promise(r => setTimeout(r, DEEZER_DELAY))
+      const dResult = await lookupDeezer(track.name, artist)
+      onLog?.({ source: 'deezer', name: track.name, bpm: dResult.bpm, err: dResult.err })
+
+      if (dResult.bpm) {
+        onUpdate(track.id, dResult.bpm, 'deezer', false)
+        storeBpm({ spotify_id: track.id, title: track.name, artist, album: track.album, bpm: dResult.bpm, source: 'deezer' })
+      } else {
+        onUpdate(track.id, null, 'failed', false)
+        storeBpm({ spotify_id: track.id, title: track.name, artist, album: track.album, bpm: 0, source: 'not_found' })
+      }
     }
 
     onProgress(++done, toResolve.length)
