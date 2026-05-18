@@ -26,11 +26,13 @@ def bpm_stats(db: Session = Depends(get_db)):
     row = db.query(
         func.count().label("total"),
         func.sum(case((models.TrackBpm.source == "getsongbpm", 1), else_=0)).label("getsongbpm"),
+        func.sum(case((models.TrackBpm.source == "deezer",     1), else_=0)).label("deezer"),
         func.sum(case((models.TrackBpm.source == "not_found",  1), else_=0)).label("not_found"),
     ).one()
     return {
         "total":      row.total      or 0,
         "getsongbpm": row.getsongbpm or 0,
+        "deezer":     row.deezer     or 0,
         "not_found":  row.not_found  or 0,
     }
 
@@ -125,6 +127,72 @@ def getsongbpm_lookup(title: str = Query(...), artist: str = Query(...)):
         return {"bpm": round(float(match["tempo"]))}
     except (ValueError, TypeError):
         return {"bpm": None}
+
+
+def _pick_deezer(results: list, artist: str) -> dict | None:
+    artist_lower = artist.lower()
+    for r in results:
+        name = (r.get("artist") or {}).get("name", "").lower()
+        if artist_lower and (artist_lower in name or name in artist_lower):
+            return r
+    return results[0] if results else None
+
+
+def _deezer_search(title: str, artist: str) -> list:
+    try:
+        r = httpx.get(
+            "https://api.deezer.com/search",
+            params={"q": f'track:"{title}" artist:"{artist}"', "limit": 5},
+            headers={"User-Agent": "endermatx/1.0 (https://matmaxx.org)"},
+            timeout=10,
+        )
+        if not r.is_success:
+            return []
+        return r.json().get("data") or []
+    except Exception:
+        return []
+
+
+@router.get("/deezer")
+def deezer_lookup(title: str = Query(...), artist: str = Query(...)):
+    results = _deezer_search(title, artist)
+
+    if not results:
+        cleaned = _clean_title(title)
+        if cleaned != title:
+            results = _deezer_search(cleaned, artist)
+
+    if not results:
+        return {"bpm": None}
+
+    track = _pick_deezer(results, artist)
+    if not track:
+        return {"bpm": None}
+
+    try:
+        r = httpx.get(
+            f"https://api.deezer.com/track/{track['id']}",
+            headers={"User-Agent": "endermatx/1.0 (https://matmaxx.org)"},
+            timeout=10,
+        )
+    except httpx.TimeoutException:
+        raise HTTPException(504, "Deezer timeout")
+    except Exception:
+        return {"bpm": None}
+
+    if not r.is_success:
+        return {"bpm": None, "err": f"Deezer HTTP {r.status_code}"}
+
+    try:
+        bpm = r.json().get("bpm")
+        if bpm:
+            val = round(float(bpm))
+            if val > 0:
+                return {"bpm": val}
+    except (ValueError, TypeError):
+        pass
+
+    return {"bpm": None}
 
 
 @router.delete("/all")
