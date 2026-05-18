@@ -23,7 +23,6 @@ function BpmBar({ stats }) {
 
   return (
     <div style={{ marginTop: 16 }}>
-      {/* Stacked bar */}
       <div style={{ display: 'flex', height: 10, borderRadius: 5, overflow: 'hidden', background: '#1a2840' }}>
         {BAR_SEGMENTS.map(seg => {
           const pct = (counts[seg.key] / total) * 100
@@ -39,7 +38,6 @@ function BpmBar({ stats }) {
           )
         })}
       </div>
-      {/* Legend */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px', marginTop: 8 }}>
         {BAR_SEGMENTS.map(seg => {
           const n = counts[seg.key]
@@ -75,6 +73,26 @@ function BpmBar({ stats }) {
   )
 }
 
+function LogEntry({ e }) {
+  const srcColor = e.source === 'getsongbpm' ? '#4ade80' : '#a78bfa'
+  const srcLabel = e.source === 'getsongbpm' ? 'getsong.co' : 'deezer    '
+  const detail   = !e.bpm && e.source === 'deezer' && e.err ? e.err : null
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+      <div style={{ display: 'flex', gap: 8, fontSize: 11, fontFamily: 'monospace' }}>
+        <span style={{ color: srcColor, flexShrink: 0 }}>{srcLabel}</span>
+        <span style={{ color: '#374d66', flexShrink: 0 }}>{e.bpm ? `${e.bpm} bpm` : '—'}</span>
+        <span style={{ color: '#9ab0d0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.name}</span>
+      </div>
+      {detail && (
+        <div style={{ fontSize: 10, color: '#4d6fa0', fontFamily: 'monospace', paddingLeft: 84, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {detail}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function SpotifyExplorer() {
   const [clientIdInput, setClientIdInput] = useState(() => spotify.getClientId())
   const [connected, setConnected]   = useState(() => spotify.isConnected())
@@ -83,21 +101,18 @@ export default function SpotifyExplorer() {
   const [tracks, setTracks]         = useState(null)
   const [status, setStatus]         = useState('')
   const [bpmStatus, setBpmStatus]   = useState('')
-  const [bpmLog, setBpmLog]           = useState([])
+  const [bpmLog, setBpmLog]         = useState([])
   const [globalStats, setGlobalStats] = useState(null)
-  const [wipeMsg, setWipeMsg]         = useState('')
-  const [error, setError]             = useState('')
+  const [wipeMsg, setWipeMsg]       = useState('')
+  const [error, setError]           = useState('')
+  const [scanMode, setScanMode]     = useState(null) // null | 'running' | 'done'
+  const [scanProgress, setScanProgress] = useState({ playlistsDone: 0, playlistsTotal: 0, tracksDone: 0, tracksTotal: 0 })
 
-  // Handle OAuth callback — only token exchange, no API calls
   useEffect(() => {
     const params     = new URLSearchParams(window.location.search)
     const code       = params.get('code')
     const oauthError = params.get('error')
-
-    if (oauthError) {
-      setError(`Spotify auth error: ${oauthError}`)
-      return
-    }
+    if (oauthError) { setError(`Spotify auth error: ${oauthError}`); return }
     if (code) {
       spotify.handleCallback(code)
         .then(() => setConnected(true))
@@ -121,9 +136,9 @@ export default function SpotifyExplorer() {
     setError('')
     setBpmStatus('')
     setBpmLog([])
+    setScanMode(null)
   }
 
-  // Auto-load playlists whenever the connected state becomes true
   useEffect(() => {
     if (!connected) return
     setStatus('loading playlists…')
@@ -154,6 +169,35 @@ export default function SpotifyExplorer() {
     setTimeout(() => setWipeMsg(''), 4000)
   }
 
+  async function startScanAll() {
+    setScanMode('running')
+    setBpmLog([])
+    setScanProgress({ playlistsDone: 0, playlistsTotal: playlists.length, tracksDone: 0, tracksTotal: 0 })
+
+    const seen = new Map()
+    for (let i = 0; i < playlists.length; i++) {
+      try {
+        const raw = await spotify.loadPlaylistTracks(playlists[i].id)
+        for (const t of raw) { if (!seen.has(t.id)) seen.set(t.id, t) }
+      } catch { /* skip failed playlist */ }
+      setScanProgress(prev => ({ ...prev, playlistsDone: i + 1, tracksTotal: seen.size }))
+    }
+
+    const allTracks = Array.from(seen.values())
+    setScanProgress(prev => ({ ...prev, tracksTotal: allTracks.length }))
+
+    let resolved = 0
+    await resolveBpms(
+      allTracks,
+      () => { resolved++; setScanProgress(prev => ({ ...prev, tracksDone: resolved })) },
+      () => { refreshGlobalStats() },
+      entry => setBpmLog(prev => [entry, ...prev]),
+    )
+
+    setScanMode('done')
+    refreshGlobalStats()
+  }
+
   async function loadTracks(playlistId) {
     if (!playlistId) return
     setTracks(null)
@@ -167,8 +211,6 @@ export default function SpotifyExplorer() {
       })
       setTracks(raw)
       setStatus('')
-
-      // BPM resolution — updates tracks incrementally as each one resolves
       setBpmStatus(`resolving BPMs… 0/${raw.length}`)
       await resolveBpms(
         raw,
@@ -193,7 +235,6 @@ export default function SpotifyExplorer() {
     return { total: tracks.length, getsongbpm, deezer, notFound, pending }
   }, [tracks])
 
-  // Sort by BPM ascending; unresolved tracks sink to the bottom
   const displayedTracks = useMemo(() => {
     if (!tracks) return []
     return [...tracks].sort((a, b) => {
@@ -205,10 +246,15 @@ export default function SpotifyExplorer() {
   }, [tracks])
 
   const selectedPlaylist = playlists.find(p => p.id === selectedId)
+  const trackCount = p => (p.tracks ?? p.items)?.total ?? '?'
 
-  function trackCount(p) {
-    return (p.tracks ?? p.items)?.total ?? '?'
-  }
+  const globalBarStats = globalStats?.total > 0 ? {
+    total:      globalStats.total,
+    getsongbpm: globalStats.getsongbpm,
+    deezer:     globalStats.deezer,
+    notFound:   globalStats.not_found,
+    pending:    0,
+  } : null
 
   return (
     <div>
@@ -218,7 +264,7 @@ export default function SpotifyExplorer() {
           <span className="topbar-title">spt</span>
         </div>
         <div className="topbar-right">
-          <span className="topbar-version">v4.1</span>
+          <span className="topbar-version">v4.2</span>
         </div>
       </div>
       <div className="page">
@@ -229,12 +275,7 @@ export default function SpotifyExplorer() {
             <div className="card">
               <p style={{ fontSize: 12, color: '#9ab0d0', margin: '0 0 12px' }}>
                 Create an app at{' '}
-                <a
-                  href="https://developer.spotify.com/dashboard"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ color: '#4a9eff' }}
-                >
+                <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener noreferrer" style={{ color: '#4a9eff' }}>
                   developer.spotify.com/dashboard
                 </a>
                 , add{' '}
@@ -252,29 +293,56 @@ export default function SpotifyExplorer() {
               />
               {error && <div style={{ fontSize: 12, color: '#f44336', marginTop: 8 }}>{error}</div>}
               <div style={{ marginTop: 12 }}>
-                <button
-                  className="btn btn-sm btn-primary"
-                  onClick={connect}
-                  disabled={!clientIdInput.trim()}
-                >
+                <button className="btn btn-sm btn-primary" onClick={connect} disabled={!clientIdInput.trim()}>
                   connect with spotify
                 </button>
               </div>
             </div>
           </>
+        ) : scanMode ? (
+
+          /* ── Scan-all view ─────────────────────────────── */
+          <>
+            {/* Progress — sticky below topbar */}
+            <div style={{ position: 'sticky', top: 32, background: '#07091a', zIndex: 10, paddingBottom: 12, borderBottom: '1px solid #1a2840', marginBottom: 4 }}>
+              <div style={{ display: 'flex', gap: 32, paddingTop: 12 }}>
+                {[
+                  { label: 'playlists done', value: scanProgress.playlistsDone },
+                  { label: 'playlists open', value: Math.max(0, scanProgress.playlistsTotal - scanProgress.playlistsDone) },
+                  { label: 'tracks done',    value: scanProgress.tracksDone },
+                  { label: 'tracks open',    value: Math.max(0, scanProgress.tracksTotal - scanProgress.tracksDone) },
+                ].map(({ label, value }) => (
+                  <div key={label}>
+                    <div style={{ fontSize: 10, color: '#374d66', marginBottom: 2 }}>{label}</div>
+                    <div style={{ fontSize: 24, fontWeight: 600, color: '#eef2ff', lineHeight: 1 }}>{value}</div>
+                  </div>
+                ))}
+              </div>
+              {scanMode === 'done' && (
+                <div style={{ fontSize: 11, color: '#4ade80', marginTop: 8 }}>scan complete</div>
+              )}
+            </div>
+
+            {/* Global bar */}
+            {globalBarStats && <BpmBar stats={globalBarStats} />}
+
+            {/* Full-height log */}
+            {bpmLog.length > 0 && (
+              <div style={{ marginTop: 12, maxHeight: 'calc(100vh - 280px)', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {bpmLog.map((e, i) => <LogEntry key={i} e={e} />)}
+              </div>
+            )}
+          </>
+
         ) : (
+
+          /* ── Normal view ───────────────────────────────── */
           <>
             <div className="section-header">playlists</div>
 
-            {globalStats?.total > 0 && (
+            {globalBarStats && (
               <div style={{ marginBottom: 14 }}>
-                <BpmBar stats={{
-                  total:      globalStats.total,
-                  getsongbpm: globalStats.getsongbpm,
-                  deezer:     globalStats.deezer,
-                  notFound:   globalStats.not_found,
-                  pending:    0,
-                }} />
+                <BpmBar stats={globalBarStats} />
               </div>
             )}
 
@@ -294,44 +362,20 @@ export default function SpotifyExplorer() {
             >
               <option value="">— pick a playlist —</option>
               {playlists.map(p => (
-                <option key={p.id} value={p.id}>
-                  {p.name} ({trackCount(p)})
-                </option>
+                <option key={p.id} value={p.id}>{p.name} ({trackCount(p)})</option>
               ))}
             </select>
 
-            {status && (
-              <div style={{ fontSize: 12, color: '#9ab0d0', marginTop: 10 }}>{status}</div>
-            )}
-            {bpmStatus && (
-              <div style={{ fontSize: 12, color: '#9ab0d0', marginTop: 10 }}>{bpmStatus}</div>
-            )}
+            {status   && <div style={{ fontSize: 12, color: '#9ab0d0', marginTop: 10 }}>{status}</div>}
+            {bpmStatus && <div style={{ fontSize: 12, color: '#9ab0d0', marginTop: 10 }}>{bpmStatus}</div>}
+
             {bpmLog.length > 0 && (
               <div style={{ marginTop: 10, maxHeight: 160, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 1 }}>
-                {bpmLog.map((e, i) => {
-                  const srcColor = e.source === 'getsongbpm' ? '#4ade80' : '#a78bfa'
-                  const srcLabel = e.source === 'getsongbpm' ? 'getsong.co' : 'deezer    '
-                  const detail = !e.bpm && e.source === 'deezer' && e.err ? e.err : null
-                  return (
-                    <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                      <div style={{ display: 'flex', gap: 8, fontSize: 11, fontFamily: 'monospace' }}>
-                        <span style={{ color: srcColor, flexShrink: 0 }}>{srcLabel}</span>
-                        <span style={{ color: '#374d66', flexShrink: 0 }}>{e.bpm ? `${e.bpm} bpm` : '—'}</span>
-                        <span style={{ color: '#9ab0d0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.name}</span>
-                      </div>
-                      {detail && (
-                        <div style={{ fontSize: 10, color: '#4d6fa0', fontFamily: 'monospace', paddingLeft: 84, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {detail}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
+                {bpmLog.map((e, i) => <LogEntry key={i} e={e} />)}
               </div>
             )}
-            {error && (
-              <div style={{ fontSize: 12, color: '#f44336', marginTop: 10 }}>{error}</div>
-            )}
+
+            {error && <div style={{ fontSize: 12, color: '#f44336', marginTop: 10 }}>{error}</div>}
 
             {bpmStats && <BpmBar stats={bpmStats} />}
 
@@ -342,11 +386,7 @@ export default function SpotifyExplorer() {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   {displayedTracks.map(t => (
-                    <div
-                      key={t.id}
-                      className="card"
-                      style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 10 }}
-                    >
+                    <div key={t.id} className="card" style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
                       <div style={{ textAlign: 'right', flexShrink: 0, width: 40 }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 3 }}>
                           {t.bpmCached && (
@@ -372,9 +412,7 @@ export default function SpotifyExplorer() {
                           {t.artists.map(a => a.name).join(', ')}
                         </div>
                       </div>
-                      <span style={{ fontSize: 11, color: '#374d66', flexShrink: 0 }}>
-                        {fmtDuration(t.duration_ms)}
-                      </span>
+                      <span style={{ fontSize: 11, color: '#374d66', flexShrink: 0 }}>{fmtDuration(t.duration_ms)}</span>
                     </div>
                   ))}
                 </div>
@@ -397,30 +435,36 @@ export default function SpotifyExplorer() {
                 </div>
               </div>
             )}
-
-            <div style={{ marginTop: 24, borderTop: '1px solid #1a2840', paddingTop: 16 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button className="btn btn-sm" onClick={disconnect}>disconnect spotify</button>
-                  <button className="btn btn-sm" onClick={wipeDb} style={{ color: '#f44336' }}>wipe database</button>
-                </div>
-                <a
-                  href="https://getsong.co"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ fontSize: 10, color: '#374d66', textDecoration: 'none' }}
-                >
-                  BPM data: GetSong.co
-                </a>
-              </div>
-              {wipeMsg && (
-                <div style={{ fontSize: 12, marginTop: 8, color: wipeMsg.startsWith('error') ? '#f44336' : '#4ade80' }}>
-                  {wipeMsg}
-                </div>
-              )}
-            </div>
           </>
         )}
+
+        {/* Bottom bar — always visible when connected */}
+        {connected && (
+          <div style={{ marginTop: 24, borderTop: '1px solid #1a2840', paddingTop: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn btn-sm" onClick={disconnect}>disconnect spotify</button>
+                <button className="btn btn-sm" onClick={wipeDb} style={{ color: '#f44336' }} disabled={scanMode === 'running'}>wipe database</button>
+                <button
+                  className="btn btn-sm"
+                  onClick={scanMode ? () => setScanMode(null) : startScanAll}
+                  disabled={scanMode === 'running' || playlists.length === 0}
+                >
+                  {scanMode === 'running' ? 'scanning…' : scanMode === 'done' ? 'close scan' : 'scan all'}
+                </button>
+              </div>
+              <a href="https://getsong.co" target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: '#374d66', textDecoration: 'none' }}>
+                BPM data: GetSong.co
+              </a>
+            </div>
+            {wipeMsg && (
+              <div style={{ fontSize: 12, marginTop: 8, color: wipeMsg.startsWith('error') ? '#f44336' : '#4ade80' }}>
+                {wipeMsg}
+              </div>
+            )}
+          </div>
+        )}
+
       </div>
     </div>
   )
