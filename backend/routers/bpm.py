@@ -24,17 +24,13 @@ def bpm_stats(db: Session = Depends(get_db)):
     from sqlalchemy import func, case
     row = db.query(
         func.count().label("total"),
-        func.sum(case((models.TrackBpm.source == "getsongbpm",  1), else_=0)).label("getsongbpm"),
-        func.sum(case((models.TrackBpm.source == "soundnet",    1), else_=0)).label("soundnet"),
-        func.sum(case((models.TrackBpm.source == "musicbrainz", 1), else_=0)).label("musicbrainz"),
-        func.sum(case((models.TrackBpm.source == "not_found",   1), else_=0)).label("not_found"),
+        func.sum(case((models.TrackBpm.source == "getsongbpm", 1), else_=0)).label("getsongbpm"),
+        func.sum(case((models.TrackBpm.source == "not_found",  1), else_=0)).label("not_found"),
     ).one()
     return {
-        "total":       row.total       or 0,
-        "getsongbpm":  row.getsongbpm  or 0,
-        "soundnet":    row.soundnet    or 0,
-        "musicbrainz": row.musicbrainz or 0,
-        "not_found":   row.not_found   or 0,
+        "total":      row.total      or 0,
+        "getsongbpm": row.getsongbpm or 0,
+        "not_found":  row.not_found  or 0,
     }
 
 
@@ -69,7 +65,6 @@ def _pick_best(results: list, artist: str) -> dict | None:
         if artist_lower and (artist_lower in name or name in artist_lower):
             if r.get("tempo"):
                 return r
-    # fallback: first result with a non-null tempo
     for r in results:
         if r.get("tempo"):
             return r
@@ -112,78 +107,6 @@ def getsongbpm_lookup(title: str = Query(...), artist: str = Query(...)):
         return {"bpm": None, "debug": raw}
 
 
-@router.get("/musicbrainz")
-def musicbrainz_lookup(title: str = Query(...), artist: str = Query(...)):
-    query = f'recording:"{title}" AND artistname:"{artist}"'
-    try:
-        r = httpx.get(
-            "https://musicbrainz.org/ws/2/recording/",
-            params={"query": query, "limit": 5, "fmt": "json"},
-            headers={"User-Agent": "endermatx/1.0 (https://matmaxx.org)"},
-            timeout=10,
-        )
-    except httpx.TimeoutException:
-        raise HTTPException(504, "MusicBrainz timeout")
-    except Exception:
-        return {"bpm": None}
-
-    if not r.is_success:
-        return {"bpm": None, "err": f"MusicBrainz HTTP {r.status_code}"}
-
-    try:
-        data = r.json()
-    except Exception:
-        return {"bpm": None}
-
-    for rec in (data or {}).get("recordings") or []:
-        bpm = rec.get("bpm")
-        if bpm:
-            try:
-                return {"bpm": round(float(bpm))}
-            except (ValueError, TypeError):
-                continue
-
-    return {"bpm": None}
-
-
-@router.get("/soundnet")
-def soundnet_lookup(spotify_id: str = Query(...)):
-    api_key = os.getenv("SOUNDNET_API_KEY", "")
-    if not api_key:
-        raise HTTPException(503, "SoundNet not configured")
-
-    try:
-        r = httpx.get(
-            f"https://track-analysis.p.rapidapi.com/pktx/spotify/{spotify_id}",
-            headers={
-                "X-RapidAPI-Key":  api_key,
-                "X-RapidAPI-Host": "track-analysis.p.rapidapi.com",
-            },
-            timeout=10,
-        )
-    except httpx.TimeoutException:
-        raise HTTPException(504, "SoundNet timeout")
-    except Exception:
-        return {"bpm": None}
-
-    if not r.is_success:
-        return {"bpm": None, "err": f"SoundNet HTTP {r.status_code}"}
-
-    try:
-        data = r.json()
-    except Exception:
-        return {"bpm": None}
-
-    tempo = data.get("tempo")
-    if tempo:
-        try:
-            return {"bpm": round(float(tempo))}
-        except (ValueError, TypeError):
-            pass
-
-    return {"bpm": None}
-
-
 @router.delete("/all")
 def wipe_all(db: Session = Depends(get_db)):
     try:
@@ -199,7 +122,6 @@ def wipe_all(db: Session = Depends(get_db)):
 def store_bpm(body: schemas.TrackBpmIn, db: Session = Depends(get_db)):
     existing = db.get(models.TrackBpm, body.spotify_id)
     if existing:
-        # Upgrade a previous not_found entry when a real BPM is now available
         if existing.source == 'not_found' and body.source != 'not_found':
             existing.bpm    = body.bpm
             existing.source = body.source
