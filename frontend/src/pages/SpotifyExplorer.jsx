@@ -219,6 +219,9 @@ export default function SpotifyExplorer() {
           <Link to="/"><button className="topbar-back btn btn-sm">←</button></Link>
           <span className="topbar-title">spt</span>
         </div>
+        <div className="topbar-right">
+          <span className="topbar-version">v1.0</span>
+        </div>
       </div>
       <div className="page">
 

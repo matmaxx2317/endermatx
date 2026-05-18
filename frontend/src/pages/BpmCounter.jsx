@@ -61,6 +61,9 @@ export default function BpmCounter() {
           <Link to="/personal"><button className="topbar-back btn btn-sm">←</button></Link>
           <span className="topbar-title">bpm</span>
         </div>
+        <div className="topbar-right">
+          <span className="topbar-version">v1.0</span>
+        </div>
       </div>
       <div className="page" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 60 }}>
 

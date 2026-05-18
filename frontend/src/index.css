@@ -40,6 +40,8 @@ input, textarea, select {
   z-index: 50;
 }
 .topbar-left { display: flex; align-items: center; gap: 8px; }
+.topbar-right { display: flex; align-items: center; gap: 8px; }
+.topbar-version { font-size: 10px; color: #374d66; letter-spacing: 0.08em; }
 .topbar-title { font-weight: 600; letter-spacing: 0.12em; color: #eef2ff; }
 .topbar-back {
   background: none; border: 1px solid #1a2840; color: #5d7592;
@@ -266,25 +268,6 @@ input, textarea, select {
   color: #374d66;
 }
 
-/* ── Fixed version footer ────────────────────────────────────── */
-.version-footer {
-  position: fixed;
-  bottom: 0; left: 0; right: 0;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #070914;
-  border-top: 1px solid #1a2840;
-  z-index: 40;
-}
-.version-footer a {
-  font-size: 10px;
-  color: #374d66;
-  text-decoration: none;
-  letter-spacing: 0.08em;
-}
-.version-footer a:hover { color: #9ab0d0; }
 
 /* ── Enderman ────────────────────────────────────────────────── */
 .ender-figure {

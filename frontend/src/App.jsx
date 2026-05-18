@@ -10,20 +10,6 @@ import StringTracker from './pages/StringTracker'
 import BpmCounter from './pages/BpmCounter'
 import SpotifyExplorer from './pages/SpotifyExplorer'
 
-function VersionFooter() {
-  return (
-    <div className="version-footer">
-      <a
-        href={`https://github.com/matmaxx2317/endermatx/commit/${__GIT_HASH_FULL__}`}
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        v{__APP_VERSION__}-{__GIT_HASH__}
-      </a>
-    </div>
-  )
-}
-
 export default function App() {
   return (
     <BrowserRouter>
@@ -39,7 +25,6 @@ export default function App() {
         <Route path="/bpm" element={<BpmCounter />} />
         <Route path="/spt" element={<SpotifyExplorer />} />
       </Routes>
-      <VersionFooter />
     </BrowserRouter>
   )
 }

@@ -78,11 +78,11 @@ backend/
     tts.py  cal.py  idx.py  strings.py
 frontend/
   index.html       ← Vite entry (loads Inter font from Google Fonts)
-  vite.config.js   ← Injects __GIT_HASH__, __GIT_HASH_FULL__, __APP_VERSION__ at build
-  package.json     ← version field drives __APP_VERSION__ (x.y format)
+  vite.config.js   ← Injects __GIT_HASH__, __GIT_HASH_FULL__ at build
+  package.json     ← npm metadata only (version field is not used for display)
   src/
     main.jsx       ← React entry
-    App.jsx        ← BrowserRouter + Routes + global <VersionFooter>
+    App.jsx        ← BrowserRouter + Routes
     index.css      ← All shared styles (design tokens, topbar, page, cards, landing)
     api.js         ← Typed fetch wrappers for every API endpoint
     pages/         ← One file per route (Home, Productivity, Personal, Games, tools…)
@@ -134,7 +134,6 @@ Navigation pages (Home, Productivity, Personal, Games) use the `.landing-page` l
 
 **Layout:**
 - Fixed topbar: `height: 32px`, `background: #070914`, `border-bottom: 1px solid #1a2840`, `z-index: 50`
-- Fixed version footer: `height: 32px`, same background/border-top, `z-index: 40`
 - Tool pages: `.page` — `margin-top: 32px`, `padding: 20px 16px 52px`, `max-width: 720px`, centered
 - Landing/category pages: `.landing-page` — centered column, `padding: 80px 20px 64px`
 
@@ -173,28 +172,17 @@ All backend calls go through typed wrappers in `api.js`. Never call `fetch` dire
 
 Each tool page manages its own state with `useState` hooks. On mount it fetches from the API. On mutation it calls the API immediately or with a 1500 ms debounce for text fields (`scheduleSave`). There is no global state store.
 
-### Version baking
+### Per-tool versioning
 
-`vite.config.js` injects three build-time globals:
+Each tool page owns its own version string, displayed in the topbar's right side as `.topbar-version`. The version is a hardcoded `x.y` string directly in the page file — no shared file, no build-time injection.
 
-| Global | Source |
-|--------|--------|
-| `__GIT_HASH__` | `git rev-parse --short HEAD` (7 chars) |
-| `__GIT_HASH_FULL__` | `git rev-parse HEAD` |
-| `__APP_VERSION__` | `package.json` `version` trimmed to `x.y` |
+**Where to find it:** look for `v1.0` (or current version) in the `<span className="topbar-version">` inside the topbar of each tool page.
 
-Railway fallback: when `.git` is absent at build time, `RAILWAY_GIT_COMMIT_SHA` env var is used.
+**When to bump:** increment the minor version (`1.0` → `1.1`) of the **affected tool only** when that tool's page changes in a PR. Other tools' versions are never touched. Major bump only when the user explicitly asks.
 
-### Version footer
+**Why this design:** a single shared version (e.g. `package.json`) causes conflicts when multiple parallel branches each bump it independently. Per-tool versions in the tool's own file eliminate that coordination problem — two branches working on different tools never touch the same version string.
 
-`App.jsx` renders a global `<VersionFooter>` fixed at the bottom of every page, showing `v{__APP_VERSION__}-{__GIT_HASH__}` as a link to the GitHub commit. This is the **only** place a version is displayed — there are no per-tool version labels.
-
-**When to bump `package.json` version:**
-- **Minor bump** (`1.0` → `1.1`) with every PR that changes any frontend page or component.
-- **Major bump** only when the user explicitly asks.
-- Format is always `x.y.0` in `package.json` (displayed as `x.y`).
-
-**Current version:** see `frontend/package.json`.
+There is no global version footer. `vite.config.js` still injects `__GIT_HASH__` and `__GIT_HASH_FULL__` (Railway fallback: `RAILWAY_GIT_COMMIT_SHA`) but these are not currently displayed.
 
 ## Tools reference
 
@@ -221,7 +209,7 @@ Railway fallback: when `.git` is absent at build time, `RAILWAY_GIT_COMMIT_SHA` 
 3. **Frontend page**: create `frontend/src/pages/<Name>.jsx` following the topbar + page layout.
 4. **Routing**: add a `<Route>` in `frontend/src/App.jsx`.
 5. **Navigation**: add an entry to the appropriate category page (`Productivity.jsx`, `Personal.jsx`, or `Games.jsx`).
-6. **Version bump**: increment `package.json` minor version.
+6. **Version**: set `<span className="topbar-version">v1.0</span>` in the new tool's topbar (starts at `1.0`).
 
 ## Build commands
 

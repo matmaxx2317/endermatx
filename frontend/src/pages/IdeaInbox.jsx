@@ -346,6 +346,9 @@ export default function IdeaInbox() {
           <Link to="/productivity"><button className="topbar-back btn btn-sm">←</button></Link>
           <span className="topbar-title">idx</span>
         </div>
+        <div className="topbar-right">
+          <span className="topbar-version">v1.0</span>
+        </div>
       </div>
       <div className="page">
         <form onSubmit={addIdea} style={{ marginBottom: 20 }}>
