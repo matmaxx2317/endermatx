@@ -16,15 +16,24 @@ const COLORS   = ['#4a9eff','#e74c3c','#2ecc71','#f1c40f','#9b59b6','#e67e22','#
 const COUNTRIES = ['DE','AT','US','GB','FR','CN','JP']
 const COUNTRY_LABEL = { DE:'Germany', AT:'Austria', US:'USA', GB:'UK', FR:'France', CN:'China', JP:'Japan' }
 
-// Subtle tinted backgrounds for each country's holidays
+// Tinted backgrounds and dot colors for each country's holidays
 const HOLIDAY_BG = {
-  DE: 'rgba(255,200,0,0.15)',
-  AT: 'rgba(210,40,40,0.15)',
-  US: 'rgba(40,80,210,0.15)',
-  GB: 'rgba(210,40,110,0.15)',
-  FR: 'rgba(130,40,210,0.15)',
-  CN: 'rgba(210,90,15,0.15)',
-  JP: 'rgba(15,170,90,0.15)',
+  DE: 'rgba(255,200,0,0.22)',
+  AT: 'rgba(210,40,40,0.22)',
+  US: 'rgba(40,80,210,0.22)',
+  GB: 'rgba(210,40,110,0.22)',
+  FR: 'rgba(130,40,210,0.22)',
+  CN: 'rgba(210,90,15,0.22)',
+  JP: 'rgba(15,170,90,0.22)',
+}
+const HOLIDAY_DOT = {
+  DE: '#c8960a',
+  AT: '#c42828',
+  US: '#2850d2',
+  GB: '#c2286e',
+  FR: '#7828c8',
+  CN: '#c85a0f',
+  JP: '#0faa5a',
 }
 
 // ── Holiday computation ────────────────────────────────────────
@@ -402,7 +411,7 @@ export default function Calendar() {
           <span className="topbar-title">cal</span>
         </div>
         <div className="topbar-right">
-          <span className="topbar-version">v4.0</span>
+          <span className="topbar-version">v4.1</span>
           <button className="btn btn-sm" onClick={() => setShowSettings(s => !s)}>
             {showSettings ? 'close' : 'settings'}
           </button>
@@ -504,6 +513,14 @@ export default function Calendar() {
                             }} />
                           ))}
                           <span style={{ position: 'relative', zIndex: 1 }}>{d}</span>
+                          {dayHols.length > 0 && (
+                            <span style={{
+                              position: 'absolute', bottom: 2, left: '50%', transform: 'translateX(-50%)',
+                              width: 3, height: 3, borderRadius: '50%',
+                              background: HOLIDAY_DOT[dayHols[0].country] || '#aaa',
+                              zIndex: 1,
+                            }} />
+                          )}
                         </div>
                       )
                     })}
