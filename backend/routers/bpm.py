@@ -25,12 +25,14 @@ def bpm_stats(db: Session = Depends(get_db)):
     from sqlalchemy import func, case
     row = db.query(
         func.count().label("total"),
+        func.sum(case((models.TrackBpm.source == "spotify",    1), else_=0)).label("spotify"),
         func.sum(case((models.TrackBpm.source == "getsongbpm", 1), else_=0)).label("getsongbpm"),
         func.sum(case((models.TrackBpm.source == "deezer",     1), else_=0)).label("deezer"),
         func.sum(case((models.TrackBpm.source == "not_found",  1), else_=0)).label("not_found"),
     ).one()
     return {
         "total":      row.total      or 0,
+        "spotify":    row.spotify    or 0,
         "getsongbpm": row.getsongbpm or 0,
         "deezer":     row.deezer     or 0,
         "not_found":  row.not_found  or 0,
