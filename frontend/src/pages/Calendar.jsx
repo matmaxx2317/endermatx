@@ -258,6 +258,8 @@ export default function Calendar() {
   const [tooltip, setTooltip]           = useState(null) // { lines, x, y, below }
   const tooltipRef                      = useRef(null)
   const todayRef                        = useRef(null)
+  const formPanelRef                    = useRef(null)
+  const [formPanelH, setFormPanelH]     = useState(0)
 
   useEffect(() => {
     cal.getProjects().then(setProjects)
@@ -269,6 +271,15 @@ export default function Calendar() {
       todayRef.current.scrollIntoView({ block: 'center' })
     }
   }, [settings])
+
+  // Track form panel height so the calendar grid can be pushed down
+  useEffect(() => {
+    const el = formPanelRef.current
+    if (!el) { setFormPanelH(0); return }
+    const ro = new ResizeObserver(([entry]) => setFormPanelH(entry.contentRect.height))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [showForm, editId])
 
   // Dismiss tooltip on any outside click/touch
   useEffect(() => {
@@ -426,118 +437,8 @@ export default function Calendar() {
           }}>+ add</button>
         </div>
 
-        {/* Add form — relative date entry */}
-        {showForm && !editId && (
-          <form onSubmit={saveAdd} className="card" style={{ marginBottom: 16, position: 'sticky', top: 32, zIndex: 30, background: '#0d1221' }}>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 12 }}>
-              <div style={{ flex: '1 1 160px' }}>
-                <label className="label">name</label>
-                <input className="input" value={form.name} onChange={e => setF('name', e.target.value)} placeholder="Project name" autoFocus />
-              </div>
-              <div>
-                <label className="label">color</label>
-                <div style={{ display: 'flex', gap: 4 }}>
-                  {COLORS.map(c => (
-                    <button key={c} type="button" onClick={() => setF('color', c)}
-                      style={{ width: 20, height: 20, background: c, borderRadius: 2,
-                               border: form.color === c ? '2px solid #fff' : '2px solid transparent' }} />
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div style={{ marginBottom: 10 }}>
-              <label className="label">start</label>
-              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-                {projects.length > 0 && (
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#9ab0d0' }}>
-                    <input type="radio" checked={form.startMode === 'after'} onChange={() => setF('startMode', 'after')} />
-                    after
-                    <select className="input" style={{ width: 'auto', padding: '2px 6px', fontSize: 12 }}
-                      value={form.afterProjectId}
-                      onChange={e => { setF('afterProjectId', e.target.value); setF('startMode', 'after') }}>
-                      <option value="">select…</option>
-                      {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                    </select>
-                  </label>
-                )}
-                <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#9ab0d0' }}>
-                  <input type="radio" checked={form.startMode === 'offset'} onChange={() => setF('startMode', 'offset')} />
-                  in
-                  <input type="number" min="0" className="input" style={{ width: 52, padding: '2px 6px', fontSize: 12 }}
-                    value={form.startValue}
-                    onChange={e => { setF('startValue', e.target.value); setF('startMode', 'offset') }} />
-                  <select className="input" style={{ width: 'auto', padding: '2px 6px', fontSize: 12 }}
-                    value={form.startUnit}
-                    onChange={e => { setF('startUnit', e.target.value); setF('startMode', 'offset') }}>
-                    <option value="days">working days</option>
-                    <option value="weeks">weeks</option>
-                    <option value="months">months</option>
-                  </select>
-                </label>
-              </div>
-            </div>
-
-            <div style={{ marginBottom: 12 }}>
-              <label className="label">stop after</label>
-              <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
-                <input type="number" min="1" className="input" style={{ width: 52, padding: '2px 6px', fontSize: 12 }}
-                  value={form.durationValue} onChange={e => setF('durationValue', e.target.value)} />
-                <select className="input" style={{ width: 'auto', padding: '2px 6px', fontSize: 12 }}
-                  value={form.durationUnit} onChange={e => setF('durationUnit', e.target.value)}>
-                  <option value="days">working days</option>
-                  <option value="weeks">weeks</option>
-                  <option value="months">months</option>
-                </select>
-              </div>
-            </div>
-
-            <div style={{ fontSize: 11, color: '#5d7592', marginBottom: 12 }}>
-              {toDateStr(previewStart)} → {toDateStr(previewEnd)}
-            </div>
-
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button type="submit" className="btn btn-primary btn-sm">save</button>
-              <button type="button" className="btn btn-sm" onClick={() => setShowForm(false)}>cancel</button>
-            </div>
-          </form>
-        )}
-
-        {/* Edit form — absolute date entry */}
-        {editId && (
-          <form onSubmit={saveEdit} className="card" style={{ marginBottom: 16, position: 'sticky', top: 32, zIndex: 30, background: '#0d1221' }}>
-            <div style={{ marginBottom: 10 }}>
-              <label className="label">name</label>
-              <input className="input" value={editForm.name} onChange={e => setEF('name', e.target.value)} />
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
-              <div>
-                <label className="label">start</label>
-                <input className="input" type="date" value={editForm.start_date} onChange={e => setEF('start_date', e.target.value)} />
-              </div>
-              <div>
-                <label className="label">end</label>
-                <input className="input" type="date" value={editForm.end_date} onChange={e => setEF('end_date', e.target.value)} />
-              </div>
-            </div>
-            <div style={{ marginBottom: 12 }}>
-              <label className="label">color</label>
-              <div style={{ display: 'flex', gap: 4 }}>
-                {COLORS.map(c => (
-                  <button key={c} type="button" onClick={() => setEF('color', c)}
-                    style={{ width: 20, height: 20, background: c, borderRadius: 2,
-                             border: editForm.color === c ? '2px solid #fff' : '2px solid transparent' }} />
-                ))}
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button type="submit" className="btn btn-primary btn-sm">save</button>
-              <button type="button" className="btn btn-sm" onClick={() => setEditId(null)}>cancel</button>
-              <button type="button" className="btn btn-danger btn-sm" style={{ marginLeft: 'auto' }}
-                onClick={() => deleteProject(editId)}>delete</button>
-            </div>
-          </form>
-        )}
+        {/* Spacer that matches the fixed form panel height */}
+        {(showForm || editId) && <div style={{ height: formPanelH }} />}
 
         {/* Calendar grid */}
         {settings && months().map(({ y, m }) => {
@@ -620,6 +521,122 @@ export default function Calendar() {
           )
         })}
       </div>
+
+      {/* Fixed form panel — always in view regardless of scroll position */}
+      {(showForm || editId) && (
+        <div ref={formPanelRef} style={{
+          position: 'fixed', top: 32, left: 0, right: 0, zIndex: 30,
+          background: '#07091a', borderBottom: '1px solid #1a2840',
+        }}>
+          <div style={{ maxWidth: 900, margin: '0 auto', padding: '12px 16px' }}>
+            {showForm && !editId && (
+              <form onSubmit={saveAdd} className="card" style={{ marginBottom: 0 }}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 12 }}>
+                  <div style={{ flex: '1 1 160px' }}>
+                    <label className="label">name</label>
+                    <input className="input" value={form.name} onChange={e => setF('name', e.target.value)} placeholder="Project name" autoFocus />
+                  </div>
+                  <div>
+                    <label className="label">color</label>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      {COLORS.map(c => (
+                        <button key={c} type="button" onClick={() => setF('color', c)}
+                          style={{ width: 20, height: 20, background: c, borderRadius: 2,
+                                   border: form.color === c ? '2px solid #fff' : '2px solid transparent' }} />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ marginBottom: 10 }}>
+                  <label className="label">start</label>
+                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+                    {projects.length > 0 && (
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#9ab0d0' }}>
+                        <input type="radio" checked={form.startMode === 'after'} onChange={() => setF('startMode', 'after')} />
+                        after
+                        <select className="input" style={{ width: 'auto', padding: '2px 6px', fontSize: 12 }}
+                          value={form.afterProjectId}
+                          onChange={e => { setF('afterProjectId', e.target.value); setF('startMode', 'after') }}>
+                          <option value="">select…</option>
+                          {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        </select>
+                      </label>
+                    )}
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#9ab0d0' }}>
+                      <input type="radio" checked={form.startMode === 'offset'} onChange={() => setF('startMode', 'offset')} />
+                      in
+                      <input type="number" min="0" className="input" style={{ width: 52, padding: '2px 6px', fontSize: 12 }}
+                        value={form.startValue}
+                        onChange={e => { setF('startValue', e.target.value); setF('startMode', 'offset') }} />
+                      <select className="input" style={{ width: 'auto', padding: '2px 6px', fontSize: 12 }}
+                        value={form.startUnit}
+                        onChange={e => { setF('startUnit', e.target.value); setF('startMode', 'offset') }}>
+                        <option value="days">working days</option>
+                        <option value="weeks">weeks</option>
+                        <option value="months">months</option>
+                      </select>
+                    </label>
+                  </div>
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <label className="label">stop after</label>
+                  <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+                    <input type="number" min="1" className="input" style={{ width: 52, padding: '2px 6px', fontSize: 12 }}
+                      value={form.durationValue} onChange={e => setF('durationValue', e.target.value)} />
+                    <select className="input" style={{ width: 'auto', padding: '2px 6px', fontSize: 12 }}
+                      value={form.durationUnit} onChange={e => setF('durationUnit', e.target.value)}>
+                      <option value="days">working days</option>
+                      <option value="weeks">weeks</option>
+                      <option value="months">months</option>
+                    </select>
+                  </div>
+                </div>
+                <div style={{ fontSize: 11, color: '#5d7592', marginBottom: 12 }}>
+                  {toDateStr(previewStart)} → {toDateStr(previewEnd)}
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button type="submit" className="btn btn-primary btn-sm">save</button>
+                  <button type="button" className="btn btn-sm" onClick={() => setShowForm(false)}>cancel</button>
+                </div>
+              </form>
+            )}
+            {editId && (
+              <form onSubmit={saveEdit} className="card" style={{ marginBottom: 0 }}>
+                <div style={{ marginBottom: 10 }}>
+                  <label className="label">name</label>
+                  <input className="input" value={editForm.name} onChange={e => setEF('name', e.target.value)} />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
+                  <div>
+                    <label className="label">start</label>
+                    <input className="input" type="date" value={editForm.start_date} onChange={e => setEF('start_date', e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="label">end</label>
+                    <input className="input" type="date" value={editForm.end_date} onChange={e => setEF('end_date', e.target.value)} />
+                  </div>
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <label className="label">color</label>
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    {COLORS.map(c => (
+                      <button key={c} type="button" onClick={() => setEF('color', c)}
+                        style={{ width: 20, height: 20, background: c, borderRadius: 2,
+                                 border: editForm.color === c ? '2px solid #fff' : '2px solid transparent' }} />
+                    ))}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button type="submit" className="btn btn-primary btn-sm">save</button>
+                  <button type="button" className="btn btn-sm" onClick={() => setEditId(null)}>cancel</button>
+                  <button type="button" className="btn btn-danger btn-sm" style={{ marginLeft: 'auto' }}
+                    onClick={() => deleteProject(editId)}>delete</button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
 
       {tooltip && (
         <div ref={tooltipRef} style={{
