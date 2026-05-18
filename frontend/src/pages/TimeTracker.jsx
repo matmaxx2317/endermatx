@@ -896,7 +896,7 @@ export default function TimeTracker() {
           <span className="topbar-title">tts</span>
         </div>
         <div className="topbar-right">
-          <span className="topbar-version">v1.0</span>
+          <span className="topbar-version">v4.0</span>
         </div>
       </div>
 
