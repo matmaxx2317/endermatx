@@ -105,9 +105,12 @@ export default function SpotifyExplorer() {
   const [globalStats, setGlobalStats] = useState(null)
   const [wipeMsg, setWipeMsg]       = useState('')
   const [error, setError]           = useState('')
-  const [scanMode, setScanMode]     = useState(null) // null | 'running' | 'done'
+  // null | 'fetching' | 'running' | 'done'
+  const [scanMode, setScanMode]     = useState(null)
   const [scanProgress, setScanProgress] = useState({ playlistsDone: 0, playlistsTotal: 0, tracksDone: 0, tracksTotal: 0 })
+  const [logOffset, setLogOffset]   = useState(0)
 
+  // Handle Spotify OAuth callback
   useEffect(() => {
     const params     = new URLSearchParams(window.location.search)
     const code       = params.get('code')
@@ -119,6 +122,71 @@ export default function SpotifyExplorer() {
         .catch(e => setError(e.message))
     }
   }, [])
+
+  // On mount: check if a background scan is already running on the server
+  useEffect(() => {
+    fetch('/api/bpm/scan/status?last=200')
+      .then(r => r.json())
+      .then(data => {
+        if (data.status === 'running' || data.status === 'done') {
+          setBpmLog([...data.log].reverse())
+          setLogOffset(data.log_count)
+          setScanProgress({
+            playlistsDone: data.playlists_done,
+            playlistsTotal: data.playlists_total,
+            tracksDone: data.tracks_done,
+            tracksTotal: data.tracks_total,
+          })
+          setScanMode(data.status)
+        }
+      })
+      .catch(() => {})
+  }, [])
+
+  // Poll the backend while a scan is running
+  useEffect(() => {
+    if (scanMode !== 'running') return
+
+    let offset = logOffset
+    let cancelled = false
+
+    async function poll() {
+      if (cancelled) return
+      try {
+        const res = await fetch(`/api/bpm/scan/status?since=${offset}`)
+        if (!res.ok) return
+        const data = await res.json()
+        if (cancelled) return
+
+        if (data.status === 'idle') {
+          // Server restarted mid-scan — scan is gone
+          setScanMode(null)
+          return
+        }
+
+        setScanProgress({
+          playlistsDone: data.playlists_done,
+          playlistsTotal: data.playlists_total,
+          tracksDone: data.tracks_done,
+          tracksTotal: data.tracks_total,
+        })
+
+        if (data.log?.length) {
+          setBpmLog(prev => [...data.log.slice().reverse(), ...prev])
+          offset = data.log_count
+        }
+
+        if (data.status === 'done') {
+          setScanMode('done')
+          refreshGlobalStats()
+        }
+      } catch { /* ignore transient network errors */ }
+    }
+
+    poll()
+    const id = setInterval(poll, 2000)
+    return () => { cancelled = true; clearInterval(id) }
+  }, [scanMode]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function connect() {
     const id = clientIdInput.trim()
@@ -170,10 +238,12 @@ export default function SpotifyExplorer() {
   }
 
   async function startScanAll() {
-    setScanMode('running')
     setBpmLog([])
+    setLogOffset(0)
     setScanProgress({ playlistsDone: 0, playlistsTotal: playlists.length, tracksDone: 0, tracksTotal: 0 })
+    setScanMode('fetching')
 
+    // Phase 1: fetch all Spotify tracks in the browser (needs OAuth token)
     const seen = new Map()
     for (let i = 0; i < playlists.length; i++) {
       try {
@@ -186,16 +256,33 @@ export default function SpotifyExplorer() {
     const allTracks = Array.from(seen.values())
     setScanProgress(prev => ({ ...prev, tracksTotal: allTracks.length }))
 
-    let resolved = 0
-    await resolveBpms(
-      allTracks,
-      () => { resolved++; setScanProgress(prev => ({ ...prev, tracksDone: resolved })) },
-      () => { refreshGlobalStats() },
-      entry => setBpmLog(prev => [entry, ...prev]),
-    )
+    // Phase 2: hand off to backend for persistent BPM resolution
+    const scanTracks = allTracks.map(t => ({
+      spotify_id: t.id,
+      name:       t.name,
+      artist:     t.artists[0]?.name ?? '',
+      album:      t.album ?? '',
+    }))
 
-    setScanMode('done')
-    refreshGlobalStats()
+    try {
+      const res = await fetch('/api/bpm/scan/start', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          tracks:          scanTracks,
+          playlists_total: playlists.length,
+          playlists_done:  playlists.length,
+        }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data?.detail ?? `HTTP ${res.status}`)
+      }
+      setScanMode('running')
+    } catch (e) {
+      setError(`Scan failed to start: ${e.message}`)
+      setScanMode(null)
+    }
   }
 
   async function loadTracks(playlistId) {
@@ -256,6 +343,8 @@ export default function SpotifyExplorer() {
     pending:    0,
   } : null
 
+  const scanActive = scanMode !== null
+
   return (
     <div>
       <div className="topbar">
@@ -264,12 +353,55 @@ export default function SpotifyExplorer() {
           <span className="topbar-title">spt</span>
         </div>
         <div className="topbar-right">
-          <span className="topbar-version">v4.2</span>
+          <span className="topbar-version">v4.3</span>
         </div>
       </div>
       <div className="page">
 
-        {!connected ? (
+        {scanActive ? (
+
+          /* ── Scan-all view ─────────────────────────────── */
+          <>
+            {/* Progress — sticky below topbar */}
+            <div style={{ position: 'sticky', top: 32, background: '#07091a', zIndex: 10, paddingBottom: 12, borderBottom: '1px solid #1a2840', marginBottom: 4 }}>
+              <div style={{ display: 'flex', gap: 32, paddingTop: 12 }}>
+                {[
+                  { label: 'playlists done', value: scanProgress.playlistsDone },
+                  { label: 'playlists open', value: Math.max(0, scanProgress.playlistsTotal - scanProgress.playlistsDone) },
+                  { label: 'tracks done',    value: scanProgress.tracksDone },
+                  { label: 'tracks open',    value: Math.max(0, scanProgress.tracksTotal - scanProgress.tracksDone) },
+                ].map(({ label, value }) => (
+                  <div key={label}>
+                    <div style={{ fontSize: 10, color: '#374d66', marginBottom: 2 }}>{label}</div>
+                    <div style={{ fontSize: 24, fontWeight: 600, color: '#eef2ff', lineHeight: 1 }}>{value}</div>
+                  </div>
+                ))}
+              </div>
+              {scanMode === 'fetching' && (
+                <div style={{ fontSize: 11, color: '#9ab0d0', marginTop: 8 }}>fetching playlists from spotify…</div>
+              )}
+              {scanMode === 'running' && (
+                <div style={{ fontSize: 11, color: '#9ab0d0', marginTop: 8 }}>scanning in background — you can close this page</div>
+              )}
+              {scanMode === 'done' && (
+                <div style={{ fontSize: 11, color: '#4ade80', marginTop: 8 }}>scan complete</div>
+              )}
+            </div>
+
+            {/* Global bar */}
+            {globalBarStats && <BpmBar stats={globalBarStats} />}
+
+            {/* Full-height log */}
+            {bpmLog.length > 0 && (
+              <div style={{ marginTop: 12, maxHeight: 'calc(100vh - 280px)', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {bpmLog.map((e, i) => <LogEntry key={i} e={e} />)}
+              </div>
+            )}
+          </>
+
+        ) : !connected ? (
+
+          /* ── Connect form ──────────────────────────────── */
           <>
             <div className="section-header">connect spotify</div>
             <div className="card">
@@ -298,40 +430,6 @@ export default function SpotifyExplorer() {
                 </button>
               </div>
             </div>
-          </>
-        ) : scanMode ? (
-
-          /* ── Scan-all view ─────────────────────────────── */
-          <>
-            {/* Progress — sticky below topbar */}
-            <div style={{ position: 'sticky', top: 32, background: '#07091a', zIndex: 10, paddingBottom: 12, borderBottom: '1px solid #1a2840', marginBottom: 4 }}>
-              <div style={{ display: 'flex', gap: 32, paddingTop: 12 }}>
-                {[
-                  { label: 'playlists done', value: scanProgress.playlistsDone },
-                  { label: 'playlists open', value: Math.max(0, scanProgress.playlistsTotal - scanProgress.playlistsDone) },
-                  { label: 'tracks done',    value: scanProgress.tracksDone },
-                  { label: 'tracks open',    value: Math.max(0, scanProgress.tracksTotal - scanProgress.tracksDone) },
-                ].map(({ label, value }) => (
-                  <div key={label}>
-                    <div style={{ fontSize: 10, color: '#374d66', marginBottom: 2 }}>{label}</div>
-                    <div style={{ fontSize: 24, fontWeight: 600, color: '#eef2ff', lineHeight: 1 }}>{value}</div>
-                  </div>
-                ))}
-              </div>
-              {scanMode === 'done' && (
-                <div style={{ fontSize: 11, color: '#4ade80', marginTop: 8 }}>scan complete</div>
-              )}
-            </div>
-
-            {/* Global bar */}
-            {globalBarStats && <BpmBar stats={globalBarStats} />}
-
-            {/* Full-height log */}
-            {bpmLog.length > 0 && (
-              <div style={{ marginTop: 12, maxHeight: 'calc(100vh - 280px)', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 1 }}>
-                {bpmLog.map((e, i) => <LogEntry key={i} e={e} />)}
-              </div>
-            )}
           </>
 
         ) : (
@@ -444,13 +542,13 @@ export default function SpotifyExplorer() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button className="btn btn-sm" onClick={disconnect}>disconnect spotify</button>
-                <button className="btn btn-sm" onClick={wipeDb} style={{ color: '#f44336' }} disabled={scanMode === 'running'}>wipe database</button>
+                <button className="btn btn-sm" onClick={wipeDb} style={{ color: '#f44336' }} disabled={scanMode === 'running' || scanMode === 'fetching'}>wipe database</button>
                 <button
                   className="btn btn-sm"
-                  onClick={scanMode ? () => setScanMode(null) : startScanAll}
-                  disabled={scanMode === 'running' || playlists.length === 0}
+                  onClick={scanActive && scanMode !== 'fetching' ? () => { setScanMode(null); setBpmLog([]) } : startScanAll}
+                  disabled={scanMode === 'fetching' || scanMode === 'running' || (!scanActive && playlists.length === 0)}
                 >
-                  {scanMode === 'running' ? 'scanning…' : scanMode === 'done' ? 'close scan' : 'scan all'}
+                  {scanMode === 'fetching' || scanMode === 'running' ? 'scanning…' : scanMode === 'done' ? 'close scan' : 'scan all'}
                 </button>
               </div>
               <a href="https://getsong.co" target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: '#374d66', textDecoration: 'none' }}>

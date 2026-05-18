@@ -17,7 +17,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from .database import engine, Base, SessionLocal
 from .models import TtsEntry
-from .routers import tts, cal, idx, strings, bpm
+from .routers import tts, cal, idx, strings, bpm, scan
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +105,8 @@ app.include_router(tts.router, prefix="/api/tts", tags=["tts"])
 app.include_router(cal.router, prefix="/api/cal", tags=["cal"])
 app.include_router(idx.router, prefix="/api/idx", tags=["idx"])
 app.include_router(strings.router, prefix="/api/str", tags=["str"])
-app.include_router(bpm.router,     prefix="/api/bpm", tags=["bpm"])
+app.include_router(bpm.router,      prefix="/api/bpm",      tags=["bpm"])
+app.include_router(scan.router,     prefix="/api/bpm/scan", tags=["scan"])
 
 FRONTEND_DIST = Path(__file__).parent.parent / "frontend" / "dist"
 GAMES_DIR = Path(__file__).parent.parent / "games"
