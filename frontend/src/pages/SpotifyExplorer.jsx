@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import * as spotify from '../spotify'
 import { resolveBpms } from '../bpm'
@@ -6,6 +6,14 @@ import { resolveBpms } from '../bpm'
 function fmtDuration(ms) {
   const s = Math.round(ms / 1000)
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+}
+
+function fmtElapsed(ms) {
+  const s = Math.floor(ms / 1000)
+  const m = Math.floor(s / 60)
+  const h = Math.floor(m / 60)
+  if (h > 0) return `${h}:${String(m % 60).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
+  return `${m}:${String(s % 60).padStart(2, '0')}`
 }
 
 const BAR_SEGMENTS = [
@@ -73,22 +81,28 @@ function BpmBar({ stats }) {
   )
 }
 
+// One log entry per track: { name, artist, bpm, getsongbpm: 'pass'|'fail', deezer?: 'pass'|'fail' }
 function LogEntry({ e }) {
-  const srcColor = e.source === 'getsongbpm' ? '#4ade80' : '#a78bfa'
-  const srcLabel = e.source === 'getsongbpm' ? 'getsong.co' : 'deezer    '
-  const detail   = !e.bpm && e.source === 'deezer' && e.err ? e.err : null
+  const bpmText = e.bpm ? `${e.bpm} bpm` : '—'
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-      <div style={{ display: 'flex', gap: 8, fontSize: 11, fontFamily: 'monospace' }}>
-        <span style={{ color: srcColor, flexShrink: 0 }}>{srcLabel}</span>
-        <span style={{ color: '#374d66', flexShrink: 0 }}>{e.bpm ? `${e.bpm} bpm` : '—'}</span>
-        <span style={{ color: '#9ab0d0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.name}</span>
+    <div style={{ padding: '4px 0', borderBottom: '1px solid #0d1221' }}>
+      <div style={{ fontSize: 12, color: '#9ab0d0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>
+        <span style={{ color: '#eef2ff' }}>{e.artist}</span>
+        <span style={{ color: '#374d66' }}> — </span>
+        <span>{e.name}</span>
+        <span style={{ color: '#374d66' }}> — </span>
+        <span style={{ color: e.bpm ? '#4ade80' : '#9ab0d0', fontWeight: 500 }}>{bpmText}</span>
       </div>
-      {detail && (
-        <div style={{ fontSize: 10, color: '#4d6fa0', fontFamily: 'monospace', paddingLeft: 84, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {detail}
-        </div>
-      )}
+      <div style={{ fontSize: 10, fontFamily: 'monospace', display: 'flex', gap: 14 }}>
+        <span style={{ color: '#374d66' }}>
+          getsong.co: <span style={{ color: e.getsongbpm === 'pass' ? '#4ade80' : '#f44336' }}>{e.getsongbpm}</span>
+        </span>
+        {e.deezer && (
+          <span style={{ color: '#374d66' }}>
+            deezer: <span style={{ color: e.deezer === 'pass' ? '#4ade80' : '#f44336' }}>{e.deezer}</span>
+          </span>
+        )}
+      </div>
     </div>
   )
 }
@@ -101,7 +115,7 @@ export default function SpotifyExplorer() {
   const [tracks, setTracks]         = useState(null)
   const [status, setStatus]         = useState('')
   const [bpmStatus, setBpmStatus]   = useState('')
-  const [bpmLog, setBpmLog]         = useState([])
+  const [bpmLog, setBpmLog]         = useState([])  // oldest first, newest last
   const [globalStats, setGlobalStats] = useState(null)
   const [wipeMsg, setWipeMsg]       = useState('')
   const [error, setError]           = useState('')
@@ -109,6 +123,10 @@ export default function SpotifyExplorer() {
   const [scanMode, setScanMode]     = useState(null)
   const [scanProgress, setScanProgress] = useState({ playlistsDone: 0, playlistsTotal: 0, tracksDone: 0, tracksTotal: 0 })
   const [logOffset, setLogOffset]   = useState(0)
+  const [scanStartedAt, setScanStartedAt] = useState(null)  // Date object
+  const [elapsedMs, setElapsedMs]   = useState(0)
+
+  const logRef = useRef(null)
 
   // Handle Spotify OAuth callback
   useEffect(() => {
@@ -129,7 +147,7 @@ export default function SpotifyExplorer() {
       .then(r => r.json())
       .then(data => {
         if (data.status === 'running' || data.status === 'done') {
-          setBpmLog([...data.log].reverse())
+          setBpmLog([...data.log])
           setLogOffset(data.log_count)
           setScanProgress({
             playlistsDone: data.playlists_done,
@@ -137,11 +155,29 @@ export default function SpotifyExplorer() {
             tracksDone: data.tracks_done,
             tracksTotal: data.tracks_total,
           })
+          if (data.started_at) setScanStartedAt(new Date(data.started_at))
           setScanMode(data.status)
         }
       })
       .catch(() => {})
   }, [])
+
+  // Live elapsed-time ticker
+  useEffect(() => {
+    if (!scanStartedAt || (scanMode !== 'running' && scanMode !== 'fetching')) return
+    const tick = () => setElapsedMs(Date.now() - scanStartedAt.getTime())
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [scanStartedAt, scanMode])
+
+  // Auto-scroll log to bottom whenever new entries arrive
+  useEffect(() => {
+    const el = logRef.current
+    if (!el) return
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+    if (nearBottom) el.scrollTop = el.scrollHeight
+  }, [bpmLog.length])
 
   // Poll the backend while a scan is running
   useEffect(() => {
@@ -159,7 +195,6 @@ export default function SpotifyExplorer() {
         if (cancelled) return
 
         if (data.status === 'idle') {
-          // Server restarted mid-scan — scan is gone
           setScanMode(null)
           return
         }
@@ -172,7 +207,7 @@ export default function SpotifyExplorer() {
         })
 
         if (data.log?.length) {
-          setBpmLog(prev => [...data.log.slice().reverse(), ...prev])
+          setBpmLog(prev => [...prev, ...data.log])
           offset = data.log_count
         }
 
@@ -238,8 +273,11 @@ export default function SpotifyExplorer() {
   }
 
   async function startScanAll() {
+    const startedAt = new Date()
     setBpmLog([])
     setLogOffset(0)
+    setElapsedMs(0)
+    setScanStartedAt(startedAt)
     setScanProgress({ playlistsDone: 0, playlistsTotal: playlists.length, tracksDone: 0, tracksTotal: 0 })
     setScanMode('fetching')
 
@@ -303,7 +341,7 @@ export default function SpotifyExplorer() {
         raw,
         (id, bpm, src, cached) => setTracks(prev => prev?.map(t => t.id === id ? { ...t, bpm, bpmSource: src, bpmCached: cached } : t) ?? prev),
         (done, total) => { setBpmStatus(done < total ? `resolving BPMs… ${done}/${total}` : ''); refreshGlobalStats() },
-        entry => setBpmLog(prev => [entry, ...prev]),
+        entry => setBpmLog(prev => [...prev, entry]),
       )
       refreshGlobalStats()
     } catch (e) {
@@ -353,7 +391,7 @@ export default function SpotifyExplorer() {
           <span className="topbar-title">spt</span>
         </div>
         <div className="topbar-right">
-          <span className="topbar-version">v4.3</span>
+          <span className="topbar-version">v4.4</span>
         </div>
       </div>
       <div className="page">
@@ -364,7 +402,7 @@ export default function SpotifyExplorer() {
           <>
             {/* Progress — sticky below topbar */}
             <div style={{ position: 'sticky', top: 32, background: '#07091a', zIndex: 10, paddingBottom: 12, borderBottom: '1px solid #1a2840', marginBottom: 4 }}>
-              <div style={{ display: 'flex', gap: 32, paddingTop: 12 }}>
+              <div style={{ display: 'flex', gap: 32, paddingTop: 12, flexWrap: 'wrap' }}>
                 {[
                   { label: 'playlists done', value: scanProgress.playlistsDone },
                   { label: 'playlists open', value: Math.max(0, scanProgress.playlistsTotal - scanProgress.playlistsDone) },
@@ -376,6 +414,12 @@ export default function SpotifyExplorer() {
                     <div style={{ fontSize: 24, fontWeight: 600, color: '#eef2ff', lineHeight: 1 }}>{value}</div>
                   </div>
                 ))}
+                {scanStartedAt && (
+                  <div>
+                    <div style={{ fontSize: 10, color: '#374d66', marginBottom: 2 }}>elapsed</div>
+                    <div style={{ fontSize: 24, fontWeight: 600, color: '#eef2ff', lineHeight: 1 }}>{fmtElapsed(elapsedMs)}</div>
+                  </div>
+                )}
               </div>
               {scanMode === 'fetching' && (
                 <div style={{ fontSize: 11, color: '#9ab0d0', marginTop: 8 }}>fetching playlists from spotify…</div>
@@ -391,9 +435,12 @@ export default function SpotifyExplorer() {
             {/* Global bar */}
             {globalBarStats && <BpmBar stats={globalBarStats} />}
 
-            {/* Full-height log */}
+            {/* Log — oldest at top, newest at bottom */}
             {bpmLog.length > 0 && (
-              <div style={{ marginTop: 12, maxHeight: 'calc(100vh - 280px)', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <div
+                ref={logRef}
+                style={{ marginTop: 12, maxHeight: 'calc(100vh - 300px)', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}
+              >
                 {bpmLog.map((e, i) => <LogEntry key={i} e={e} />)}
               </div>
             )}
@@ -468,7 +515,10 @@ export default function SpotifyExplorer() {
             {bpmStatus && <div style={{ fontSize: 12, color: '#9ab0d0', marginTop: 10 }}>{bpmStatus}</div>}
 
             {bpmLog.length > 0 && (
-              <div style={{ marginTop: 10, maxHeight: 160, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <div
+                ref={logRef}
+                style={{ marginTop: 10, maxHeight: 160, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}
+              >
                 {bpmLog.map((e, i) => <LogEntry key={i} e={e} />)}
               </div>
             )}

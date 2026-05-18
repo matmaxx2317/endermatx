@@ -44,10 +44,10 @@ class ScanStartRequest(BaseModel):
     playlists_done: int = 0
 
 
-def _append_log(source: str, name: str, bpm, err=None) -> None:
-    entry: dict[str, Any] = {"source": source, "name": name, "bpm": bpm}
-    if err:
-        entry["err"] = err
+def _append_log(name: str, artist: str, bpm, getsongbpm: str, deezer: str | None = None) -> None:
+    entry: dict[str, Any] = {"name": name, "artist": artist, "bpm": bpm, "getsongbpm": getsongbpm}
+    if deezer is not None:
+        entry["deezer"] = deezer
     _state["log"].append(entry)
 
 
@@ -118,9 +118,8 @@ def _do_scan(tracks: list[ScanTrack]) -> None:
                 except (ValueError, TypeError):
                     bpm = None
 
-        _append_log("getsongbpm", track.name, bpm)
-
         if bpm:
+            _append_log(track.name, track.artist, bpm, getsongbpm="pass")
             _store_bpm_db(track, bpm, "getsongbpm")
         else:
             # Tier 3: Deezer
@@ -132,7 +131,6 @@ def _do_scan(tracks: list[ScanTrack]) -> None:
                     results = _deezer_search(cleaned, track.artist)
 
             deezer_bpm = None
-            deezer_err = None
             if results:
                 deezer_track = _pick_deezer(results, track.artist)
                 if deezer_track:
@@ -148,14 +146,14 @@ def _do_scan(tracks: list[ScanTrack]) -> None:
                                 val = round(float(val_raw))
                                 if val > 0:
                                     deezer_bpm = val
-                    except Exception as e:
-                        deezer_err = str(e)
-
-            _append_log("deezer", track.name, deezer_bpm, deezer_err)
+                    except Exception:
+                        pass
 
             if deezer_bpm:
+                _append_log(track.name, track.artist, deezer_bpm, getsongbpm="fail", deezer="pass")
                 _store_bpm_db(track, deezer_bpm, "deezer")
             else:
+                _append_log(track.name, track.artist, None, getsongbpm="fail", deezer="fail")
                 _store_bpm_db(track, 0, "not_found")
 
         _state["tracks_done"] += 1
