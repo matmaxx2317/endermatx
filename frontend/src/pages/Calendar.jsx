@@ -191,6 +191,14 @@ function parseDate(s) { return s ? new Date(s + 'T00:00:00') : null }
 
 function daysInMonth(y, m) { return new Date(y, m + 1, 0).getDate() }
 
+function getISOWeek(y, m, d) {
+  const date = new Date(y, m, d)
+  date.setHours(0, 0, 0, 0)
+  date.setDate(date.getDate() + 3 - (date.getDay() + 6) % 7)
+  const w1 = new Date(date.getFullYear(), 0, 4)
+  return 1 + Math.round(((date - w1) / 86400000 - 3 + (w1.getDay() + 6) % 7) / 7)
+}
+
 function isInRange(y, m, d, start, end) {
   const date = new Date(y, m, d)
   return date >= parseDate(start) && date <= parseDate(end)
@@ -427,66 +435,78 @@ export default function Calendar() {
           const days      = daysInMonth(y, m)
           const today     = new Date()
           const thisMonth = today.getFullYear() === y && today.getMonth() === m
-          // Monday-first offset: how many blank cells before day 1
-          const offset    = (new Date(y, m, 1).getDay() + 6) % 7
-          const DOW_HDR   = ['Mo','Tu','We','Th','Fr','Sa','Su']
+          // Monday-first offset; build flat cell array then chunk into weeks
+          const offset = (new Date(y, m, 1).getDay() + 6) % 7
+          const cells  = [...Array(offset).fill(null), ...Array.from({ length: days }, (_, i) => i + 1)]
+          while (cells.length % 7) cells.push(null)
+          const weekRows = []
+          for (let i = 0; i < cells.length; i += 7) weekRows.push(cells.slice(i, i + 7))
+          const DOW_HDR = ['Mo','Tu','We','Th','Fr','Sa','Su']
+          const COLS    = '28px repeat(7, 1fr)'
 
           return (
             <div key={`${y}-${m}`} style={{ marginBottom: 28 }}>
               <div style={{ fontSize: 11, color: '#5d7592', letterSpacing: '0.2em', marginBottom: 8, textTransform: 'uppercase' }}>
                 {MONTHS[m]} {y}
               </div>
-              {/* Day-of-week header */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, marginBottom: 2 }}>
+              {/* Day-of-week header — blank CW cell + Mo…Su */}
+              <div style={{ display: 'grid', gridTemplateColumns: COLS, gap: 2, marginBottom: 2 }}>
+                <div />
                 {DOW_HDR.map(d => (
                   <div key={d} style={{ textAlign: 'center', fontSize: 9, color: '#374d66', letterSpacing: '0.05em', padding: '2px 0' }}>
                     {d}
                   </div>
                 ))}
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
-                {/* Leading blank cells */}
-                {Array.from({ length: offset }, (_, i) => (
-                  <div key={`blank-${i}`} style={{ aspectRatio: '1' }} />
-                ))}
-                {Array.from({ length: days }, (_, i) => {
-                  const d         = i + 1
-                  const isToday   = thisMonth && today.getDate() === d
-                  const dateKey   = fixedKey(y, m + 1, d)
-                  const dayHols   = holidays.get(dateKey) || []
-                  const dayProjs  = projects.filter(p => isInRange(y, m, d, p.start_date, p.end_date))
-                  const holBg      = dayHols[0] ? HOLIDAY_BG[dayHols[0].country] : null
-                  const tipLines   = [
-                    ...dayHols.map(h => `${h.name} (${h.country})`),
-                    ...dayProjs.map(p => p.name),
-                  ]
-
-                  return (
-                    <div key={d}
-                      ref={isToday ? todayRef : null}
-                      onMouseEnter={e => openTooltip(e, tipLines)}
-                      onMouseLeave={() => setTooltip(null)}
-                      onClick={e => openTooltip(e, tipLines)}
-                      style={{
-                      aspectRatio: '1',
-                      background: holBg || '#0d1221',
-                      border: isToday ? '1px solid #8855ff' : '1px solid #1a2840',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 10, position: 'relative',
-                      color: isToday ? '#8855ff' : dayHols.length ? '#9ab0d0' : '#374d66',
-                    }}>
-                      {dayProjs.map(p => (
-                        <div key={p.id} style={{
-                          position: 'absolute', inset: 0,
-                          background: hexToRgba(p.color, 0.35),
-                          pointerEvents: 'none',
-                        }} />
-                      ))}
-                      <span style={{ position: 'relative', zIndex: 1 }}>{d}</span>
+              {weekRows.map((week, wi) => {
+                const firstDay = week.find(d => d !== null)
+                const cw = firstDay != null ? getISOWeek(y, m, firstDay) : null
+                return (
+                  <div key={wi} style={{ display: 'grid', gridTemplateColumns: COLS, gap: 2, marginBottom: 2 }}>
+                    {/* CW label */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 8, color: '#374d66', letterSpacing: '0.03em' }}>
+                      {cw}
                     </div>
-                  )
-                })}
-              </div>
+                    {week.map((d, di) => {
+                      if (d === null) return <div key={`blank-${wi}-${di}`} style={{ aspectRatio: '1' }} />
+                      const isToday   = thisMonth && today.getDate() === d
+                      const dateKey   = fixedKey(y, m + 1, d)
+                      const dayHols   = holidays.get(dateKey) || []
+                      const dayProjs  = projects.filter(p => isInRange(y, m, d, p.start_date, p.end_date))
+                      const holBg     = dayHols[0] ? HOLIDAY_BG[dayHols[0].country] : null
+                      const tipLines  = [
+                        ...dayHols.map(h => `${h.name} (${h.country})`),
+                        ...dayProjs.map(p => p.name),
+                      ]
+                      return (
+                        <div key={d}
+                          ref={isToday ? todayRef : null}
+                          onMouseEnter={e => openTooltip(e, tipLines)}
+                          onMouseLeave={() => setTooltip(null)}
+                          onClick={e => openTooltip(e, tipLines)}
+                          style={{
+                            aspectRatio: '1',
+                            background: holBg || '#0d1221',
+                            border: isToday ? '1px solid #8855ff' : '1px solid #1a2840',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 10, position: 'relative',
+                            color: isToday ? '#8855ff' : dayHols.length ? '#9ab0d0' : '#374d66',
+                          }}>
+                          {dayProjs.map(p => (
+                            <div key={p.id} style={{
+                              position: 'absolute', inset: 0,
+                              background: hexToRgba(p.color, 0.35),
+                              pointerEvents: 'none',
+                            }} />
+                          ))}
+                          <span style={{ position: 'relative', zIndex: 1 }}>{d}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )
+              })}
 
               {/* Projects active this month */}
               {projects.filter(p => {
