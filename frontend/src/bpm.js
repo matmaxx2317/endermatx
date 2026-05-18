@@ -49,10 +49,11 @@ async function lookupSoundNet(spotifyId) {
       signal: AbortSignal.timeout(12000),
     })
     const data = await res.json()
-    if (!res.ok) return { bpm: null }
-    return { bpm: typeof data.bpm === 'number' ? data.bpm : null }
-  } catch {
-    return { bpm: null }
+    if (!res.ok) return { bpm: null, err: `HTTP ${res.status}`, raw: data }
+    if (data.err) return { bpm: null, err: data.err, raw: data }
+    return { bpm: typeof data.bpm === 'number' ? data.bpm : null, raw: data }
+  } catch (e) {
+    return { bpm: null, err: e.message }
   }
 }
 
@@ -65,10 +66,11 @@ async function lookupMusicBrainz(title, artist) {
       signal: AbortSignal.timeout(12000),
     })
     const data = await res.json()
-    if (!res.ok) return { bpm: null }
-    return { bpm: typeof data.bpm === 'number' ? data.bpm : null }
-  } catch {
-    return { bpm: null }
+    if (!res.ok) return { bpm: null, err: `HTTP ${res.status}`, raw: data }
+    if (data.err) return { bpm: null, err: data.err, raw: data }
+    return { bpm: typeof data.bpm === 'number' ? data.bpm : null, raw: data }
+  } catch (e) {
+    return { bpm: null, err: e.message }
   }
 }
 
@@ -115,7 +117,7 @@ export async function resolveBpms(tracks, onUpdate, onProgress, onLog) {
       // Tier 3: SoundNet fallback (uses Spotify ID directly)
       await new Promise(r => setTimeout(r, SOUNDNET_DELAY))
       const snResult = await lookupSoundNet(track.id)
-      onLog?.({ source: 'soundnet', name: track.name, bpm: snResult.bpm })
+      onLog?.({ source: 'soundnet', name: track.name, bpm: snResult.bpm, err: snResult.err, raw: snResult.raw })
 
       if (snResult.bpm) {
         onUpdate(track.id, snResult.bpm, 'soundnet', false)
@@ -126,7 +128,7 @@ export async function resolveBpms(tracks, onUpdate, onProgress, onLog) {
         if (wait > 0) await new Promise(r => setTimeout(r, wait))
         const mbResult = await lookupMusicBrainz(track.name, artist)
         lastMbCall = Date.now()
-        onLog?.({ source: 'musicbrainz', name: track.name, bpm: mbResult.bpm })
+        onLog?.({ source: 'musicbrainz', name: track.name, bpm: mbResult.bpm, err: mbResult.err, raw: mbResult.raw })
 
         if (mbResult.bpm) {
           onUpdate(track.id, mbResult.bpm, 'musicbrainz', false)
