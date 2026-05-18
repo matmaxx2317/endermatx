@@ -209,6 +209,7 @@ export default function SpotifyExplorer() {
         if (data.log?.length) {
           setBpmLog(prev => [...prev, ...data.log])
           offset = data.log_count
+          refreshGlobalStats()
         }
 
         if (data.status === 'done') {
@@ -391,7 +392,7 @@ export default function SpotifyExplorer() {
           <span className="topbar-title">spt</span>
         </div>
         <div className="topbar-right">
-          <span className="topbar-version">v4.4</span>
+          <span className="topbar-version">v4.5</span>
         </div>
       </div>
       <div className="page">
