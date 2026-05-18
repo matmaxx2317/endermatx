@@ -129,7 +129,7 @@ def _do_scan(tracks: list[ScanTrack]) -> None:
                     bpm = None
 
         if bpm:
-            _append_log(track.name, track.artist, bpm, getsongbpm="pass")
+            _append_log(track.name, track.artist, bpm, spotify="fail", getsongbpm="pass")
             _store_bpm_db(track, bpm, "getsongbpm")
         else:
             # Tier 3: Deezer
@@ -160,10 +160,10 @@ def _do_scan(tracks: list[ScanTrack]) -> None:
                         pass
 
             if deezer_bpm:
-                _append_log(track.name, track.artist, deezer_bpm, getsongbpm="fail", deezer="pass")
+                _append_log(track.name, track.artist, deezer_bpm, spotify="fail", getsongbpm="fail", deezer="pass")
                 _store_bpm_db(track, deezer_bpm, "deezer")
             else:
-                _append_log(track.name, track.artist, None, getsongbpm="fail", deezer="fail")
+                _append_log(track.name, track.artist, None, spotify="fail", getsongbpm="fail", deezer="fail")
                 _store_bpm_db(track, 0, "not_found")
 
         _state["tracks_done"] += 1
