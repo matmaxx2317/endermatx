@@ -1,4 +1,5 @@
 import os
+import re
 from datetime import datetime
 
 import httpx
@@ -43,6 +44,21 @@ def batch_lookup(body: schemas.BatchLookupRequest, db: Session = Depends(get_db)
     ).all()
 
 
+_TITLE_NOISE = re.compile(
+    r'\s*[\(\[]'
+    r'(?:feat\.?|ft\.?|featuring|with|prod\.?|produced by'
+    r'|radio edit|album version|single version|extended|remaster(?:ed)?(?:\s+\d{4})?'
+    r'|live|acoustic|instrumental|explicit|bonus track|interlude'
+    r'|original mix|club mix|remix|edit)'
+    r'[^\)\]]*[\)\]]'
+    r'|\s+-\s+(?:feat\.?|ft\.?|featuring|remaster(?:ed)?(?:\s+\d{4})?|radio edit|live|acoustic|remix).*$',
+    re.IGNORECASE,
+)
+
+def _clean_title(title: str) -> str:
+    return _TITLE_NOISE.sub('', title).strip()
+
+
 def _getsong_search(api_key: str, title: str):
     app_url = os.getenv("GETSONGBPM_APP_URL", "https://matmaxx.org/spt")
     return httpx.get(
@@ -71,40 +87,44 @@ def _pick_best(results: list, artist: str) -> dict | None:
     return None
 
 
+def _getsong_results(api_key: str, title: str) -> list:
+    """Return search results list for a title, or [] on any failure."""
+    try:
+        r = _getsong_search(api_key, title)
+        if not r.is_success:
+            return []
+        data = r.json()
+        results = (data or {}).get("search") or []
+        return results if isinstance(results, list) else []
+    except Exception:
+        return []
+
+
 @router.get("/getsongbpm")
 def getsongbpm_lookup(title: str = Query(...), artist: str = Query(...)):
     api_key = os.getenv("GETSONGBPM_API_KEY", "")
     if not api_key:
         raise HTTPException(503, "GetSongBPM not configured")
 
-    try:
-        r = _getsong_search(api_key, title)
-    except httpx.TimeoutException:
-        raise HTTPException(504, "GetSongBPM timeout")
-    except Exception:
+    # Pass 1: full title
+    results = _getsong_results(api_key, title)
+
+    # Pass 2: cleaned title (strip feat., remaster tags, etc.) if pass 1 found nothing
+    cleaned = _clean_title(title)
+    if not results and cleaned != title:
+        results = _getsong_results(api_key, cleaned)
+
+    if not results:
         return {"bpm": None}
-
-    raw = None
-    try:
-        raw = r.json()
-    except Exception:
-        return {"bpm": None, "err": f"GetSongBPM HTTP {r.status_code}, non-JSON body"}
-
-    if not r.is_success:
-        return {"bpm": None, "err": f"GetSongBPM HTTP {r.status_code}", "debug": raw}
-
-    results = (raw or {}).get("search") or []
-    if not isinstance(results, list) or not results:
-        return {"bpm": None, "debug": raw}
 
     match = _pick_best(results, artist)
     if not match:
-        return {"bpm": None, "debug": raw}
+        return {"bpm": None}
 
     try:
         return {"bpm": round(float(match["tempo"]))}
     except (ValueError, TypeError):
-        return {"bpm": None, "debug": raw}
+        return {"bpm": None}
 
 
 @router.delete("/all")
