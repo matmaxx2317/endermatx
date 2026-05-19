@@ -445,13 +445,13 @@ export default function Calendar() {
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
               <div>
                 <label className="label">from</label>
-                <input type="month" className="input"
+                <input type="month" lang="en" className="input"
                   value={toMonthInput(settings?.start_year, settings?.start_month)}
                   onChange={e => updateRange('start', e.target.value)} />
               </div>
               <div>
                 <label className="label">to</label>
-                <input type="month" className="input"
+                <input type="month" lang="en" className="input"
                   value={toMonthInput(settings?.end_year, settings?.end_month)}
                   onChange={e => updateRange('end', e.target.value)} />
               </div>
