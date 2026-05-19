@@ -128,8 +128,8 @@ export async function getPlaylistDiag(playlistId) {
       total:          data.total,
       items_returned: data.items?.length ?? 0,
       item0_keys:     item0 ? Object.keys(item0).join(', ') : '(no items)',
-      track_id:       item0?.track?.id ?? null,
-      track_is_local: item0?.track?.is_local ?? null,
+      track_id:       item0?.item?.id ?? null,
+      track_is_local: item0?.item?.is_local ?? null,
     }
   } catch (e) {
     return { error: e.message }
@@ -163,7 +163,7 @@ export async function getPlaylistTracks(playlistId, onProgress) {
   let url = `/playlists/${encodeURIComponent(playlistId)}/items?limit=100`
   while (url) {
     const data = await apiGet(url)
-    const valid = (data.items ?? []).map(i => i?.track).filter(t => t?.id && !t.is_local)
+    const valid = (data.items ?? []).map(i => i?.item).filter(t => t?.id && !t.is_local)
     tracks.push(...valid)
     onProgress?.('tracks', tracks.length)
     url = data.next
