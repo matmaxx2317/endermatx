@@ -106,7 +106,7 @@ def _do_scan(tracks: list[ScanTrack]) -> None:
 
         # Tier 0: Spotify Audio Features (pre-fetched by the browser, no external call)
         if track.spotify_bpm:
-            _append_log(track.name, track.artist, track.spotify_bpm, spotify="pass")
+            _append_log(track.name, track.artist, track.spotify_bpm, spotify="pass", getsongbpm="—", deezer="—")
             _store_bpm_db(track, track.spotify_bpm, "spotify")
             _state["tracks_done"] += 1
             continue
@@ -129,7 +129,7 @@ def _do_scan(tracks: list[ScanTrack]) -> None:
                     bpm = None
 
         if bpm:
-            _append_log(track.name, track.artist, bpm, spotify="fail", getsongbpm="pass")
+            _append_log(track.name, track.artist, bpm, spotify="fail", getsongbpm="pass", deezer="—")
             _store_bpm_db(track, bpm, "getsongbpm")
         else:
             # Tier 3: Deezer
