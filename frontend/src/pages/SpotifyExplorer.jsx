@@ -297,12 +297,17 @@ export default function SpotifyExplorer() {
     try {
       // Phase 1: fetch raw tracks from all playlists in the browser (needs OAuth token)
       const seen = new Map()  // spotify_id → raw Spotify track object
+      let fetchErrors = 0
+      let firstError = ''
       for (let i = 0; i < playlists.length; i++) {
         if (scanCancelRef.current) { setScanMode(null); return }
         try {
           const raw = await spotify.getPlaylistTracks(playlists[i].id)
           for (const t of raw) { if (!seen.has(t.id)) seen.set(t.id, t) }
-        } catch { /* skip failed playlist */ }
+        } catch (e) {
+          fetchErrors++
+          if (!firstError) firstError = e.message
+        }
         setScanProgress(prev => ({ ...prev, playlistsDone: i + 1, tracksTotal: seen.size }))
       }
 
@@ -312,7 +317,10 @@ export default function SpotifyExplorer() {
       setScanProgress(prev => ({ ...prev, tracksTotal: allTracks.length }))
 
       if (!allTracks.length) {
-        setError('No tracks found — make sure your playlists contain tracks and your Spotify session is active')
+        const detail = fetchErrors
+          ? `${fetchErrors}/${playlists.length} playlists failed (${firstError}) — your Spotify session may have expired, try reconnecting`
+          : 'all playlists appear to be empty'
+        setError(`No tracks found — ${detail}`)
         setScanMode(null)
         return
       }
