@@ -95,21 +95,16 @@ function LogEntry({ e }) {
         <span style={{ color: e.bpm ? '#4ade80' : '#9ab0d0', fontWeight: 500 }}>{bpmText}</span>
       </div>
       <div style={{ fontSize: 10, fontFamily: 'monospace', display: 'flex', gap: 14 }}>
-        {e.spotify && (
-          <span style={{ color: '#374d66' }}>
-            spotify: <span style={{ color: e.spotify === 'pass' ? '#4ade80' : '#f44336' }}>{e.spotify}</span>
-          </span>
-        )}
-        {e.getsongbpm && (
-          <span style={{ color: '#374d66' }}>
-            getsong.co: <span style={{ color: e.getsongbpm === 'pass' ? '#4ade80' : '#f44336' }}>{e.getsongbpm}</span>
-          </span>
-        )}
-        {e.deezer && (
-          <span style={{ color: '#374d66' }}>
-            deezer: <span style={{ color: e.deezer === 'pass' ? '#4ade80' : '#f44336' }}>{e.deezer}</span>
-          </span>
-        )}
+        {['spotify', 'getsongbpm', 'deezer'].map(key => {
+          const val = e[key]
+          const label = key === 'getsongbpm' ? 'getsong.co' : key
+          const color = val === 'pass' ? '#4ade80' : val === 'fail' ? '#f44336' : '#374d66'
+          return (
+            <span key={key} style={{ color: '#374d66' }}>
+              {label}: <span style={{ color }}>{val ?? '—'}</span>
+            </span>
+          )
+        })}
       </div>
     </div>
   )
