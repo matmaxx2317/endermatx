@@ -430,48 +430,13 @@ export default function Calendar() {
           <span className="topbar-title">cal</span>
         </div>
         <div className="topbar-right">
-          <span className="topbar-version">v4.2</span>
+          <span className="topbar-version">v4.3</span>
           <button className="btn btn-sm" onClick={() => setShowSettings(s => !s)}>
             {showSettings ? 'close' : 'settings'}
           </button>
         </div>
       </div>
       <div className="page" style={{ maxWidth: 900 }}>
-
-        {/* Settings panel */}
-        {showSettings && (
-          <div className="card" style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 11, color: '#9ab0d0', marginBottom: 8, letterSpacing: '0.08em' }}>RANGE</div>
-            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
-              <div>
-                <label className="label">from</label>
-                <input type="month" lang="en" className="input"
-                  value={toMonthInput(settings?.start_year, settings?.start_month)}
-                  onChange={e => updateRange('start', e.target.value)} />
-              </div>
-              <div>
-                <label className="label">to</label>
-                <input type="month" lang="en" className="input"
-                  value={toMonthInput(settings?.end_year, settings?.end_month)}
-                  onChange={e => updateRange('end', e.target.value)} />
-              </div>
-            </div>
-            <div style={{ fontSize: 11, color: '#9ab0d0', marginBottom: 8, letterSpacing: '0.08em' }}>HOLIDAYS</div>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {COUNTRIES.map(code => (
-                <button key={code} type="button" className="btn btn-sm"
-                  style={{ borderColor: countries.includes(code) ? '#4d6fa0' : '#1a2840',
-                           color:       countries.includes(code) ? '#eef2ff' : '#5d7592' }}
-                  onClick={() => toggleCountry(code)}>
-                  <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
-                    background: HOLIDAY_DOT[code], marginRight: 5 }} />
-                  {code}
-                  <span style={{ marginLeft: 4, fontSize: 10, color: '#374d66' }}>{COUNTRY_LABEL[code]}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Spacer that matches the fixed controls panel height */}
         <div style={{ height: formPanelH }} />
@@ -577,6 +542,47 @@ export default function Calendar() {
           )
         })}
       </div>
+
+      {/* Settings overlay — fixed below topbar, overlays the calendar */}
+      {showSettings && (
+        <div style={{
+          position: 'fixed', top: 32, left: 0, right: 0, zIndex: 40,
+          background: '#07091a', borderBottom: '1px solid #1a2840',
+          maxHeight: 'calc(100vh - 32px)', overflowY: 'auto',
+        }}>
+          <div style={{ maxWidth: 900, margin: '0 auto', padding: '16px 16px' }}>
+            <div style={{ fontSize: 11, color: '#9ab0d0', marginBottom: 8, letterSpacing: '0.08em' }}>RANGE</div>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
+              <div>
+                <label className="label">from</label>
+                <input type="month" lang="en" className="input"
+                  value={toMonthInput(settings?.start_year, settings?.start_month)}
+                  onChange={e => updateRange('start', e.target.value)} />
+              </div>
+              <div>
+                <label className="label">to</label>
+                <input type="month" lang="en" className="input"
+                  value={toMonthInput(settings?.end_year, settings?.end_month)}
+                  onChange={e => updateRange('end', e.target.value)} />
+              </div>
+            </div>
+            <div style={{ fontSize: 11, color: '#9ab0d0', marginBottom: 8, letterSpacing: '0.08em' }}>HOLIDAYS</div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {COUNTRIES.map(code => (
+                <button key={code} type="button" className="btn btn-sm"
+                  style={{ borderColor: countries.includes(code) ? '#4d6fa0' : '#1a2840',
+                           color:       countries.includes(code) ? '#eef2ff' : '#5d7592' }}
+                  onClick={() => toggleCountry(code)}>
+                  <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
+                    background: HOLIDAY_DOT[code], marginRight: 5 }} />
+                  {code}
+                  <span style={{ marginLeft: 4, fontSize: 10, color: '#374d66' }}>{COUNTRY_LABEL[code]}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Fixed controls panel — chips, add button, and forms always in view */}
       <div ref={formPanelRef} style={{
