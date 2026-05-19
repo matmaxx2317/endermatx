@@ -147,7 +147,7 @@ export async function getPlaylistTracks(playlistId, onProgress) {
   let url = `/playlists/${encodeURIComponent(playlistId)}/items?limit=100`
   while (url) {
     const data = await apiGet(url)
-    const valid = data.items.map(i => i?.item).filter(t => t?.id && !t.is_local)
+    const valid = data.items.map(i => i?.track).filter(t => t?.id && !t.is_local)
     tracks.push(...valid)
     onProgress?.('tracks', tracks.length)
     url = data.next
@@ -164,6 +164,7 @@ export async function loadPlaylistTracks(playlistId, onProgress) {
   const tempoMap = new Map(
     features.filter(f => f?.tempo > 0).map(f => [f.id, Math.round(f.tempo)])
   )
+  const rawMap = new Map(features.filter(Boolean).map(f => [f.id, f.tempo ? Math.round(f.tempo) : 0]))
   return tracks.map(t => ({
     id:          t.id,
     name:        t.name,
@@ -174,5 +175,6 @@ export async function loadPlaylistTracks(playlistId, onProgress) {
     bpmSource:   null,
     bpmCached:   false,
     spotifyBpm:  tempoMap.get(t.id) ?? null,
+    spotifyRaw:  rawMap.has(t.id) ? rawMap.get(t.id) : null,
   }))
 }

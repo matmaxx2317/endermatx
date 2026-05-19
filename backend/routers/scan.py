@@ -37,6 +37,7 @@ class ScanTrack(BaseModel):
     artist: str
     album: str = ""
     spotify_bpm: int | None = None
+    spotify_raw: int | None = None
 
 
 class ScanStartRequest(BaseModel):
@@ -106,7 +107,7 @@ def _do_scan(tracks: list[ScanTrack]) -> None:
 
         # Tier 0: Spotify Audio Features (pre-fetched by the browser, no external call)
         if track.spotify_bpm:
-            _append_log(track.name, track.artist, track.spotify_bpm, spotify="pass", getsongbpm="—", deezer="—")
+            _append_log(track.name, track.artist, track.spotify_bpm, spotify="pass", getsongbpm="—", deezer="—", spotifyRaw=track.spotify_bpm)
             _store_bpm_db(track, track.spotify_bpm, "spotify")
             _state["tracks_done"] += 1
             continue
@@ -129,7 +130,7 @@ def _do_scan(tracks: list[ScanTrack]) -> None:
                     bpm = None
 
         if bpm:
-            _append_log(track.name, track.artist, bpm, spotify="fail", getsongbpm="pass", deezer="—")
+            _append_log(track.name, track.artist, bpm, spotify="fail", getsongbpm="pass", deezer="—", spotifyRaw=track.spotify_raw)
             _store_bpm_db(track, bpm, "getsongbpm")
         else:
             # Tier 3: Deezer
@@ -160,10 +161,10 @@ def _do_scan(tracks: list[ScanTrack]) -> None:
                         pass
 
             if deezer_bpm:
-                _append_log(track.name, track.artist, deezer_bpm, spotify="fail", getsongbpm="fail", deezer="pass")
+                _append_log(track.name, track.artist, deezer_bpm, spotify="fail", getsongbpm="fail", deezer="pass", spotifyRaw=track.spotify_raw)
                 _store_bpm_db(track, deezer_bpm, "deezer")
             else:
-                _append_log(track.name, track.artist, None, spotify="fail", getsongbpm="fail", deezer="fail")
+                _append_log(track.name, track.artist, None, spotify="fail", getsongbpm="fail", deezer="fail", spotifyRaw=track.spotify_raw)
                 _store_bpm_db(track, 0, "not_found")
 
         _state["tracks_done"] += 1
