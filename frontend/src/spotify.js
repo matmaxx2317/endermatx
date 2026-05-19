@@ -120,6 +120,22 @@ export async function getMe() {
   return apiGet('/me')
 }
 
+export async function getPlaylistDiag(playlistId) {
+  try {
+    const data = await apiGet(`/playlists/${encodeURIComponent(playlistId)}/items?limit=3`)
+    const item0 = data.items?.[0] ?? null
+    return {
+      total:          data.total,
+      items_returned: data.items?.length ?? 0,
+      item0_keys:     item0 ? Object.keys(item0).join(', ') : '(no items)',
+      track_id:       item0?.track?.id ?? null,
+      track_is_local: item0?.track?.is_local ?? null,
+    }
+  } catch (e) {
+    return { error: e.message }
+  }
+}
+
 export async function getAudioFeatures(ids) {
   const features = []
   for (let i = 0; i < ids.length; i += 100) {

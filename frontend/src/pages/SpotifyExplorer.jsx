@@ -317,9 +317,17 @@ export default function SpotifyExplorer() {
       setScanProgress(prev => ({ ...prev, tracksTotal: allTracks.length }))
 
       if (!allTracks.length) {
-        const detail = fetchErrors
-          ? `${fetchErrors}/${playlists.length} playlists failed (${firstError}) — your Spotify session may have expired, try reconnecting`
-          : 'all playlists appear to be empty'
+        let detail
+        if (fetchErrors) {
+          detail = `${fetchErrors}/${playlists.length} playlists failed — ${firstError}`
+        } else if (playlists.length > 0) {
+          const diag = await spotify.getPlaylistDiag(playlists[0].id)
+          detail = diag.error
+            ? `0 errors but 0 tracks; diagnostic on playlist[0] failed: ${diag.error}`
+            : `0 errors but 0 tracks; diagnostic on playlist[0]: total=${diag.total}, items_returned=${diag.items_returned}, item0_keys=[${diag.item0_keys}], track_id=${diag.track_id}, track_is_local=${diag.track_is_local}`
+        } else {
+          detail = 'playlist list is empty'
+        }
         setError(`No tracks found — ${detail}`)
         setScanMode(null)
         return
