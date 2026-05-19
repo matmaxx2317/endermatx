@@ -147,7 +147,7 @@ export async function getPlaylistTracks(playlistId, onProgress) {
   let url = `/playlists/${encodeURIComponent(playlistId)}/items?limit=100`
   while (url) {
     const data = await apiGet(url)
-    const valid = data.items.map(i => i?.track).filter(t => t?.id && !t.is_local)
+    const valid = (data.items ?? []).map(i => i?.track).filter(t => t?.id && !t.is_local)
     tracks.push(...valid)
     onProgress?.('tracks', tracks.length)
     url = data.next
