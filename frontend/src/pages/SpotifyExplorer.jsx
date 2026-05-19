@@ -441,7 +441,7 @@ export default function SpotifyExplorer() {
           <span className="topbar-title">spt</span>
         </div>
         <div className="topbar-right">
-          <span className="topbar-version">v4.6</span>
+          <span className="topbar-version">v4.7</span>
         </div>
       </div>
       <div className="page">
