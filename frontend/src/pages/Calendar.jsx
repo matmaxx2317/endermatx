@@ -399,6 +399,21 @@ export default function Calendar() {
     setShowForm(false)
   }
 
+  function toMonthInput(year, month) {
+    if (year == null || month == null) return ''
+    return `${year}-${String(month + 1).padStart(2, '0')}`
+  }
+
+  async function updateRange(key, val) {
+    if (!val) return
+    const [y, m] = val.split('-')
+    const patch = key === 'start'
+      ? { start_year: parseInt(y), start_month: parseInt(m) - 1 }
+      : { end_year:   parseInt(y), end_month:   parseInt(m) - 1 }
+    const updated = await cal.updateSettings(patch)
+    setSettings(updated)
+  }
+
   async function toggleCountry(code) {
     const next = countries.includes(code)
       ? countries.filter(c => c !== code)
@@ -415,7 +430,7 @@ export default function Calendar() {
           <span className="topbar-title">cal</span>
         </div>
         <div className="topbar-right">
-          <span className="topbar-version">v4.1</span>
+          <span className="topbar-version">v4.2</span>
           <button className="btn btn-sm" onClick={() => setShowSettings(s => !s)}>
             {showSettings ? 'close' : 'settings'}
           </button>
@@ -426,6 +441,21 @@ export default function Calendar() {
         {/* Settings panel */}
         {showSettings && (
           <div className="card" style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 11, color: '#9ab0d0', marginBottom: 8, letterSpacing: '0.08em' }}>RANGE</div>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
+              <div>
+                <label className="label">from</label>
+                <input type="month" className="input"
+                  value={toMonthInput(settings?.start_year, settings?.start_month)}
+                  onChange={e => updateRange('start', e.target.value)} />
+              </div>
+              <div>
+                <label className="label">to</label>
+                <input type="month" className="input"
+                  value={toMonthInput(settings?.end_year, settings?.end_month)}
+                  onChange={e => updateRange('end', e.target.value)} />
+              </div>
+            </div>
             <div style={{ fontSize: 11, color: '#9ab0d0', marginBottom: 8, letterSpacing: '0.08em' }}>HOLIDAYS</div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {COUNTRIES.map(code => (
@@ -434,7 +464,7 @@ export default function Calendar() {
                            color:       countries.includes(code) ? '#eef2ff' : '#5d7592' }}
                   onClick={() => toggleCountry(code)}>
                   <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
-                    background: HOLIDAY_BG[code].replace('0.15)', '1)'), marginRight: 5 }} />
+                    background: HOLIDAY_DOT[code], marginRight: 5 }} />
                   {code}
                   <span style={{ marginLeft: 4, fontSize: 10, color: '#374d66' }}>{COUNTRY_LABEL[code]}</span>
                 </button>
