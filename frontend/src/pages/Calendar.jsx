@@ -103,6 +103,7 @@ function getHolidays(years, countries) {
       add(easterKey(e,39),     'Christi Himmelfahrt', 'DE')
       add(easterKey(e,49),     'Pfingstsonntag', 'DE')
       add(easterKey(e,50),     'Pfingstmontag', 'DE')
+      add(easterKey(e,60),     'Fronleichnam', 'DE')
       add(fixedKey(year,10,3), 'Tag der deutschen Einheit', 'DE')
       add(fixedKey(year,12,25),'1. Weihnachtstag', 'DE')
       add(fixedKey(year,12,26),'2. Weihnachtstag', 'DE')
