@@ -11,7 +11,10 @@ function fmtIsoDate(s) {
 }
 
 // ── Constants ──────────────────────────────────────────────────
-const MONTHS   = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+const MONTHS     = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+const MONTH_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December']
+const THIS_YEAR  = new Date().getFullYear()
+const YEAR_OPTS  = Array.from({ length: 14 }, (_, i) => THIS_YEAR - 3 + i)
 const COLORS   = ['#4a9eff','#e74c3c','#2ecc71','#f1c40f','#9b59b6','#e67e22','#1abc9c','#e91e63']
 const COUNTRIES = ['DE','AT','US','GB','FR','CN','JP']
 const COUNTRY_LABEL = { DE:'Bavaria', AT:'Austria', US:'USA', GB:'UK', FR:'France', CN:'China', JP:'Japan' }
@@ -399,17 +402,7 @@ export default function Calendar() {
     setShowForm(false)
   }
 
-  function toMonthInput(year, month) {
-    if (year == null || month == null) return ''
-    return `${year}-${String(month + 1).padStart(2, '0')}`
-  }
-
-  async function updateRange(key, val) {
-    if (!val) return
-    const [y, m] = val.split('-')
-    const patch = key === 'start'
-      ? { start_year: parseInt(y), start_month: parseInt(m) - 1 }
-      : { end_year:   parseInt(y), end_month:   parseInt(m) - 1 }
+  async function updateRange(key, patch) {
     const updated = await cal.updateSettings(patch)
     setSettings(updated)
   }
@@ -430,7 +423,7 @@ export default function Calendar() {
           <span className="topbar-title">cal</span>
         </div>
         <div className="topbar-right">
-          <span className="topbar-version">v4.3</span>
+          <span className="topbar-version">v4.4</span>
           <button className="btn btn-sm" onClick={() => setShowSettings(s => !s)}>
             {showSettings ? 'close' : 'settings'}
           </button>
@@ -555,15 +548,33 @@ export default function Calendar() {
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
               <div>
                 <label className="label">from</label>
-                <input type="month" lang="en" className="input"
-                  value={toMonthInput(settings?.start_year, settings?.start_month)}
-                  onChange={e => updateRange('start', e.target.value)} />
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <select className="input" style={{ width: 'auto' }}
+                    value={settings?.start_month ?? 0}
+                    onChange={e => updateRange('start', { start_month: parseInt(e.target.value) })}>
+                    {MONTH_FULL.map((name, i) => <option key={i} value={i}>{name}</option>)}
+                  </select>
+                  <select className="input" style={{ width: 'auto' }}
+                    value={settings?.start_year ?? THIS_YEAR}
+                    onChange={e => updateRange('start', { start_year: parseInt(e.target.value) })}>
+                    {YEAR_OPTS.map(y => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                </div>
               </div>
               <div>
                 <label className="label">to</label>
-                <input type="month" lang="en" className="input"
-                  value={toMonthInput(settings?.end_year, settings?.end_month)}
-                  onChange={e => updateRange('end', e.target.value)} />
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <select className="input" style={{ width: 'auto' }}
+                    value={settings?.end_month ?? 11}
+                    onChange={e => updateRange('end', { end_month: parseInt(e.target.value) })}>
+                    {MONTH_FULL.map((name, i) => <option key={i} value={i}>{name}</option>)}
+                  </select>
+                  <select className="input" style={{ width: 'auto' }}
+                    value={settings?.end_year ?? THIS_YEAR}
+                    onChange={e => updateRange('end', { end_year: parseInt(e.target.value) })}>
+                    {YEAR_OPTS.map(y => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                </div>
               </div>
             </div>
             <div style={{ fontSize: 11, color: '#9ab0d0', marginBottom: 8, letterSpacing: '0.08em' }}>HOLIDAYS</div>
