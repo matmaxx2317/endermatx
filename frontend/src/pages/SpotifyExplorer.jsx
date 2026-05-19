@@ -137,6 +137,7 @@ export default function SpotifyExplorer() {
   const [elapsedMs, setElapsedMs]   = useState(0)
 
   const logRef = useRef(null)
+  const scanCancelRef = useRef(false)
 
   // Handle Spotify OAuth callback
   useEffect(() => {
@@ -284,6 +285,7 @@ export default function SpotifyExplorer() {
   }
 
   async function startScanAll() {
+    scanCancelRef.current = false
     const startedAt = new Date()
     setBpmLog([])
     setLogOffset(0)
@@ -292,37 +294,49 @@ export default function SpotifyExplorer() {
     setScanProgress({ playlistsDone: 0, playlistsTotal: playlists.length, tracksDone: 0, tracksTotal: 0 })
     setScanMode('fetching')
 
-    // Phase 1: fetch raw tracks from all playlists in the browser (needs OAuth token)
-    const seen = new Map()  // spotify_id → raw Spotify track object
-    for (let i = 0; i < playlists.length; i++) {
-      try {
-        const raw = await spotify.getPlaylistTracks(playlists[i].id)
-        for (const t of raw) { if (!seen.has(t.id)) seen.set(t.id, t) }
-      } catch { /* skip failed playlist */ }
-      setScanProgress(prev => ({ ...prev, playlistsDone: i + 1, tracksTotal: seen.size }))
-    }
-
-    const allTracks = Array.from(seen.values())
-    setScanProgress(prev => ({ ...prev, tracksTotal: allTracks.length }))
-
-    // Phase 1.5: batch-fetch Spotify audio features for all unique tracks (one call per 100)
-    const features = await spotify.getAudioFeatures(allTracks.map(t => t.id))
-    const tempoMap = new Map(
-      features.filter(f => f?.tempo > 0).map(f => [f.id, Math.round(f.tempo)])
-    )
-    const rawMap = new Map(features.filter(Boolean).map(f => [f.id, f.tempo ? Math.round(f.tempo) : 0]))
-
-    // Phase 2: hand off to backend for persistent BPM resolution
-    const scanTracks = allTracks.map(t => ({
-      spotify_id:  t.id,
-      name:        t.name,
-      artist:      t.artists[0]?.name ?? '',
-      album:       t.album?.name ?? '',
-      spotify_bpm: tempoMap.get(t.id) ?? null,
-      spotify_raw: rawMap.has(t.id) ? rawMap.get(t.id) : null,
-    }))
-
     try {
+      // Phase 1: fetch raw tracks from all playlists in the browser (needs OAuth token)
+      const seen = new Map()  // spotify_id → raw Spotify track object
+      for (let i = 0; i < playlists.length; i++) {
+        if (scanCancelRef.current) { setScanMode(null); return }
+        try {
+          const raw = await spotify.getPlaylistTracks(playlists[i].id)
+          for (const t of raw) { if (!seen.has(t.id)) seen.set(t.id, t) }
+        } catch { /* skip failed playlist */ }
+        setScanProgress(prev => ({ ...prev, playlistsDone: i + 1, tracksTotal: seen.size }))
+      }
+
+      if (scanCancelRef.current) { setScanMode(null); return }
+
+      const allTracks = Array.from(seen.values())
+      setScanProgress(prev => ({ ...prev, tracksTotal: allTracks.length }))
+
+      if (!allTracks.length) {
+        setError('No tracks found — make sure your playlists contain tracks and your Spotify session is active')
+        setScanMode(null)
+        return
+      }
+
+      // Phase 1.5: batch-fetch Spotify audio features for all unique tracks (one call per 100)
+      const features = await spotify.getAudioFeatures(allTracks.map(t => t.id))
+
+      if (scanCancelRef.current) { setScanMode(null); return }
+
+      const tempoMap = new Map(
+        features.filter(f => f?.tempo > 0).map(f => [f.id, Math.round(f.tempo)])
+      )
+      const rawMap = new Map(features.filter(Boolean).map(f => [f.id, f.tempo ? Math.round(f.tempo) : 0]))
+
+      // Phase 2: hand off to backend for persistent BPM resolution
+      const scanTracks = allTracks.map(t => ({
+        spotify_id:  t.id,
+        name:        t.name,
+        artist:      t.artists[0]?.name ?? '',
+        album:       t.album?.name ?? '',
+        spotify_bpm: tempoMap.get(t.id) ?? null,
+        spotify_raw: rawMap.has(t.id) ? rawMap.get(t.id) : null,
+      }))
+
       const res = await fetch('/api/bpm/scan/start', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -338,9 +352,15 @@ export default function SpotifyExplorer() {
       }
       setScanMode('running')
     } catch (e) {
-      setError(`Scan failed to start: ${e.message}`)
+      if (!scanCancelRef.current) setError(`Scan failed: ${e.message}`)
       setScanMode(null)
     }
+  }
+
+  function cancelScan() {
+    scanCancelRef.current = true
+    setScanMode(null)
+    setBpmLog([])
   }
 
   async function loadTracks(playlistId) {
@@ -619,10 +639,10 @@ export default function SpotifyExplorer() {
                 <button className="btn btn-sm" onClick={wipeDb} style={{ color: '#f44336' }} disabled={scanMode === 'running' || scanMode === 'fetching'}>wipe database</button>
                 <button
                   className="btn btn-sm"
-                  onClick={scanActive && scanMode !== 'fetching' ? () => { setScanMode(null); setBpmLog([]) } : startScanAll}
-                  disabled={scanMode === 'fetching' || scanMode === 'running' || (!scanActive && playlists.length === 0)}
+                  onClick={scanActive ? cancelScan : startScanAll}
+                  disabled={!scanActive && playlists.length === 0}
                 >
-                  {scanMode === 'fetching' || scanMode === 'running' ? 'scanning…' : scanMode === 'done' ? 'close scan' : 'scan all'}
+                  {scanMode === 'fetching' ? 'fetching… (cancel)' : scanMode === 'running' ? 'scanning…' : scanMode === 'done' ? 'close scan' : 'scan all'}
                 </button>
               </div>
               <a href="https://getsong.co" target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: '#374d66', textDecoration: 'none' }}>
