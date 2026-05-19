@@ -106,6 +106,13 @@ function LogEntry({ e }) {
           )
         })}
       </div>
+      {'spotifyRaw' in e && (
+        <div style={{ fontSize: 10, fontFamily: 'monospace', color: '#374d66' }}>
+          spotify raw: <span style={{ color: e.spotifyRaw > 0 ? '#4ade80' : e.spotifyRaw === 0 ? '#f44336' : '#9ab0d0' }}>
+            {e.spotifyRaw != null ? `${e.spotifyRaw} bpm` : 'null'}
+          </span>
+        </div>
+      )}
     </div>
   )
 }
@@ -303,6 +310,7 @@ export default function SpotifyExplorer() {
     const tempoMap = new Map(
       features.filter(f => f?.tempo > 0).map(f => [f.id, Math.round(f.tempo)])
     )
+    const rawMap = new Map(features.filter(Boolean).map(f => [f.id, f.tempo ? Math.round(f.tempo) : 0]))
 
     // Phase 2: hand off to backend for persistent BPM resolution
     const scanTracks = allTracks.map(t => ({
@@ -311,6 +319,7 @@ export default function SpotifyExplorer() {
       artist:      t.artists[0]?.name ?? '',
       album:       t.album?.name ?? '',
       spotify_bpm: tempoMap.get(t.id) ?? null,
+      spotify_raw: rawMap.has(t.id) ? rawMap.get(t.id) : null,
     }))
 
     try {
