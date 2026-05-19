@@ -136,17 +136,6 @@ export async function getPlaylistDiag(playlistId) {
   }
 }
 
-export async function getAudioFeatures(ids) {
-  const features = []
-  for (let i = 0; i < ids.length; i += 100) {
-    try {
-      const data = await apiGet(`/audio-features?ids=${ids.slice(i, i + 100).join(',')}`)
-      features.push(...(data.audio_features ?? []))
-    } catch { /* skip failed batch */ }
-  }
-  return features
-}
-
 export async function getPlaylists(max = Infinity) {
   const items = []
   let url = `/me/playlists?limit=${Math.min(max, 50)}`
@@ -173,14 +162,8 @@ export async function getPlaylistTracks(playlistId, onProgress) {
 
 // ── High-level helpers ────────────────────────────────────────
 
-// Returns track metadata including Spotify tempo as spotifyBpm.
 export async function loadPlaylistTracks(playlistId, onProgress) {
   const tracks = await getPlaylistTracks(playlistId, onProgress)
-  const features = await getAudioFeatures(tracks.map(t => t.id))
-  const tempoMap = new Map(
-    features.filter(f => f?.tempo > 0).map(f => [f.id, Math.round(f.tempo)])
-  )
-  const rawMap = new Map(features.filter(Boolean).map(f => [f.id, f.tempo ? Math.round(f.tempo) : 0]))
   return tracks.map(t => ({
     id:          t.id,
     name:        t.name,
@@ -190,7 +173,5 @@ export async function loadPlaylistTracks(playlistId, onProgress) {
     bpm:         null,
     bpmSource:   null,
     bpmCached:   false,
-    spotifyBpm:  tempoMap.get(t.id) ?? null,
-    spotifyRaw:  rawMap.has(t.id) ? rawMap.get(t.id) : null,
   }))
 }

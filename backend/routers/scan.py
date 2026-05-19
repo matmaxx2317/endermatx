@@ -36,8 +36,6 @@ class ScanTrack(BaseModel):
     name: str
     artist: str
     album: str = ""
-    spotify_bpm: int | None = None
-    spotify_raw: int | None = None
 
 
 class ScanStartRequest(BaseModel):
@@ -105,14 +103,7 @@ def _do_scan(tracks: list[ScanTrack]) -> None:
 
     for track in to_resolve:
 
-        # Tier 0: Spotify Audio Features (pre-fetched by the browser, no external call)
-        if track.spotify_bpm:
-            _append_log(track.name, track.artist, track.spotify_bpm, spotify="pass", getsongbpm="—", deezer="—", spotifyRaw=track.spotify_bpm)
-            _store_bpm_db(track, track.spotify_bpm, "spotify")
-            _state["tracks_done"] += 1
-            continue
-
-        # Tier 2: getsong.co (rate-limited)
+        # Tier 1: getsong.co (rate-limited)
         if need_delay:
             time.sleep(_GETSONG_DELAY)
         need_delay = True
@@ -130,10 +121,10 @@ def _do_scan(tracks: list[ScanTrack]) -> None:
                     bpm = None
 
         if bpm:
-            _append_log(track.name, track.artist, bpm, spotify="fail", getsongbpm="pass", deezer="—", spotifyRaw=track.spotify_raw)
+            _append_log(track.name, track.artist, bpm, getsongbpm="pass", deezer="—")
             _store_bpm_db(track, bpm, "getsongbpm")
         else:
-            # Tier 3: Deezer
+            # Tier 2: Deezer
             time.sleep(_DEEZER_DELAY)
             results = _deezer_search(track.name, track.artist)
             if not results:
@@ -161,10 +152,10 @@ def _do_scan(tracks: list[ScanTrack]) -> None:
                         pass
 
             if deezer_bpm:
-                _append_log(track.name, track.artist, deezer_bpm, spotify="fail", getsongbpm="fail", deezer="pass", spotifyRaw=track.spotify_raw)
+                _append_log(track.name, track.artist, deezer_bpm, getsongbpm="fail", deezer="pass")
                 _store_bpm_db(track, deezer_bpm, "deezer")
             else:
-                _append_log(track.name, track.artist, None, spotify="fail", getsongbpm="fail", deezer="fail", spotifyRaw=track.spotify_raw)
+                _append_log(track.name, track.artist, None, getsongbpm="fail", deezer="fail")
                 _store_bpm_db(track, 0, "not_found")
 
         _state["tracks_done"] += 1

@@ -17,7 +17,6 @@ function fmtElapsed(ms) {
 }
 
 const BAR_SEGMENTS = [
-  { key: 'spotify',    color: '#1db954', label: 'spotify'    },
   { key: 'getsongbpm', color: '#4ade80', label: 'getsong.co' },
   { key: 'deezer',     color: '#a78bfa', label: 'deezer'     },
   { key: 'notFound',   color: '#f44336', label: 'not found'  },
@@ -25,9 +24,9 @@ const BAR_SEGMENTS = [
 ]
 
 function BpmBar({ stats }) {
-  const { total, spotify, getsongbpm, deezer, notFound, pending } = stats
+  const { total, getsongbpm, deezer, notFound, pending } = stats
   if (!total) return null
-  const counts = { spotify, getsongbpm, deezer, notFound, pending }
+  const counts = { getsongbpm, deezer, notFound, pending }
   const [hovered, setHovered] = useState(null)
 
   return (
@@ -50,7 +49,7 @@ function BpmBar({ stats }) {
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px', marginTop: 8 }}>
         {BAR_SEGMENTS.map(seg => {
           const n = counts[seg.key]
-          if (!n && seg.key !== 'spotify' && seg.key !== 'getsongbpm' && seg.key !== 'deezer' && seg.key !== 'notFound') return null
+          if (!n && seg.key !== 'getsongbpm' && seg.key !== 'deezer' && seg.key !== 'notFound') return null
           const pct = Math.round((n / total) * 100)
           const isHovered = hovered === seg.key
           return (
@@ -82,7 +81,6 @@ function BpmBar({ stats }) {
   )
 }
 
-// One log entry per track: { name, artist, bpm, getsongbpm: 'pass'|'fail', deezer?: 'pass'|'fail' }
 function LogEntry({ e }) {
   const bpmText = e.bpm ? `${e.bpm} bpm` : '—'
   return (
@@ -95,7 +93,7 @@ function LogEntry({ e }) {
         <span style={{ color: e.bpm ? '#4ade80' : '#9ab0d0', fontWeight: 500 }}>{bpmText}</span>
       </div>
       <div style={{ fontSize: 10, fontFamily: 'monospace', display: 'flex', gap: 14 }}>
-        {['spotify', 'getsongbpm', 'deezer'].map(key => {
+        {['getsongbpm', 'deezer'].map(key => {
           const val = e[key]
           const label = key === 'getsongbpm' ? 'getsong.co' : key
           const color = val === 'pass' ? '#4ade80' : val === 'fail' ? '#f44336' : '#374d66'
@@ -106,13 +104,6 @@ function LogEntry({ e }) {
           )
         })}
       </div>
-      {'spotifyRaw' in e && (
-        <div style={{ fontSize: 10, fontFamily: 'monospace', color: '#374d66' }}>
-          spotify raw: <span style={{ color: e.spotifyRaw > 0 ? '#4ade80' : e.spotifyRaw === 0 ? '#f44336' : '#9ab0d0' }}>
-            {e.spotifyRaw != null ? `${e.spotifyRaw} bpm` : 'null'}
-          </span>
-        </div>
-      )}
     </div>
   )
 }
@@ -333,24 +324,12 @@ export default function SpotifyExplorer() {
         return
       }
 
-      // Phase 1.5: batch-fetch Spotify audio features for all unique tracks (one call per 100)
-      const features = await spotify.getAudioFeatures(allTracks.map(t => t.id))
-
-      if (scanCancelRef.current) { setScanMode(null); return }
-
-      const tempoMap = new Map(
-        features.filter(f => f?.tempo > 0).map(f => [f.id, Math.round(f.tempo)])
-      )
-      const rawMap = new Map(features.filter(Boolean).map(f => [f.id, f.tempo ? Math.round(f.tempo) : 0]))
-
       // Phase 2: hand off to backend for persistent BPM resolution
       const scanTracks = allTracks.map(t => ({
-        spotify_id:  t.id,
-        name:        t.name,
-        artist:      t.artists[0]?.name ?? '',
-        album:       t.album?.name ?? '',
-        spotify_bpm: tempoMap.get(t.id) ?? null,
-        spotify_raw: rawMap.has(t.id) ? rawMap.get(t.id) : null,
+        spotify_id: t.id,
+        name:       t.name,
+        artist:     t.artists[0]?.name ?? '',
+        album:      t.album?.name ?? '',
       }))
 
       const res = await fetch('/api/bpm/scan/start', {
@@ -409,12 +388,11 @@ export default function SpotifyExplorer() {
 
   const bpmStats = useMemo(() => {
     if (!tracks || !tracks.length) return null
-    const spotify    = tracks.filter(t => t.bpmSource === 'spotify').length
     const getsongbpm = tracks.filter(t => t.bpmSource === 'getsongbpm').length
     const deezer     = tracks.filter(t => t.bpmSource === 'deezer').length
     const notFound   = tracks.filter(t => t.bpmSource === 'failed').length
     const pending    = tracks.filter(t => !t.bpmSource).length
-    return { total: tracks.length, spotify, getsongbpm, deezer, notFound, pending }
+    return { total: tracks.length, getsongbpm, deezer, notFound, pending }
   }, [tracks])
 
   const displayedTracks = useMemo(() => {
@@ -432,7 +410,6 @@ export default function SpotifyExplorer() {
 
   const globalBarStats = globalStats?.total > 0 ? {
     total:      globalStats.total,
-    spotify:    globalStats.spotify    ?? 0,
     getsongbpm: globalStats.getsongbpm ?? 0,
     deezer:     globalStats.deezer     ?? 0,
     notFound:   globalStats.not_found  ?? 0,
@@ -449,7 +426,7 @@ export default function SpotifyExplorer() {
           <span className="topbar-title">spt</span>
         </div>
         <div className="topbar-right">
-          <span className="topbar-version">v4.7</span>
+          <span className="topbar-version">v4.8</span>
         </div>
       </div>
       <div className="page">
@@ -625,7 +602,6 @@ export default function SpotifyExplorer() {
                 </div>
                 <div style={{ display: 'flex', gap: 16, marginTop: 12, flexWrap: 'wrap' }}>
                   {[
-                    { color: '#1db954', label: 'spotify' },
                     { color: '#4ade80', label: 'getsong.co' },
                     { color: '#a78bfa', label: 'deezer' },
                     { color: '#f44336', label: 'not found' },

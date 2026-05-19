@@ -86,36 +86,27 @@ export async function resolveBpms(tracks, onUpdate, onProgress, onLog) {
   for (const track of toResolve) {
     const artist = track.artists[0]?.name ?? ''
 
-    // Tier 0: Spotify Audio Features (already fetched by loadPlaylistTracks, no API call needed)
-    if (track.spotifyBpm) {
-      onLog?.({ name: track.name, artist, bpm: track.spotifyBpm, spotify: 'pass', getsongbpm: '—', deezer: '—', spotifyRaw: track.spotifyRaw })
-      onUpdate(track.id, track.spotifyBpm, 'spotify', false)
-      storeBpm({ spotify_id: track.id, title: track.name, artist, album: track.album, bpm: track.spotifyBpm, source: 'spotify' })
-      onProgress(++done, toResolve.length)
-      continue
-    }
-
-    // Tier 2: getsong.co (rate-limited)
+    // Tier 1: getsong.co (rate-limited)
     if (needDelay) await new Promise(r => setTimeout(r, GETSONG_DELAY))
     needDelay = true
 
     const gResult = await lookupGetSongBpm(track.name, artist)
 
     if (gResult.bpm) {
-      onLog?.({ name: track.name, artist, bpm: gResult.bpm, spotify: 'fail', getsongbpm: 'pass', deezer: '—', spotifyRaw: track.spotifyRaw ?? null })
+      onLog?.({ name: track.name, artist, bpm: gResult.bpm, getsongbpm: 'pass', deezer: '—' })
       onUpdate(track.id, gResult.bpm, 'getsongbpm', false)
       storeBpm({ spotify_id: track.id, title: track.name, artist, album: track.album, bpm: gResult.bpm, source: 'getsongbpm' })
     } else {
-      // Tier 3: Deezer
+      // Tier 2: Deezer
       await new Promise(r => setTimeout(r, DEEZER_DELAY))
       const dResult = await lookupDeezer(track.name, artist)
 
       if (dResult.bpm) {
-        onLog?.({ name: track.name, artist, bpm: dResult.bpm, spotify: 'fail', getsongbpm: 'fail', deezer: 'pass', spotifyRaw: track.spotifyRaw ?? null })
+        onLog?.({ name: track.name, artist, bpm: dResult.bpm, getsongbpm: 'fail', deezer: 'pass' })
         onUpdate(track.id, dResult.bpm, 'deezer', false)
         storeBpm({ spotify_id: track.id, title: track.name, artist, album: track.album, bpm: dResult.bpm, source: 'deezer' })
       } else {
-        onLog?.({ name: track.name, artist, bpm: null, spotify: 'fail', getsongbpm: 'fail', deezer: 'fail', spotifyRaw: track.spotifyRaw ?? null })
+        onLog?.({ name: track.name, artist, bpm: null, getsongbpm: 'fail', deezer: 'fail' })
         onUpdate(track.id, null, 'failed', false)
         storeBpm({ spotify_id: track.id, title: track.name, artist, album: track.album, bpm: 0, source: 'not_found' })
       }
