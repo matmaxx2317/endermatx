@@ -115,12 +115,14 @@ GAMES_DIR = Path(__file__).parent.parent / "games"
 # mount.  Starlette stops at the first full match in registration order, so
 # without these the mount would intercept /games/ and serve the old static
 # games/index.html instead of the React SPA.
+NO_CACHE = {"Cache-Control": "no-cache, no-store, must-revalidate"}
+
 @app.get("/games")
 @app.get("/games/")
 async def games_page():
     index = FRONTEND_DIST / "index.html"
     if index.exists():
-        return FileResponse(index)
+        return FileResponse(index, headers=NO_CACHE)
     return {"status": "api running"}
 
 
@@ -152,7 +154,7 @@ async def info():
 async def root():
     index = FRONTEND_DIST / "index.html"
     if index.exists():
-        return FileResponse(index)
+        return FileResponse(index, headers=NO_CACHE)
     return {"status": "api running"}
 
 
@@ -168,5 +170,5 @@ async def spa_fallback(full_path: str):
         pass  # path traversal attempt — fall through to index.html
     index = FRONTEND_DIST / "index.html"
     if index.exists():
-        return FileResponse(index)
+        return FileResponse(index, headers=NO_CACHE)
     return {"status": "api running"}
