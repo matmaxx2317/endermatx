@@ -14,7 +14,7 @@ function fmtIsoDate(s) {
 const MONTHS   = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 const COLORS   = ['#4a9eff','#e74c3c','#2ecc71','#f1c40f','#9b59b6','#e67e22','#1abc9c','#e91e63']
 const COUNTRIES = ['DE','AT','US','GB','FR','CN','JP']
-const COUNTRY_LABEL = { DE:'Germany', AT:'Austria', US:'USA', GB:'UK', FR:'France', CN:'China', JP:'Japan' }
+const COUNTRY_LABEL = { DE:'Bavaria', AT:'Austria', US:'USA', GB:'UK', FR:'France', CN:'China', JP:'Japan' }
 
 // Tinted backgrounds and dot colors for each country's holidays
 const HOLIDAY_BG = {
@@ -96,6 +96,7 @@ function getHolidays(years, countries) {
 
     if (countries.includes('DE')) {
       add(fixedKey(year,1,1),  'Neujahr', 'DE')
+      add(fixedKey(year,1,6),  'Heilige Drei Könige', 'DE')
       add(easterKey(e,-2),     'Karfreitag', 'DE')
       add(fmtKey(e),           'Ostersonntag', 'DE')
       add(easterKey(e,1),      'Ostermontag', 'DE')
@@ -104,7 +105,9 @@ function getHolidays(years, countries) {
       add(easterKey(e,49),     'Pfingstsonntag', 'DE')
       add(easterKey(e,50),     'Pfingstmontag', 'DE')
       add(easterKey(e,60),     'Fronleichnam', 'DE')
+      add(fixedKey(year,8,15), 'Mariä Himmelfahrt', 'DE')
       add(fixedKey(year,10,3), 'Tag der deutschen Einheit', 'DE')
+      add(fixedKey(year,11,1), 'Allerheiligen', 'DE')
       add(fixedKey(year,12,25),'1. Weihnachtstag', 'DE')
       add(fixedKey(year,12,26),'2. Weihnachtstag', 'DE')
     }
