@@ -17,8 +17,8 @@ function fmtElapsed(ms) {
 }
 
 const BAR_SEGMENTS = [
-  { key: 'getsongbpm', color: '#4ade80', label: 'getsong.co' },
   { key: 'deezer',     color: '#a78bfa', label: 'deezer'     },
+  { key: 'getsongbpm', color: '#4ade80', label: 'getsong.co' },
   { key: 'notFound',   color: '#f44336', label: 'not found'  },
   { key: 'pending',    color: '#1a2840', label: 'pending'    },
 ]
@@ -49,7 +49,7 @@ function BpmBar({ stats }) {
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px', marginTop: 8 }}>
         {BAR_SEGMENTS.map(seg => {
           const n = counts[seg.key]
-          if (!n && seg.key !== 'getsongbpm' && seg.key !== 'deezer' && seg.key !== 'notFound') return null
+          if (!n && seg.key !== 'deezer' && seg.key !== 'getsongbpm' && seg.key !== 'notFound') return null
           const pct = Math.round((n / total) * 100)
           const isHovered = hovered === seg.key
           return (
@@ -93,7 +93,7 @@ function LogEntry({ e }) {
         <span style={{ color: e.bpm ? '#4ade80' : '#9ab0d0', fontWeight: 500 }}>{bpmText}</span>
       </div>
       <div style={{ fontSize: 10, fontFamily: 'monospace', display: 'flex', gap: 14 }}>
-        {['getsongbpm', 'deezer'].map(key => {
+        {['deezer', 'getsongbpm'].map(key => {
           const val = e[key]
           const label = key === 'getsongbpm' ? 'getsong.co' : key
           const color = val === 'pass' ? '#4ade80' : val === 'fail' ? '#f44336' : '#374d66'
@@ -426,7 +426,7 @@ export default function SpotifyExplorer() {
           <span className="topbar-title">spt</span>
         </div>
         <div className="topbar-right">
-          <span className="topbar-version">v4.8</span>
+          <span className="topbar-version">v4.9</span>
         </div>
       </div>
       <div className="page">
@@ -602,8 +602,8 @@ export default function SpotifyExplorer() {
                 </div>
                 <div style={{ display: 'flex', gap: 16, marginTop: 12, flexWrap: 'wrap' }}>
                   {[
-                    { color: '#4ade80', label: 'getsong.co' },
                     { color: '#a78bfa', label: 'deezer' },
+                    { color: '#4ade80', label: 'getsong.co' },
                     { color: '#f44336', label: 'not found' },
                     { color: '#eef2ff', label: 'pending' },
                   ].map(({ color, label }) => (

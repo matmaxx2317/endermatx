@@ -103,59 +103,60 @@ def _do_scan(tracks: list[ScanTrack]) -> None:
 
     for track in to_resolve:
 
-        # Tier 1: getsong.co (rate-limited)
+        # Tier 2: Deezer (rate-limited)
         if need_delay:
-            time.sleep(_GETSONG_DELAY)
+            time.sleep(_DEEZER_DELAY)
         need_delay = True
         bpm = None
-        if api_key:
-            results = _getsong_results(api_key, track.name)
+
+        results = _deezer_search(track.name, track.artist)
+        if not results:
             cleaned = _clean_title(track.name)
-            if not results and cleaned != track.name:
-                results = _getsong_results(api_key, cleaned)
-            match = _pick_best(results, track.artist) if results else None
-            if match:
+            if cleaned != track.name:
+                results = _deezer_search(cleaned, track.artist)
+
+        deezer_bpm = None
+        if results:
+            deezer_track = _pick_deezer(results, track.artist)
+            if deezer_track:
                 try:
-                    bpm = round(float(match["tempo"]))
-                except (ValueError, TypeError):
-                    bpm = None
+                    r = httpx.get(
+                        f"https://api.deezer.com/track/{deezer_track['id']}",
+                        headers={"User-Agent": "endermatx/1.0 (https://matmaxx.org)"},
+                        timeout=10,
+                    )
+                    if r.is_success:
+                        val_raw = r.json().get("bpm")
+                        if val_raw:
+                            val = round(float(val_raw))
+                            if val > 0:
+                                deezer_bpm = val
+                except Exception:
+                    pass
 
-        if bpm:
-            _append_log(track.name, track.artist, bpm, getsongbpm="pass", deezer="—")
-            _store_bpm_db(track, bpm, "getsongbpm")
+        if deezer_bpm:
+            _append_log(track.name, track.artist, deezer_bpm, deezer="pass", getsongbpm="—")
+            _store_bpm_db(track, deezer_bpm, "deezer")
         else:
-            # Tier 2: Deezer
-            time.sleep(_DEEZER_DELAY)
-            results = _deezer_search(track.name, track.artist)
-            if not results:
+            # Tier 3: getsong.co
+            time.sleep(_GETSONG_DELAY)
+            if api_key:
+                results = _getsong_results(api_key, track.name)
                 cleaned = _clean_title(track.name)
-                if cleaned != track.name:
-                    results = _deezer_search(cleaned, track.artist)
-
-            deezer_bpm = None
-            if results:
-                deezer_track = _pick_deezer(results, track.artist)
-                if deezer_track:
+                if not results and cleaned != track.name:
+                    results = _getsong_results(api_key, cleaned)
+                match = _pick_best(results, track.artist) if results else None
+                if match:
                     try:
-                        r = httpx.get(
-                            f"https://api.deezer.com/track/{deezer_track['id']}",
-                            headers={"User-Agent": "endermatx/1.0 (https://matmaxx.org)"},
-                            timeout=10,
-                        )
-                        if r.is_success:
-                            val_raw = r.json().get("bpm")
-                            if val_raw:
-                                val = round(float(val_raw))
-                                if val > 0:
-                                    deezer_bpm = val
-                    except Exception:
-                        pass
+                        bpm = round(float(match["tempo"]))
+                    except (ValueError, TypeError):
+                        bpm = None
 
-            if deezer_bpm:
-                _append_log(track.name, track.artist, deezer_bpm, getsongbpm="fail", deezer="pass")
-                _store_bpm_db(track, deezer_bpm, "deezer")
+            if bpm:
+                _append_log(track.name, track.artist, bpm, deezer="fail", getsongbpm="pass")
+                _store_bpm_db(track, bpm, "getsongbpm")
             else:
-                _append_log(track.name, track.artist, None, getsongbpm="fail", deezer="fail")
+                _append_log(track.name, track.artist, None, deezer="fail", getsongbpm="fail")
                 _store_bpm_db(track, 0, "not_found")
 
         _state["tracks_done"] += 1

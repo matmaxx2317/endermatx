@@ -24,24 +24,7 @@ async function storeBpm(entry) {
   } catch { /* non-fatal */ }
 }
 
-// ── Tier 2: GetSongBPM via backend proxy ─────────────────────
-
-async function lookupGetSongBpm(title, artist) {
-  try {
-    const params = new URLSearchParams({ title, artist })
-    const res = await fetch(`/api/bpm/getsongbpm?${params}`, {
-      signal: AbortSignal.timeout(12000),
-    })
-    const data = await res.json()
-    if (!res.ok) return { bpm: null, err: data?.detail ?? `HTTP ${res.status}` }
-    if (data.err) return { bpm: null, err: data.err, raw: data }
-    return { bpm: typeof data.bpm === 'number' ? data.bpm : null, raw: data }
-  } catch (e) {
-    return { bpm: null, err: e.message }
-  }
-}
-
-// ── Tier 3: Deezer (free, no auth) ───────────────────────────
+// ── Tier 2: Deezer (free, no auth) ───────────────────────────
 
 async function lookupDeezer(title, artist) {
   try {
@@ -58,10 +41,27 @@ async function lookupDeezer(title, artist) {
   }
 }
 
+// ── Tier 3: GetSongBPM via backend proxy ─────────────────────
+
+async function lookupGetSongBpm(title, artist) {
+  try {
+    const params = new URLSearchParams({ title, artist })
+    const res = await fetch(`/api/bpm/getsongbpm?${params}`, {
+      signal: AbortSignal.timeout(12000),
+    })
+    const data = await res.json()
+    if (!res.ok) return { bpm: null, err: data?.detail ?? `HTTP ${res.status}` }
+    if (data.err) return { bpm: null, err: data.err, raw: data }
+    return { bpm: typeof data.bpm === 'number' ? data.bpm : null, raw: data }
+  } catch (e) {
+    return { bpm: null, err: e.message }
+  }
+}
+
 // ── Main resolution entry point ───────────────────────────────
 
-const GETSONG_DELAY = 400  // ms between getsong.co calls
-const DEEZER_DELAY  = 400  // ms between Deezer calls
+const DEEZER_DELAY   = 400  // ms between Deezer calls
+const GETSONG_DELAY  = 400  // ms between getsong.co calls
 
 export async function resolveBpms(tracks, onUpdate, onProgress, onLog) {
   // Tier 1: DB batch lookup — real BPM entries used as cache; not_found entries retried
@@ -81,32 +81,32 @@ export async function resolveBpms(tracks, onUpdate, onProgress, onLog) {
   if (!toResolve.length) return
 
   let done = 0
-  let needDelay = false  // only delay before getsong.co/Deezer calls
+  let needDelay = false  // only delay before Deezer/getsong.co calls
 
   for (const track of toResolve) {
     const artist = track.artists[0]?.name ?? ''
 
-    // Tier 1: getsong.co (rate-limited)
-    if (needDelay) await new Promise(r => setTimeout(r, GETSONG_DELAY))
+    // Tier 2: Deezer (rate-limited)
+    if (needDelay) await new Promise(r => setTimeout(r, DEEZER_DELAY))
     needDelay = true
 
-    const gResult = await lookupGetSongBpm(track.name, artist)
+    const dResult = await lookupDeezer(track.name, artist)
 
-    if (gResult.bpm) {
-      onLog?.({ name: track.name, artist, bpm: gResult.bpm, getsongbpm: 'pass', deezer: '—' })
-      onUpdate(track.id, gResult.bpm, 'getsongbpm', false)
-      storeBpm({ spotify_id: track.id, title: track.name, artist, album: track.album, bpm: gResult.bpm, source: 'getsongbpm' })
+    if (dResult.bpm) {
+      onLog?.({ name: track.name, artist, bpm: dResult.bpm, deezer: 'pass', getsongbpm: '—' })
+      onUpdate(track.id, dResult.bpm, 'deezer', false)
+      storeBpm({ spotify_id: track.id, title: track.name, artist, album: track.album, bpm: dResult.bpm, source: 'deezer' })
     } else {
-      // Tier 2: Deezer
-      await new Promise(r => setTimeout(r, DEEZER_DELAY))
-      const dResult = await lookupDeezer(track.name, artist)
+      // Tier 3: getsong.co
+      await new Promise(r => setTimeout(r, GETSONG_DELAY))
+      const gResult = await lookupGetSongBpm(track.name, artist)
 
-      if (dResult.bpm) {
-        onLog?.({ name: track.name, artist, bpm: dResult.bpm, getsongbpm: 'fail', deezer: 'pass' })
-        onUpdate(track.id, dResult.bpm, 'deezer', false)
-        storeBpm({ spotify_id: track.id, title: track.name, artist, album: track.album, bpm: dResult.bpm, source: 'deezer' })
+      if (gResult.bpm) {
+        onLog?.({ name: track.name, artist, bpm: gResult.bpm, deezer: 'fail', getsongbpm: 'pass' })
+        onUpdate(track.id, gResult.bpm, 'getsongbpm', false)
+        storeBpm({ spotify_id: track.id, title: track.name, artist, album: track.album, bpm: gResult.bpm, source: 'getsongbpm' })
       } else {
-        onLog?.({ name: track.name, artist, bpm: null, getsongbpm: 'fail', deezer: 'fail' })
+        onLog?.({ name: track.name, artist, bpm: null, deezer: 'fail', getsongbpm: 'fail' })
         onUpdate(track.id, null, 'failed', false)
         storeBpm({ spotify_id: track.id, title: track.name, artist, album: track.album, bpm: 0, source: 'not_found' })
       }
