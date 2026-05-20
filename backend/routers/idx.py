@@ -38,6 +38,21 @@ def update_idea(iid: int, body: schemas.IdeaUpdate, db: Session = Depends(get_db
     return idea
 
 
+@router.put("/ideas/reorder", response_model=list[schemas.IdeaOut])
+def reorder_ideas(body: schemas.IdeaReorder, db: Session = Depends(get_db)):
+    for rank, iid in enumerate(body.ids):
+        idea = db.get(models.Idea, iid)
+        if idea:
+            idea.rank = rank
+    db.commit()
+    return (
+        db.query(models.Idea)
+        .filter(models.Idea.id.in_(body.ids))
+        .order_by(models.Idea.rank)
+        .all()
+    )
+
+
 @router.delete("/ideas/{iid}", status_code=204)
 def delete_idea(iid: int, db: Session = Depends(get_db)):
     idea = db.get(models.Idea, iid)

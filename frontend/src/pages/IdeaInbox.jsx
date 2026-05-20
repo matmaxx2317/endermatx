@@ -10,7 +10,7 @@ const TABS = [
   { key: 'stats',    label: 'ST',  status: null },
 ]
 
-function IdeaCard({ idea, tab, onTransition, onUpdate, editId, setEditId }) {
+function IdeaCard({ idea, tab, onTransition, onUpdate, editId, setEditId, dragHandle = null }) {
   const wrapRef = useRef(null)
   const cardRef = useRef(null)
   const stateRef = useRef({ tab, onTransition, ideaId: idea.id })
@@ -143,6 +143,7 @@ function IdeaCard({ idea, tab, onTransition, onUpdate, editId, setEditId }) {
       <div className="swipe-bg swipe-right">{rightLabel}</div>
       <div className={`swipe-bg swipe-left${leftKill ? ' kill-swipe' : ''}`}>{leftLabel}</div>
       <div className="idea-card" ref={cardRef}>
+        {dragHandle}
         <div className="idea-body">
           {isEditing ? (
             <input
@@ -342,11 +343,21 @@ function Stats({ ideas }) {
   )
 }
 
+function rankSort(a, b) {
+  if (a.rank == null && b.rank == null) return 0
+  if (a.rank == null) return 1
+  if (b.rank == null) return -1
+  return a.rank - b.rank
+}
+
 export default function IdeaInbox() {
   const [ideas, setIdeas]   = useState([])
   const [tab, setTab]       = useState('inbox')
   const [text, setText]     = useState('')
   const [editId, setEditId] = useState(null)
+  const [dragId, setDragId] = useState(null)
+  const [overId, setOverId] = useState(null)
+  const touchDragRef        = useRef(null)
 
   useEffect(() => { idx.getIdeas().then(setIdeas).catch(() => {}) }, [])
 
@@ -367,12 +378,63 @@ export default function IdeaInbox() {
     setIdeas(is => is.map(i => i.id === updated.id ? updated : i))
   }
 
+  function handleReorder(fromId, toId) {
+    if (!fromId || !toId || fromId === toId) return
+    const doItems = ideas.filter(i => i.status === 'promoted').sort(rankSort)
+    const fromIdx = doItems.findIndex(i => i.id === fromId)
+    const toIdx   = doItems.findIndex(i => i.id === toId)
+    if (fromIdx < 0 || toIdx < 0) return
+    const newOrder = [...doItems]
+    const [moved] = newOrder.splice(fromIdx, 1)
+    newOrder.splice(toIdx, 0, moved)
+    setIdeas(is => is.map(i => {
+      const pos = newOrder.findIndex(n => n.id === i.id)
+      return pos >= 0 ? { ...i, rank: pos } : i
+    }))
+    idx.reorderIdeas(newOrder.map(i => i.id)).catch(() => {})
+  }
+
+  function touchDragStart(e, id) {
+    if (touchDragRef.current) return
+    touchDragRef.current = { id, overId: null }
+    setDragId(id)
+    function onMove(ev) {
+      ev.preventDefault()
+      const y = ev.touches[0].clientY
+      let found = null
+      document.querySelectorAll('[data-drag-id]').forEach(el => {
+        if (found !== null) return
+        const r = el.getBoundingClientRect()
+        if (y >= r.top && y <= r.bottom) found = Number(el.dataset.dragId)
+      })
+      if (found !== touchDragRef.current?.overId) {
+        touchDragRef.current.overId = found
+        setOverId(found)
+      }
+    }
+    function onEnd() {
+      document.removeEventListener('touchmove', onMove)
+      document.removeEventListener('touchend', onEnd)
+      const { id: fromId, overId: toId } = touchDragRef.current || {}
+      touchDragRef.current = null
+      setDragId(null)
+      setOverId(null)
+      if (fromId && toId && fromId !== toId) handleReorder(fromId, toId)
+    }
+    document.addEventListener('touchmove', onMove, { passive: false })
+    document.addEventListener('touchend', onEnd)
+  }
+
   const visible = ideas
     .filter(i => {
       const t = TABS.find(t => t.key === tab)
       return t?.status && i.status === t.status
     })
-    .sort((a, b) => tab === 'done' ? new Date(b.updated_at) - new Date(a.updated_at) : 0)
+    .sort((a, b) => {
+      if (tab === 'done')     return new Date(b.updated_at) - new Date(a.updated_at)
+      if (tab === 'promoted') return rankSort(a, b)
+      return 0
+    })
 
   const counts = {}
   TABS.forEach(t => {
@@ -387,7 +449,7 @@ export default function IdeaInbox() {
           <span className="topbar-title">idx</span>
         </div>
         <div className="topbar-right">
-          <span className="topbar-version">v4.1</span>
+          <span className="topbar-version">v4.2</span>
         </div>
       </div>
       <div className="page">
@@ -420,6 +482,37 @@ export default function IdeaInbox() {
             {visible.map(idea => (
               tab === 'done' ? (
                 <DoneCard key={idea.id} idea={idea} onTransition={transition} />
+              ) : tab === 'promoted' ? (
+                <div
+                  key={idea.id}
+                  data-drag-id={idea.id}
+                  draggable
+                  onDragStart={() => setDragId(idea.id)}
+                  onDragOver={e => { e.preventDefault(); setOverId(idea.id) }}
+                  onDrop={() => { handleReorder(dragId, idea.id); setDragId(null); setOverId(null) }}
+                  onDragEnd={() => { setDragId(null); setOverId(null) }}
+                  style={{
+                    opacity: dragId === idea.id ? 0.35 : 1,
+                    outline: overId === idea.id && dragId !== idea.id ? '2px solid #8855ff' : 'none',
+                    outlineOffset: '-1px',
+                    transition: 'opacity 0.15s',
+                  }}
+                >
+                  <IdeaCard
+                    idea={idea}
+                    tab={tab}
+                    onTransition={transition}
+                    onUpdate={onUpdate}
+                    editId={editId}
+                    setEditId={setEditId}
+                    dragHandle={
+                      <span
+                        className="drag-handle"
+                        onTouchStart={e => { e.stopPropagation(); touchDragStart(e, idea.id) }}
+                      >⠿</span>
+                    }
+                  />
+                </div>
               ) : (
                 <IdeaCard
                   key={idea.id}

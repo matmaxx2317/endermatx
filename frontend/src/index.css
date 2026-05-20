@@ -696,6 +696,14 @@ input, textarea, select {
   color: #e0e0e0; padding: 3px 6px; font-size: 16px; outline: none;
 }
 
+.drag-handle {
+  cursor: grab; color: #2a3a4a; font-size: 14px; line-height: 1;
+  user-select: none; touch-action: none; flex-shrink: 0; align-self: center;
+  padding: 2px 4px 2px 0;
+}
+.drag-handle:hover { color: #4d6fa0; }
+.drag-handle:active { cursor: grabbing; }
+
 /* ── IDX stats ───────────────────────────────────────────────── */
 .stat-topline { display: flex; margin-bottom: 28px; }
 .stat-box { flex: 1; text-align: center; padding: 14px 6px; border: 1px solid #1e1e1e; background: #111; }

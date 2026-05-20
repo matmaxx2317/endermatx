@@ -52,6 +52,7 @@ class Idea(Base):
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     text = Column(String, nullable=False)
     status = Column(String, default="inbox")
+    rank = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow)
 

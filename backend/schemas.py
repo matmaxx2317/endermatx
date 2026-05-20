@@ -118,9 +118,13 @@ class IdeaOut(BaseModel):
     id: int
     text: str
     status: str
+    rank: Optional[int] = None
     created_at: UtcDt
     updated_at: UtcDt
     model_config = {"from_attributes": True}
+
+class IdeaReorder(BaseModel):
+    ids: list[int]
 
 
 # ── str ───────────────────────────────────────────────────────────────────────
