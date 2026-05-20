@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom'
 
 const GAMES = [
-  { href: '/games/teleport-tap/', label: '01', name: 'teleport-tap' },
-  { href: '/games/mobs-magic/',   label: '02', name: 'mobs-magic' },
+  { href: '/games/teleport-tap/', label: '01', name: 'teleport-tap',  ext: true },
+  { href: '/games/mobs-magic/',   label: '02', name: 'mobs-magic',    ext: true },
+  { href: '/block-hero',          label: '03', name: 'block hero',    ext: false },
 ]
 
 export default function Games() {
@@ -18,13 +19,21 @@ export default function Games() {
           <div className="nav-card-name">← back</div>
           <div className="nav-card-arrow"></div>
         </Link>
-        {GAMES.map(g => (
-          <a key={g.href} href={g.href} className="nav-card">
-            <div className="nav-card-label">{g.label}</div>
-            <div className="nav-card-name">{g.name}</div>
-            <div className="nav-card-arrow">→</div>
-          </a>
-        ))}
+        {GAMES.map(g => g.ext
+          ? (
+            <a key={g.href} href={g.href} className="nav-card">
+              <div className="nav-card-label">{g.label}</div>
+              <div className="nav-card-name">{g.name}</div>
+              <div className="nav-card-arrow">→</div>
+            </a>
+          ) : (
+            <Link key={g.href} to={g.href} className="nav-card">
+              <div className="nav-card-label">{g.label}</div>
+              <div className="nav-card-name">{g.name}</div>
+              <div className="nav-card-arrow">→</div>
+            </Link>
+          )
+        )}
       </nav>
     </div>
   )
