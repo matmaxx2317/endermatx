@@ -4,10 +4,10 @@ import { Link } from 'react-router-dom'
 // ─── Constants ────────────────────────────────────────────────────────────────
 const LOOK_AHEAD_S   = 2.1
 const HIT_PERFECT_S  = 0.065
-const HIT_GOOD_S     = 0.130
+const HIT_GOOD_S     = 0.150
 const SCORE_PERFECT  = 300
 const SCORE_GOOD     = 100
-const MISS_LIMITS    = { easy: 20, medium: 12, hard: 8 }
+const MISS_LIMITS    = { easy: 20, medium: 18, hard: 12 }
 const LANE_KEYS      = ['d', 'f', 'j', 'k']
 
 // Minecraft block colours: grass, dirt, stone, diamond
@@ -142,8 +142,8 @@ function generateChart(track) {
   const { beats, d } = track
   const cfg = {
     easy:   { step: 1.00, onProb: 0.58, dualProb: 0.05, minLaneGap: 2.0 },
-    medium: { step: 0.50, onProb: 0.62, dualProb: 0.22, minLaneGap: 1.0 },
-    hard:   { step: 0.25, onProb: 0.72, dualProb: 0.38, minLaneGap: 0.5 },
+    medium: { step: 0.75, onProb: 0.52, dualProb: 0.10, minLaneGap: 1.5 },
+    hard:   { step: 0.50, onProb: 0.62, dualProb: 0.22, minLaneGap: 0.75 },
   }[d]
 
   const notes = []
