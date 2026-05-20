@@ -6,6 +6,7 @@ const TABS = [
   { key: 'inbox',    label: 'IN',  status: 'inbox' },
   { key: 'promoted', label: 'DO',  status: 'promoted' },
   { key: 'deferred', label: 'BL',  status: 'deferred' },
+  { key: 'done',     label: 'DN',  status: 'done' },
   { key: 'stats',    label: 'ST',  status: null },
 ]
 
@@ -174,6 +175,43 @@ function IdeaCard({ idea, tab, onTransition, onUpdate, editId, setEditId }) {
   )
 }
 
+function DoneCard({ idea, onTransition }) {
+  const wrapRef = useRef(null)
+
+  function handleKill() {
+    const wrap = wrapRef.current
+    if (wrap) {
+      wrap.style.transition = 'opacity 0.15s ease, transform 0.15s ease'
+      wrap.style.opacity = '0'
+      wrap.style.transform = 'translateX(10px)'
+    }
+    setTimeout(() => {
+      const h = wrap?.offsetHeight || 0
+      if (wrap) {
+        wrap.style.height = h + 'px'
+        wrap.style.overflow = 'hidden'
+        wrap.offsetHeight
+        wrap.style.transition = 'height 0.15s ease'
+        wrap.style.height = '0'
+      }
+      setTimeout(() => onTransition(idea.id, 'killed'), 160)
+    }, 150)
+  }
+
+  return (
+    <div className="idea-wrap" ref={wrapRef}>
+      <div className="idea-card">
+        <div className="idea-body">
+          <div className="idea-text">{idea.text}</div>
+        </div>
+        <div className="idea-actions">
+          <button className="act kill" onClick={handleKill}>KILL</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function Stats({ ideas }) {
   const total      = ideas.length
   const inCount    = ideas.filter(i => i.status === 'inbox').length
@@ -329,10 +367,12 @@ export default function IdeaInbox() {
     setIdeas(is => is.map(i => i.id === updated.id ? updated : i))
   }
 
-  const visible = ideas.filter(i => {
-    const t = TABS.find(t => t.key === tab)
-    return t?.status && i.status === t.status
-  })
+  const visible = ideas
+    .filter(i => {
+      const t = TABS.find(t => t.key === tab)
+      return t?.status && i.status === t.status
+    })
+    .sort((a, b) => tab === 'done' ? new Date(b.updated_at) - new Date(a.updated_at) : 0)
 
   const counts = {}
   TABS.forEach(t => {
@@ -347,7 +387,7 @@ export default function IdeaInbox() {
           <span className="topbar-title">idx</span>
         </div>
         <div className="topbar-right">
-          <span className="topbar-version">v4.0</span>
+          <span className="topbar-version">v4.1</span>
         </div>
       </div>
       <div className="page">
@@ -378,15 +418,19 @@ export default function IdeaInbox() {
               <div style={{ color: '#444', fontSize: 13, padding: '20px 0', textAlign: 'center', letterSpacing: '0.05em' }}>empty</div>
             )}
             {visible.map(idea => (
-              <IdeaCard
-                key={idea.id}
-                idea={idea}
-                tab={tab}
-                onTransition={transition}
-                onUpdate={onUpdate}
-                editId={editId}
-                setEditId={setEditId}
-              />
+              tab === 'done' ? (
+                <DoneCard key={idea.id} idea={idea} onTransition={transition} />
+              ) : (
+                <IdeaCard
+                  key={idea.id}
+                  idea={idea}
+                  tab={tab}
+                  onTransition={transition}
+                  onUpdate={onUpdate}
+                  editId={editId}
+                  setEditId={setEditId}
+                />
+              )
             ))}
           </div>
         )}
