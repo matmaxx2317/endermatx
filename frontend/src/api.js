@@ -45,6 +45,7 @@ export const idx = {
   createIdea: (b)            => post('/idx/ideas', b),
   updateIdea: (id, b)        => put(`/idx/ideas/${id}`, b),
   deleteIdea: (id)           => del(`/idx/ideas/${id}`),
+  reorderIdeas: (ids)        => put('/idx/ideas/reorder', { ids }),
 }
 
 // ── str ───────────────────────────────────────────────────────
