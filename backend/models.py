@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import BigInteger, Boolean, Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy import BigInteger, Boolean, Column, Date, DateTime, Float, ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
 from .database import Base
 
@@ -81,3 +81,54 @@ class TrackBpm(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+# ── wmt ───────────────────────────────────────────────────────────────────────
+
+class WmtTeam(Base):
+    __tablename__ = "wmt_teams"
+    id             = Column(Integer, primary_key=True, autoincrement=True)
+    api_id         = Column(Integer, nullable=True, unique=True)
+    name           = Column(String, nullable=False)
+    short_name     = Column(String, nullable=True)
+    tla            = Column(String(5), nullable=True)
+    elo            = Column(Float, default=1700.0)
+    matches_played = Column(Integer, default=0)
+
+
+class WmtMatch(Base):
+    __tablename__ = "wmt_matches"
+    id           = Column(Integer, primary_key=True, autoincrement=True)
+    api_id       = Column(Integer, nullable=True, unique=True)
+    matchday     = Column(Integer, nullable=False)
+    stage        = Column(String, nullable=False)
+    group_name   = Column(String(10), nullable=True)
+    utc_date     = Column(DateTime, nullable=False)
+    home_team_id = Column(Integer, ForeignKey("wmt_teams.id"), nullable=True)
+    away_team_id = Column(Integer, ForeignKey("wmt_teams.id"), nullable=True)
+    status       = Column(String, default="SCHEDULED")
+    score_home   = Column(Integer, nullable=True)
+    score_away   = Column(Integer, nullable=True)
+    last_fetched = Column(DateTime, nullable=True)
+
+
+class WmtPrediction(Base):
+    __tablename__ = "wmt_predictions"
+    id              = Column(Integer, primary_key=True, autoincrement=True)
+    match_id        = Column(Integer, ForeignKey("wmt_matches.id"), nullable=False)
+    created_at      = Column(DateTime, default=datetime.utcnow)
+    home_win_prob   = Column(Float, nullable=False)
+    draw_prob       = Column(Float, nullable=False)
+    away_win_prob   = Column(Float, nullable=False)
+    pred_home_goals = Column(Float, nullable=False)
+    pred_away_goals = Column(Float, nullable=False)
+    home_elo        = Column(Float, nullable=True)
+    away_elo        = Column(Float, nullable=True)
+    reasoning       = Column(String, nullable=True)
+
+
+class WmtSummary(Base):
+    __tablename__ = "wmt_summaries"
+    id            = Column(Integer, primary_key=True, autoincrement=True)
+    date          = Column(Date, nullable=False, unique=True)
+    content       = Column(String, nullable=False)
+    matches_count = Column(Integer, default=0)
+    created_at    = Column(DateTime, default=datetime.utcnow)

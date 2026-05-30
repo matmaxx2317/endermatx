@@ -58,3 +58,13 @@ export const str = {
   undoChange: (id)           => del(`/str/guitars/${id}/change`),
 }
 
+// ── wmt ───────────────────────────────────────────────────────
+export const wmt = {
+  getMatches: ()             => get('/wmt/matches'),
+  getMatchPredictions: (id)  => get(`/wmt/matches/${id}/predictions`),
+  getTeams: ()               => get('/wmt/teams'),
+  getSummaries: ()           => get('/wmt/summaries'),
+  refresh: ()                => post('/wmt/refresh'),
+  generateSummary: ()        => post('/wmt/summary/generate'),
+}
+

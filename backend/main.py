@@ -2,7 +2,7 @@ import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 _startup_time = datetime.now(timezone.utc)
@@ -17,11 +17,45 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from .database import engine, Base, SessionLocal
 from .models import TtsEntry
-from .routers import tts, cal, idx, strings, bpm, scan
+from .routers import tts, cal, idx, strings, bpm, scan, wmt
+from .routers.wmt import do_refresh as _wmt_do_refresh, do_generate_summary as _wmt_do_summary
 
 logger = logging.getLogger(__name__)
 
 db_ready = False
+
+
+def _wmt_refresh() -> None:
+    """Refresh WM 2026 data every 30 minutes."""
+    db = SessionLocal()
+    try:
+        n = _wmt_do_refresh(db)
+        if n:
+            logger.info("WMT refresh: %d matches updated", n)
+        else:
+            logger.debug("WMT refresh: no changes")
+    except Exception as exc:
+        logger.error("WMT refresh failed: %s", exc)
+        db.rollback()
+    finally:
+        db.close()
+
+
+def _wmt_morning_summary() -> None:
+    """Generate morning summary at 06:00 for yesterday's matches."""
+    db = SessionLocal()
+    try:
+        yesterday = date.today() - timedelta(days=1)
+        content = _wmt_do_summary(db, yesterday)
+        if content:
+            logger.info("WMT morning summary generated for %s", yesterday)
+        else:
+            logger.debug("WMT morning summary: no finished matches for %s", yesterday)
+    except Exception as exc:
+        logger.error("WMT morning summary failed: %s", exc)
+        db.rollback()
+    finally:
+        db.close()
 
 
 def _close_open_tts_entries() -> None:
@@ -67,10 +101,21 @@ async def lifespan(app: FastAPI):
     scheduler.add_job(
         _close_open_tts_entries,
         CronTrigger(hour=23, minute=0),
-        misfire_grace_time=3600,  # run immediately on startup if missed within the last hour
+        misfire_grace_time=3600,
+    )
+    scheduler.add_job(
+        _wmt_refresh,
+        "interval",
+        minutes=30,
+        misfire_grace_time=3600,
+    )
+    scheduler.add_job(
+        _wmt_morning_summary,
+        CronTrigger(hour=6, minute=0),
+        misfire_grace_time=3600,
     )
     scheduler.start()
-    logger.info("EOD scheduler started — TTS entries will auto-close at 23:00")
+    logger.info("Scheduler started — TTS EOD at 23:00, WMT refresh every 30 min, WMT summary at 06:00")
 
     yield
 
@@ -107,6 +152,7 @@ app.include_router(idx.router, prefix="/api/idx", tags=["idx"])
 app.include_router(strings.router, prefix="/api/str", tags=["str"])
 app.include_router(bpm.router,      prefix="/api/bpm",      tags=["bpm"])
 app.include_router(scan.router,     prefix="/api/bpm/scan", tags=["scan"])
+app.include_router(wmt.router,      prefix="/api/wmt",      tags=["wmt"])
 
 FRONTEND_DIST = Path(__file__).parent.parent / "frontend" / "dist"
 GAMES_DIR = Path(__file__).parent.parent / "games"
