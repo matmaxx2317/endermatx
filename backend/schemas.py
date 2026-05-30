@@ -166,3 +166,60 @@ class TrackBpmOut(TrackBpmIn):
 class BatchLookupRequest(BaseModel):
     spotify_ids: list[str]
 
+
+# ── wmt ───────────────────────────────────────────────────────────────────────
+
+class WmtTeamOut(BaseModel):
+    id: int
+    api_id: Optional[int]
+    name: str
+    short_name: Optional[str]
+    tla: Optional[str]
+    elo: float
+    matches_played: int
+    model_config = {"from_attributes": True}
+
+
+class WmtPredictionOut(BaseModel):
+    id: int
+    match_id: int
+    created_at: UtcDt
+    home_win_prob: float
+    draw_prob: float
+    away_win_prob: float
+    pred_home_goals: float
+    pred_away_goals: float
+    home_elo: Optional[float]
+    away_elo: Optional[float]
+    reasoning: Optional[str]
+    model_config = {"from_attributes": True}
+
+
+class WmtMatchOut(BaseModel):
+    id: int
+    api_id: Optional[int]
+    matchday: int
+    stage: str
+    group_name: Optional[str]
+    utc_date: UtcDt
+    status: str
+    score_home: Optional[int]
+    score_away: Optional[int]
+    home_team: Optional[WmtTeamOut]
+    away_team: Optional[WmtTeamOut]
+    prediction: Optional[WmtPredictionOut]
+
+
+class WmtSummaryOut(BaseModel):
+    id: int
+    date: str
+    content: str
+    matches_count: int
+    created_at: UtcDt
+    model_config = {"from_attributes": True}
+
+
+class WmtRefreshOut(BaseModel):
+    message: str
+    updated: int
+
