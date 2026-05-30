@@ -179,20 +179,45 @@ class MusicEngine {
     this.nextBeat = 0
     this.timerId = null
 
-    // Build melodic material from seed
     const rng = mkRng(track.seed ^ 0xBEEF)
-    const roots = [60, 62, 64, 65, 67, 69, 71]
-    const rootMidi = roots[track.seed % roots.length] + (track.d === 'easy' ? 60 : track.d === 'medium' ? 62 : 65)
-    // Pentatonic major intervals
-    const pent = [0, 2, 4, 7, 9, 12, 14, 16, 19].map(s => rootMidi + s)
-    const phraseLen = 8
+
+    // Root note: cycle all 12 semitones across the 100 tracks (C4–B4)
+    const root = 60 + (track.id % 12)
+
+    // Scale: major or minor pentatonic chosen per track
+    const minor = rng() < 0.45
+    const intervals = minor
+      ? [0, 3, 5, 7, 10, 12, 15, 17, 19, 22]
+      : [0, 2, 4, 7,  9, 12, 14, 16, 19, 21]
+    const scale = intervals.map(s => root + s)
+
+    // Melody phrase — 8 or 16 beats
+    const phraseLen = rng() < 0.5 ? 8 : 16
     this.melody = Array.from({ length: phraseLen }, () =>
-      rng() < 0.25 ? null : pent[Math.floor(rng() * pent.length)]
+      rng() < 0.35 ? null : scale[Math.floor(rng() * scale.length)]
     )
-    this.bass = [rootMidi - 12, null, rootMidi - 5, null]
+
+    // Bass — 4 pattern variants
+    const br = root - 12, bf = root - 5
+    const bassVars = [
+      [br, null, bf, null],
+      [br, null, br, bf],
+      [br, br,   null, bf],
+      [br, null, null, bf],
+    ]
+    this.bass = bassVars[Math.floor(rng() * 4)]
+
+    // Drum pattern — 4 variants (selected per track so each track has its own groove)
+    this.drumVar = Math.floor(rng() * 4)
+
+    // Melody oscillator timbre varies per track
+    this.melOsc = rng() < 0.4 ? 'sawtooth' : 'square'
+
+    // Arp layer for medium and hard
     if (track.d !== 'easy') {
-      this.arp = Array.from({ length: 16 }, () =>
-        rng() < 0.35 ? null : pent[Math.floor(rng() * 5)]
+      const arpLen = 8 + Math.floor(rng() * 3) * 4
+      this.arp = Array.from({ length: arpLen }, () =>
+        rng() < 0.32 ? null : scale[Math.floor(rng() * 5)] + 12
       )
     }
   }
@@ -232,22 +257,47 @@ class MusicEngine {
   _beat(beat, t) {
     const bps = this.track.bpm / 60
     const bar = beat % 4
-    if (bar === 0 || bar === 2) this._kick(t)
-    if (bar === 1 || bar === 3) this._snare(t)
+
+    // Four distinct drum grooves — chosen once per track in the constructor
+    switch (this.drumVar) {
+      case 0: // standard 4/4: kick 1&3, snare 2&4
+        if (bar === 0 || bar === 2) this._kick(t)
+        if (bar === 1 || bar === 3) this._snare(t)
+        break
+      case 1: // double-kick: kick 1, 2&, 3 — snare on 2
+        if (bar === 0 || bar === 2 || bar === 3) this._kick(t)
+        if (bar === 2) this._kick(t + 0.5 / bps)
+        if (bar === 1) this._snare(t)
+        break
+      case 2: // half-time: kick 1, snare 3 only
+        if (bar === 0 || bar === 1) this._kick(t)
+        if (bar === 2) this._snare(t)
+        if (bar === 3) this._kick(t)
+        break
+      default: // four-on-the-floor: kick every beat, snare 2&4
+        this._kick(t)
+        if (bar === 1 || bar === 3) this._snare(t)
+    }
+
+    // Hi-hat density scales with difficulty
     this._hihat(t, 0.06)
-    this._hihat(t + 0.5 / bps, 0.035)
+    if (this.track.d !== 'easy')  this._hihat(t + 0.5 / bps, 0.035)
+    if (this.track.d === 'hard') {
+      this._hihat(t + 0.25 / bps, 0.02)
+      this._hihat(t + 0.75 / bps, 0.02)
+    }
 
     const melMidi = this.melody[beat % this.melody.length]
-    if (melMidi != null) this._osc(t, midiToFreq(melMidi), 0.14, 'square', 0.38 / bps)
+    if (melMidi != null) this._osc(t, midiToFreq(melMidi), 0.14, this.melOsc, 0.38 / bps)
 
     const bassMidi = this.bass[beat % this.bass.length]
     if (bassMidi != null) this._osc(t, midiToFreq(bassMidi), 0.11, 'triangle', 0.78 / bps)
 
     if (this.arp) {
-      for (let i = 0; i < 2; i++) {
-        const idx = ((beat * 2) + i) % this.arp.length
-        const m = this.arp[idx]
-        if (m != null) this._osc(t + i * 0.5 / bps, midiToFreq(m + 12), 0.055, 'square', 0.22 / bps)
+      const steps = this.track.d === 'hard' ? 2 : 1
+      for (let i = 0; i < steps; i++) {
+        const m = this.arp[(beat * steps + i) % this.arp.length]
+        if (m != null) this._osc(t + (i / steps) / bps, midiToFreq(m), 0.055, 'square', 0.22 / bps)
       }
     }
   }
