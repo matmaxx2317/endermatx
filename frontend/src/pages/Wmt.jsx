@@ -324,7 +324,7 @@ export default function Wmt() {
             { ...prev[0], status: 'loading', detail: `${ctx} · ${home} vs ${away}` },
             prev[1],
           ])
-          await new Promise(r => setTimeout(r, 12))
+          await new Promise(r => setTimeout(r, 20))
         }
         setLoadSteps(prev => [
           { status: 'done', detail: `${ms.length} Spiel${ms.length !== 1 ? 'e' : ''} geladen` },
@@ -361,13 +361,18 @@ export default function Wmt() {
   async function handleRefresh() {
     setRefreshing(true)
     setStatusMsg('')
-    setRefreshSteps([
-      { label: 'football-data.org abfragen', status: 'loading', detail: null },
-    ])
+    const t0 = Date.now()
+    const ticker = setInterval(() => {
+      const s = Math.floor((Date.now() - t0) / 1000)
+      setRefreshSteps([{ label: 'football-data.org abfragen', status: 'loading', detail: `${s}s` }])
+    }, 500)
+    setRefreshSteps([{ label: 'football-data.org abfragen', status: 'loading', detail: '0s' }])
     try {
       const res = await wmt.refresh()
+      clearInterval(ticker)
+      const elapsed = ((Date.now() - t0) / 1000).toFixed(1)
       setRefreshSteps([
-        { label: 'football-data.org', status: 'done', detail: res.message },
+        { label: 'football-data.org', status: 'done', detail: `${res.message} (${elapsed}s)` },
         { label: 'Ansicht aktualisieren', status: 'loading', detail: null },
       ])
       await loadAll(true)
@@ -377,6 +382,7 @@ export default function Wmt() {
       ])
       setTimeout(() => setRefreshSteps([]), 3000)
     } catch (e) {
+      clearInterval(ticker)
       setRefreshSteps(prev => prev.map(s =>
         s.status === 'loading' ? { ...s, status: 'error', detail: 'Fehler' } : s
       ))
