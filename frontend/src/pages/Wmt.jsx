@@ -569,7 +569,7 @@ export default function Wmt() {
         {!loading && view === 'zusammenfassung' && (
           <>
             {summaries.length === 0 ? (
-              <div style={{ color: '#374d66', fontSize: 13 }}>
+              <div style={{ color: '#9ab0d0', fontSize: 13 }}>
                 Noch keine Zusammenfassungen vorhanden. Die erste erscheint am Morgen nach dem ersten Spieltag.
               </div>
             ) : (
@@ -614,7 +614,7 @@ function GroupModal({ group, teams, onClose }) {
           <span style={{ fontSize: 11, color: '#374d66', letterSpacing: '0.1em' }}>GRUPPE {group}</span>
           <button
             onClick={onClose}
-            style={{ background: 'none', border: 'none', color: '#374d66', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: 0 }}>
+            style={{ background: 'none', border: 'none', color: '#9ab0d0', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: 0 }}>
             ✕
           </button>
         </div>
@@ -623,18 +623,18 @@ function GroupModal({ group, teams, onClose }) {
             display: 'flex', alignItems: 'center', gap: 10,
             padding: '9px 0', borderTop: i > 0 ? '1px solid #1a2840' : 'none',
           }}>
-            <span style={{ fontSize: 11, color: '#374d66', width: 16, flexShrink: 0 }}>{i + 1}.</span>
+            <span style={{ fontSize: 11, color: '#9ab0d0', width: 16, flexShrink: 0 }}>{i + 1}.</span>
             <div style={{ flex: 1 }}>
               <span style={{ fontSize: 13, fontWeight: i === 0 ? 600 : 400, color: i === 0 ? '#eef2ff' : '#9ab0d0', marginRight: 7 }}>
                 {t.tla}
               </span>
-              <span style={{ fontSize: 11, color: '#374d66' }}>{t.team}</span>
+              <span style={{ fontSize: 11, color: '#9ab0d0' }}>{t.team}</span>
             </div>
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
               <div style={{ fontSize: 12, color: '#4d6fa0', fontVariantNumeric: 'tabular-nums' }}>
                 {(t.prob_1st * 100).toFixed(0)}% 1.
               </div>
-              <div style={{ fontSize: 10, color: '#374d66', marginTop: 2, fontVariantNumeric: 'tabular-nums' }}>
+              <div style={{ fontSize: 10, color: '#9ab0d0', marginTop: 2, fontVariantNumeric: 'tabular-nums' }}>
                 {(t.prob_top2 * 100).toFixed(0)}% Top 2 · {(t.prob_top3 * 100).toFixed(0)}% Top 3
               </div>
             </div>
@@ -806,13 +806,13 @@ function BonusView({ bonus, generating, onGenerate }) {
                       <span style={{
                         fontSize: i === 0 ? 12 : 11,
                         fontWeight: i === 0 ? 600 : 400,
-                        color: i === 0 ? '#eef2ff' : i === 1 ? '#9ab0d0' : '#374d66',
+                        color: i === 0 ? '#eef2ff' : '#9ab0d0',
                       }}>
                         {i + 1}. {t.tla}
                       </span>
                       <span style={{
                         fontSize: i === 0 ? 11 : 10,
-                        color: i === 0 ? '#4d6fa0' : '#374d66',
+                        color: i === 0 ? '#4d6fa0' : '#9ab0d0',
                         fontVariantNumeric: 'tabular-nums',
                       }}>
                         {(t.prob_1st * 100).toFixed(0)}%
@@ -836,57 +836,47 @@ function BonusView({ bonus, generating, onGenerate }) {
           WIE FUNKTIONIERT DIE SIMULATION?
         </div>
 
-        <div style={{ fontSize: 12, color: '#374d66', lineHeight: 1.8 }}>
+        <div style={{ fontSize: 12, color: '#9ab0d0', lineHeight: 1.8 }}>
           <p style={{ marginBottom: 12 }}>
             Die Prognose basiert auf einer{' '}
-            <span style={{ color: '#9ab0d0' }}>Monte-Carlo-Simulation</span>{' '}
+            <span style={{ color: '#eef2ff' }}>Monte-Carlo-Simulation</span>{' '}
             mit {bonus.n_simulations.toLocaleString('de-DE')} Turnierdurchläufen.
             Jeder Durchlauf simuliert das gesamte WM-Turnier von der Gruppenphase bis zum Finale.
             Die angezeigten Prozentwerte geben an, wie häufig ein Ergebnis in diesen Durchläufen eingetreten ist.
           </p>
 
           <div style={{ marginBottom: 10 }}>
-            <span style={{ color: '#9ab0d0' }}>ELO-Rating</span>
-            <span style={{ color: '#374d66' }}>
-              {' '}— Jedes Team erhält ein ELO-Rating, das auf Ergebnissen der letzten WM und anderen internationalen Spielen basiert.
-              Stärkere Teams haben höhere Ratings; ein Unterschied von 400 Punkten entspricht grob einer Gewinnwahrscheinlichkeit von ca. 85:15.
-            </span>
+            <span style={{ color: '#eef2ff' }}>ELO-Rating</span>
+            {' '}— Jedes Team erhält ein ELO-Rating, das auf Ergebnissen der letzten WM und anderen internationalen Spielen basiert.
+            Stärkere Teams haben höhere Ratings; ein Unterschied von 400 Punkten entspricht grob einer Gewinnwahrscheinlichkeit von ca. 85:15.
           </div>
 
           <div style={{ marginBottom: 10 }}>
-            <span style={{ color: '#9ab0d0' }}>Gruppenphase</span>
-            <span style={{ color: '#374d66' }}>
-              {' '}— In jedem Durchlauf wird jedes Gruppenspiel einzeln simuliert.
-              Aus den ELO-Ratings wird eine erwartete Toranzahl (xG) pro Team abgeleitet;
-              die tatsächlichen Tore werden per Poisson-Verteilung zufällig gezogen.
-              Bereits gespielte Partien fließen mit ihrem echten Ergebnis ein.
-            </span>
+            <span style={{ color: '#eef2ff' }}>Gruppenphase</span>
+            {' '}— In jedem Durchlauf wird jedes Gruppenspiel einzeln simuliert.
+            Aus den ELO-Ratings wird eine erwartete Toranzahl (xG) pro Team abgeleitet;
+            die tatsächlichen Tore werden per Poisson-Verteilung zufällig gezogen.
+            Bereits gespielte Partien fließen mit ihrem echten Ergebnis ein.
           </div>
 
           <div style={{ marginBottom: 10 }}>
-            <span style={{ color: '#9ab0d0' }}>K.O.-Runde</span>
-            <span style={{ color: '#374d66' }}>
-              {' '}— Die besten zwei jeder Gruppe sowie die acht besten Gruppendritter (nach Punkten, Tordifferenz, Toren) qualifizieren sich für die Runde der 32.
-              Der K.O.-Baum wird in jedem Durchlauf zufällig neu gelost, damit keine bestimmte Hälfte bevorzugt wird.
-              Bei Unentschieden nach 90 Minuten entscheidet ein ELO-gewichteter Münzwurf (analog Elfmeterschießen).
-            </span>
+            <span style={{ color: '#eef2ff' }}>K.O.-Runde</span>
+            {' '}— Die besten zwei jeder Gruppe sowie die acht besten Gruppendritter (nach Punkten, Tordifferenz, Toren) qualifizieren sich für die Runde der 32.
+            Der K.O.-Baum wird in jedem Durchlauf zufällig neu gelost, damit keine bestimmte Hälfte bevorzugt wird.
+            Bei Unentschieden nach 90 Minuten entscheidet ein ELO-gewichteter Münzwurf (analog Elfmeterschießen).
           </div>
 
           <div style={{ marginBottom: 10 }}>
-            <span style={{ color: '#9ab0d0' }}>Torschützenkönig</span>
-            <span style={{ color: '#374d66' }}>
-              {' '}— Die Prognose nutzt Torschützendaten aus WC 2026 (sofern verfügbar), WC 2022 und EC 2024 von football-data.org.
-              Aus der Torrate pro Spiel und der erwarteten Turnierlänge (abhängig vom ELO-Rating des Teams) wird eine prognostizierte Gesamttoranzahl berechnet.
-              Für Teams ohne aktuelle Daten wird auf eine kuratierte Rückfallliste bekannter Torjäger zurückgegriffen.
-            </span>
+            <span style={{ color: '#eef2ff' }}>Torschützenkönig</span>
+            {' '}— Die Prognose nutzt Torschützendaten aus WC 2026 (sofern verfügbar), WC 2022 und EC 2024 von football-data.org.
+            Aus der Torrate pro Spiel und der erwarteten Turnierlänge (abhängig vom ELO-Rating des Teams) wird eine prognostizierte Gesamttoranzahl berechnet.
+            Für Teams ohne aktuelle Daten wird auf eine kuratierte Rückfallliste bekannter Torjäger zurückgegriffen.
           </div>
 
           <div>
-            <span style={{ color: '#9ab0d0' }}>Hinweis</span>
-            <span style={{ color: '#374d66' }}>
-              {' '}— Die Simulation spiegelt den Wissensstand zum Zeitpunkt der letzten Datenaktualisierung wider.
-              Nach jedem Spieltag ELO-Ratings neu berechnen (↻) und anschließend die Bonus-Prognose neu generieren, um aktuelle Ergebnisse einzubeziehen.
-            </span>
+            <span style={{ color: '#eef2ff' }}>Hinweis</span>
+            {' '}— Die Simulation spiegelt den Wissensstand zum Zeitpunkt der letzten Datenaktualisierung wider.
+            Nach jedem Spieltag ELO-Ratings neu berechnen (↻) und anschließend die Bonus-Prognose neu generieren, um aktuelle Ergebnisse einzubeziehen.
           </div>
         </div>
       </div>
@@ -903,7 +893,7 @@ function NoDataPlaceholder() {
       <div style={{ fontSize: 13, color: '#9ab0d0', marginBottom: 12 }}>
         Noch keine Spieldaten vorhanden.
       </div>
-      <div style={{ fontSize: 12, color: '#374d66', lineHeight: 1.6 }}>
+      <div style={{ fontSize: 12, color: '#9ab0d0', lineHeight: 1.6 }}>
         Bitte <code style={{ color: '#4d6fa0' }}>FOOTBALL_DATA_API_KEY</code> als Railway-Umgebungsvariable setzen
         (kostenlose Registrierung auf{' '}
         <span style={{ color: '#4d6fa0' }}>football-data.org</span>), dann{' '}
