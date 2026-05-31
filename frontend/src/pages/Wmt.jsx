@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { wmt } from '../api'
 
@@ -52,21 +52,37 @@ function formatDateLong(utcStr) {
   return d.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
-function groupMatchesByMatchday(matches) {
+// Group stage uses matchday numbers; knockout rounds are keyed by stage name
+// (football-data.org sends matchday=null for knockout games, which our backend
+//  coerces to 0, so we must not rely on matchday for those).
+const STAGE_ORDER = ['GROUP_STAGE','LAST_32','ROUND_OF_32','LAST_16','ROUND_OF_16','QUARTER_FINALS','SEMI_FINALS','THIRD_PLACE','FINAL']
+
+function groupMatches(matches) {
   const map = {}
   for (const m of matches) {
-    const key = m.matchday
+    const key = m.stage === 'GROUP_STAGE' ? `md_${m.matchday}` : `stage_${m.stage}`
     if (!map[key]) map[key] = []
     map[key].push(m)
   }
   return map
 }
 
-function matchdayLabel(matchday, matches) {
-  if (!matches?.length) return `MD ${matchday}`
-  const stage = matches[0].stage
-  if (stage !== 'GROUP_STAGE') return stageLabel(stage)
-  return `MD ${matchday}`
+function sortGroupKeys(keys) {
+  return [...keys].sort((a, b) => {
+    const aIsMd = a.startsWith('md_')
+    const bIsMd = b.startsWith('md_')
+    if (aIsMd && bIsMd) return parseInt(a.slice(3)) - parseInt(b.slice(3))
+    if (aIsMd) return -1
+    if (bIsMd) return 1
+    const ai = STAGE_ORDER.indexOf(a.slice(6))
+    const bi = STAGE_ORDER.indexOf(b.slice(6))
+    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi)
+  })
+}
+
+function groupLabel(key) {
+  if (key.startsWith('md_')) return `MD ${key.slice(3)}`
+  return stageLabel(key.slice(6))
 }
 
 function renderMarkdown(text) {
@@ -291,23 +307,34 @@ function LoadProgress({ steps }) {
 }
 
 export default function Wmt() {
-  const [matches, setMatches]         = useState([])
-  const [summaries, setSummaries]     = useState([])
-  const [view, setView]               = useState('spieltage')
-  const [selectedMd, setSelectedMd]   = useState(null)
-  const [expandedId, setExpandedId]   = useState(null)
-  const [predHistory, setPredHistory] = useState({})
-  const [loading, setLoading]         = useState(true)
-  const [loadSteps, setLoadSteps]     = useState([])
-  const [refreshing, setRefreshing]   = useState(false)
+  const [matches, setMatches]           = useState([])
+  const [summaries, setSummaries]       = useState([])
+  const [view, setView]                 = useState('spieltage')
+  const [selectedKey, setSelectedKey]   = useState(null)
+  const [expandedId, setExpandedId]     = useState(null)
+  const [predHistory, setPredHistory]   = useState({})
+  const [loading, setLoading]           = useState(true)
+  const [loadSteps, setLoadSteps]       = useState([])
+  const [refreshing, setRefreshing]     = useState(false)
   const [refreshSteps, setRefreshSteps] = useState([])
-  const [statusMsg, setStatusMsg]     = useState('')
+  const [statusMsg, setStatusMsg]       = useState('')
+  const [logs, setLogs]                 = useState([])
+  const logRef                          = useRef(null)
+
+  const addLog = useCallback((text, level = 'info') => {
+    setLogs(prev => [...prev, { ts: Date.now(), text, level }])
+  }, [])
+
+  useEffect(() => {
+    const el = logRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [logs])
 
   const loadAll = useCallback(async (silent = false) => {
     if (!silent) {
       setLoading(true)
       setLoadSteps([
-        { label: 'Spiele laden',        status: 'loading', detail: null },
+        { label: 'Spiele laden',         status: 'loading', detail: null },
         { label: 'Morgenberichte laden', status: 'pending', detail: null },
       ])
     }
@@ -320,47 +347,55 @@ export default function Wmt() {
           const home = m.home_team?.tla ?? m.home_team?.short_name ?? '?'
           const away = m.away_team?.tla ?? m.away_team?.short_name ?? '?'
           const ctx  = m.group_name ? `Gr.${m.group_name}` : stageLabel(m.stage)
+          const line = `${ctx} · ${home} vs ${away}`
           setLoadSteps(prev => [
-            { ...prev[0], status: 'loading', detail: `${ctx} · ${home} vs ${away}` },
+            { ...prev[0], status: 'loading', detail: line },
             prev[1],
           ])
+          addLog(line)
           await new Promise(r => setTimeout(r, 20))
         }
         setLoadSteps(prev => [
           { status: 'done', detail: `${ms.length} Spiel${ms.length !== 1 ? 'e' : ''} geladen` },
           { ...prev[1], status: 'loading' },
         ])
+        addLog(`${ms.length} Spiele geladen`, 'done')
       }
 
       const ss = await wmt.getSummaries()
       setSummaries(ss)
-      if (!silent) setLoadSteps(prev => [
-        prev[0],
-        { label: 'Morgenberichte', status: 'done', detail: `${ss.length} Bericht${ss.length !== 1 ? 'e' : ''} geladen` },
-      ])
+      if (!silent) {
+        setLoadSteps(prev => [
+          prev[0],
+          { label: 'Morgenberichte', status: 'done', detail: `${ss.length} Bericht${ss.length !== 1 ? 'e' : ''} geladen` },
+        ])
+        addLog(`${ss.length} Morgenberichte geladen`, 'done')
+      }
 
-      const byMd = groupMatchesByMatchday(ms)
-      const mdKeys = Object.keys(byMd).map(Number).sort((a, b) => a - b)
-      const activeMd = mdKeys.find(md => byMd[md].some(m =>
+      const grouped = groupMatches(ms)
+      const gKeys   = sortGroupKeys(Object.keys(grouped))
+      const activeKey = gKeys.find(k => grouped[k].some(m =>
         m.status === 'IN_PLAY' || m.status === 'PAUSED' ||
         m.status === 'SCHEDULED' || m.status === 'TIMED'
-      )) ?? mdKeys[mdKeys.length - 1] ?? mdKeys[0]
-      setSelectedMd(prev => prev ?? activeMd ?? null)
+      )) ?? gKeys[gKeys.length - 1] ?? gKeys[0]
+      setSelectedKey(prev => prev ?? activeKey ?? null)
     } catch (e) {
       console.error(e)
+      addLog('Fehler beim Laden', 'error')
       if (!silent) setLoadSteps(prev => prev.map(s =>
         s.status === 'loading' ? { ...s, status: 'error', detail: 'Fehler beim Laden' } : s
       ))
     } finally {
       if (!silent) setLoading(false)
     }
-  }, [])
+  }, [addLog])
 
   useEffect(() => { loadAll() }, [loadAll])
 
   async function handleRefresh() {
     setRefreshing(true)
     setStatusMsg('')
+    addLog('Refresh gestartet')
     const t0 = Date.now()
     const ticker = setInterval(() => {
       const s = Math.floor((Date.now() - t0) / 1000)
@@ -371,6 +406,7 @@ export default function Wmt() {
       const res = await wmt.refresh()
       clearInterval(ticker)
       const elapsed = ((Date.now() - t0) / 1000).toFixed(1)
+      addLog(`${res.message} (${elapsed}s)`, 'done')
       setRefreshSteps([
         { label: 'football-data.org', status: 'done', detail: `${res.message} (${elapsed}s)` },
         { label: 'Ansicht aktualisieren', status: 'loading', detail: null },
@@ -380,9 +416,11 @@ export default function Wmt() {
         prev[0],
         { label: 'Ansicht aktualisieren', status: 'done', detail: 'Fertig' },
       ])
+      addLog('Ansicht aktualisiert', 'done')
       setTimeout(() => setRefreshSteps([]), 3000)
     } catch (e) {
       clearInterval(ticker)
+      addLog('Fehler beim Refresh', 'error')
       setRefreshSteps(prev => prev.map(s =>
         s.status === 'loading' ? { ...s, status: 'error', detail: 'Fehler' } : s
       ))
@@ -409,9 +447,9 @@ export default function Wmt() {
     }
   }
 
-  const byMatchday = groupMatchesByMatchday(matches)
-  const mdKeys = Object.keys(byMatchday).map(Number).sort((a, b) => a - b)
-  const currentMatches = selectedMd !== null ? (byMatchday[selectedMd] ?? []) : []
+  const grouped       = groupMatches(matches)
+  const groupKeys     = sortGroupKeys(Object.keys(grouped))
+  const currentMatches = selectedKey !== null ? (grouped[selectedKey] ?? []) : []
 
   const hasData = matches.length > 0
 
@@ -434,7 +472,7 @@ export default function Wmt() {
             }}>
             {refreshing ? '…' : '↻'}
           </button>
-          <span className="topbar-version">v1.3</span>
+          <span className="topbar-version">v1.4</span>
         </div>
       </div>
 
@@ -464,7 +502,7 @@ export default function Wmt() {
 
         {/* view tabs */}
         <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
-          {[['spieltage', 'Spieltage'], ['zusammenfassung', 'Morgenberichte']].map(([key, label]) => (
+          {[['spieltage', 'Spieltage'], ['zusammenfassung', 'Morgenberichte'], ['log', 'Log']].map(([key, label]) => (
             <button
               key={key}
               onClick={() => setView(key)}
@@ -475,7 +513,7 @@ export default function Wmt() {
                 borderRadius: 6, padding: '5px 12px', fontSize: 12,
                 cursor: 'pointer', fontFamily: 'inherit',
               }}>
-              {label}
+              {label}{key === 'log' && logs.length > 0 && <span style={{ color: '#374d66', marginLeft: 4 }}>{logs.length}</span>}
             </button>
           ))}
         </div>
@@ -491,17 +529,17 @@ export default function Wmt() {
               <NoDataPlaceholder />
             ) : (
               <>
-                {/* matchday selector */}
+                {/* matchday / stage selector */}
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 20 }}>
-                  {mdKeys.map(md => {
-                    const mdMatches = byMatchday[md] ?? []
-                    const hasLive = mdMatches.some(m => m.status === 'IN_PLAY' || m.status === 'PAUSED')
-                    const allDone = mdMatches.every(m => m.status === 'FINISHED')
-                    const isSelected = selectedMd === md
+                  {groupKeys.map(k => {
+                    const kMatches  = grouped[k] ?? []
+                    const hasLive   = kMatches.some(m => m.status === 'IN_PLAY' || m.status === 'PAUSED')
+                    const allDone   = kMatches.every(m => m.status === 'FINISHED')
+                    const isSelected = selectedKey === k
                     return (
                       <button
-                        key={md}
-                        onClick={() => setSelectedMd(md)}
+                        key={k}
+                        onClick={() => setSelectedKey(k)}
                         style={{
                           background: isSelected ? '#1a2840' : 'none',
                           border: `1px solid ${hasLive ? '#4d8a4d' : isSelected ? '#2a3d5c' : '#1a2840'}`,
@@ -509,7 +547,7 @@ export default function Wmt() {
                           borderRadius: 6, padding: '4px 10px', fontSize: 11,
                           cursor: 'pointer', fontFamily: 'inherit',
                         }}>
-                        {matchdayLabel(md, mdMatches)}
+                        {groupLabel(k)}
                       </button>
                     )
                   })}
@@ -532,6 +570,32 @@ export default function Wmt() {
               </>
             )}
           </>
+        )}
+
+        {/* ── Log view ──────────────────────────────────────────────────── */}
+        {view === 'log' && (
+          <div
+            ref={logRef}
+            style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 160px)', display: 'flex', flexDirection: 'column' }}
+          >
+            {logs.length === 0 ? (
+              <div style={{ color: '#374d66', fontSize: 12 }}>Noch keine Einträge.</div>
+            ) : (
+              logs.map((e, i) => (
+                <div key={i} style={{
+                  display: 'flex', gap: 10, padding: '2px 0',
+                  fontSize: 11, fontVariantNumeric: 'tabular-nums',
+                }}>
+                  <span style={{ color: '#1a2840', flexShrink: 0 }}>
+                    {new Date(e.ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                  </span>
+                  <span style={{ color: e.level === 'done' ? '#4d8a4d' : e.level === 'error' ? '#8a4d4d' : '#374d66' }}>
+                    {e.text}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
         )}
 
         {/* ── Morgenberichte view ────────────────────────────────────────── */}
