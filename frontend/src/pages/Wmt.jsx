@@ -314,10 +314,23 @@ export default function Wmt() {
     try {
       const ms = await wmt.getMatches()
       setMatches(ms)
-      if (!silent) setLoadSteps(prev => [
-        { label: 'Spiele', status: 'done', detail: `${ms.length} Spiel${ms.length !== 1 ? 'e' : ''} geladen` },
-        { ...prev[1], status: 'loading' },
-      ])
+      if (!silent) {
+        for (let i = 0; i < ms.length; i++) {
+          const m    = ms[i]
+          const home = m.home_team?.tla ?? m.home_team?.short_name ?? '?'
+          const away = m.away_team?.tla ?? m.away_team?.short_name ?? '?'
+          const ctx  = m.group_name ? `Gr.${m.group_name}` : stageLabel(m.stage)
+          setLoadSteps(prev => [
+            { ...prev[0], status: 'loading', detail: `${ctx} · ${home} vs ${away}` },
+            prev[1],
+          ])
+          await new Promise(r => setTimeout(r, 12))
+        }
+        setLoadSteps(prev => [
+          { status: 'done', detail: `${ms.length} Spiel${ms.length !== 1 ? 'e' : ''} geladen` },
+          { ...prev[1], status: 'loading' },
+        ])
+      }
 
       const ss = await wmt.getSummaries()
       setSummaries(ss)
