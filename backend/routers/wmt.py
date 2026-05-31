@@ -7,11 +7,13 @@ Prediction model: ELO-based win probabilities + expected goals
 import logging
 import math
 import os
+import random
+from collections import defaultdict
 from datetime import date, datetime, timedelta
 from typing import Optional
 
 import httpx
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
@@ -443,6 +445,329 @@ def do_generate_summary(db: Session, for_date: Optional[date] = None) -> str:
     return content
 
 
+# ── bonus prediction: Monte Carlo tournament simulation ───────────────────────
+
+# Known top international strikers per team – fallback when API scorer data is missing
+TOP_PLAYERS: dict[str, tuple[str, float]] = {
+    "ARG": ("Lautaro Martínez",  0.52),
+    "FRA": ("Kylian Mbappé",     0.58),
+    "BRA": ("Vinicius Jr.",      0.42),
+    "ENG": ("Harry Kane",        0.50),
+    "POR": ("Cristiano Ronaldo", 0.46),
+    "GER": ("Kai Havertz",       0.38),
+    "ESP": ("Álvaro Morata",     0.34),
+    "NED": ("Donyell Malen",     0.35),
+    "BEL": ("Romelu Lukaku",     0.40),
+    "URU": ("Darwin Núñez",      0.42),
+    "COL": ("Luis Díaz",         0.35),
+    "USA": ("Christian Pulisic", 0.32),
+    "MAR": ("Youssef En-Nesyri", 0.36),
+    "CRO": ("Andrej Kramarić",   0.35),
+    "JPN": ("Ayase Ueda",        0.38),
+    "SEN": ("Sadio Mané",        0.30),
+    "ITA": ("Gianluca Scamacca", 0.30),
+    "MEX": ("Hirving Lozano",    0.30),
+    "CAN": ("Alphonso Davies",   0.28),
+    "TUR": ("Arda Güler",        0.32),
+}
+
+
+def _sample_goals_poisson(lam: float) -> int:
+    """Knuth Poisson sampler."""
+    L = math.exp(-max(0.01, min(15.0, lam)))
+    k, p = 0, 1.0
+    while p > L:
+        k += 1
+        p *= random.random()
+    return k - 1
+
+
+def _fetch_ec_scorers() -> list[dict]:
+    """Fetch Euro 2024 top scorers from football-data.org (free tier)."""
+    if not FOOTBALL_API_KEY:
+        return []
+    try:
+        with httpx.Client(timeout=20.0) as client:
+            r = client.get(
+                f"{FOOTBALL_API_BASE}/competitions/EC/scorers",
+                headers=_api_headers(),
+                params={"season": "2024", "limit": 20},
+            )
+            _log_rate_limit(r)
+            if r.status_code == 200:
+                return r.json().get("scorers", [])
+            logger.warning("EC scorers fetch returned %d", r.status_code)
+    except Exception as exc:
+        logger.error("EC scorers fetch error: %s", exc)
+    return []
+
+
+def _compute_top_scorer(db: Session) -> dict:
+    """
+    Predict top WC 2026 scorer.
+    Uses Euro 2024 scorer data (football-data.org) weighted by team ELO and
+    expected tournament depth; falls back to TOP_PLAYERS dict.
+    """
+    ec_scorers  = _fetch_ec_scorers()
+    all_teams   = {t.id: t for t in db.query(models.WmtTeam).all()}
+    tla_to_team = {t.tla: t for t in all_teams.values() if t.tla}
+
+    candidates: list[dict] = []
+
+    if ec_scorers:
+        best_per_tla: dict[str, dict] = {}
+        for s in ec_scorers:
+            player = s.get("player") or {}
+            team   = s.get("team") or {}
+            goals  = s.get("goals") or 0
+            tla    = (team.get("tla") or "").upper()
+            name   = (player.get("name") or "").strip()
+            if not name or not tla or goals == 0:
+                continue
+            if tla not in best_per_tla or best_per_tla[tla]["goals_src"] < goals:
+                best_per_tla[tla] = {
+                    "player":    name,
+                    "team_name": team.get("shortName") or team.get("name", tla),
+                    "tla":       tla,
+                    "goals_src": goals,
+                    "played":    s.get("playedMatches") or 6,
+                    "source":    "EC 2024",
+                }
+        for tla, data in best_per_tla.items():
+            wc_team = tla_to_team.get(tla)
+            if not wc_team:
+                continue
+            rate  = data["goals_src"] / data["played"]
+            exp_m = 3.0 + 3.5 * min(1.0, max(0.0, (wc_team.elo - 1600) / 400))
+            candidates.append({
+                "player": data["player"],
+                "team":   wc_team.short_name or wc_team.name,
+                "tla":    tla,
+                "goals":  round(rate * exp_m, 1),
+                "source": data["source"],
+                "_score": rate * exp_m,
+            })
+
+    # Static fallback for teams not covered by EC 2024 data
+    covered = {c["tla"] for c in candidates}
+    for tla, (player, rate) in TOP_PLAYERS.items():
+        if tla in covered:
+            continue
+        wc_team = tla_to_team.get(tla)
+        if not wc_team:
+            continue
+        exp_m = 3.0 + 3.5 * min(1.0, max(0.0, (wc_team.elo - 1600) / 400))
+        candidates.append({
+            "player": player,
+            "team":   wc_team.short_name or wc_team.name,
+            "tla":    tla,
+            "goals":  round(rate * exp_m, 1),
+            "source": "ELO-Schätzung",
+            "_score": rate * exp_m,
+        })
+
+    if not candidates:
+        return {"player": "unbekannt", "team": "?", "tla": "?", "goals": 0.0, "source": "keine Daten"}
+
+    best = max(candidates, key=lambda x: x["_score"])
+    return {k: v for k, v in best.items() if k != "_score"}
+
+
+def do_generate_bonus(db: Session, n_sims: int = 10000) -> Optional[models.WmtBonusPrediction]:
+    """
+    Monte Carlo simulation of WC 2026: group stage + knockout.
+    Returns a persisted WmtBonusPrediction, or None if no group data exists.
+    """
+    all_teams = {t.id: t for t in db.query(models.WmtTeam).all()}
+    if not all_teams:
+        return None
+
+    group_matches_q = (
+        db.query(models.WmtMatch)
+        .filter(models.WmtMatch.stage == "GROUP_STAGE")
+        .all()
+    )
+
+    group_to_matches: dict[str, list] = defaultdict(list)
+    for m in group_matches_q:
+        if m.group_name:
+            group_to_matches[m.group_name].append(m)
+
+    if not group_to_matches:
+        return None
+
+    group_to_teams: dict[str, set] = defaultdict(set)
+    for group, matches in group_to_matches.items():
+        for m in matches:
+            if m.home_team_id: group_to_teams[group].add(m.home_team_id)
+            if m.away_team_id: group_to_teams[group].add(m.away_team_id)
+
+    # Counters
+    group_win_count: dict[int, int] = defaultdict(int)
+    semi_count:      dict[int, int] = defaultdict(int)
+    final_count:     dict[int, int] = defaultdict(int)
+    win_count:       dict[int, int] = defaultdict(int)
+
+    for _ in range(n_sims):
+        third_pool: list[tuple] = []  # (pts, gd, gf, tid, elo)
+        qualifiers: list[tuple] = []  # (tid, elo)
+
+        for group_name in sorted(group_to_matches.keys()):
+            team_ids = list(group_to_teams[group_name])
+            matches  = group_to_matches[group_name]
+
+            pts: dict[int, int] = defaultdict(int)
+            gd:  dict[int, int] = defaultdict(int)
+            gf:  dict[int, int] = defaultdict(int)
+
+            for m in matches:
+                if not m.home_team_id or not m.away_team_id:
+                    continue
+                ht = all_teams.get(m.home_team_id)
+                at = all_teams.get(m.away_team_id)
+                if not ht or not at:
+                    continue
+
+                if m.status == "FINISHED" and m.score_home is not None:
+                    h, a = m.score_home, m.score_away
+                else:
+                    h_xg, a_xg = elo_to_expected_goals(ht.elo, at.elo)
+                    h = _sample_goals_poisson(h_xg)
+                    a = _sample_goals_poisson(a_xg)
+
+                if h > a:   pts[m.home_team_id] += 3
+                elif h < a: pts[m.away_team_id] += 3
+                else:
+                    pts[m.home_team_id] += 1
+                    pts[m.away_team_id] += 1
+                gd[m.home_team_id] += h - a
+                gd[m.away_team_id] += a - h
+                gf[m.home_team_id] += h
+                gf[m.away_team_id] += a
+
+            sorted_ids = sorted(
+                team_ids,
+                key=lambda t: (
+                    pts[t], gd[t], gf[t],
+                    all_teams[t].elo if t in all_teams else DEFAULT_ELO,
+                    random.random(),
+                ),
+                reverse=True,
+            )
+
+            for rank, tid in enumerate(sorted_ids):
+                elo = all_teams[tid].elo if tid in all_teams else DEFAULT_ELO
+                if rank == 0:
+                    group_win_count[tid] += 1
+                    qualifiers.append((tid, elo))
+                elif rank == 1:
+                    qualifiers.append((tid, elo))
+                elif rank == 2:
+                    third_pool.append((pts[tid], gd[tid], gf[tid], tid, elo))
+
+        # Best 8 third-place teams (by points, then GD, then GF)
+        third_pool.sort(key=lambda x: (x[0], x[1], x[2]), reverse=True)
+        for _, _, _, tid, elo in third_pool[:8]:
+            qualifiers.append((tid, elo))
+
+        if len(qualifiers) < 4:
+            continue
+
+        # Random bracket seeding for knockout (avoids deterministic outcomes)
+        bracket = qualifiers[:]
+        random.shuffle(bracket)
+
+        current = bracket
+        while len(current) > 1:
+            if len(current) == 4:
+                for tid, _ in current:
+                    semi_count[tid] += 1
+            elif len(current) == 2:
+                for tid, _ in current:
+                    final_count[tid] += 1
+
+            next_round: list[tuple] = []
+            for i in range(0, len(current) - 1, 2):
+                t1, e1 = current[i]
+                t2, e2 = current[i + 1]
+                h_xg, a_xg = elo_to_expected_goals(e1, e2)
+                h = _sample_goals_poisson(h_xg)
+                a = _sample_goals_poisson(a_xg)
+                if h > a:
+                    winner = (t1, e1)
+                elif a > h:
+                    winner = (t2, e2)
+                else:
+                    hw, _, aw = elo_to_win_prob(e1, e2)
+                    winner = (t1, e1) if random.random() < hw / (hw + aw) else (t2, e2)
+                next_round.append(winner)
+            if len(current) % 2 == 1:
+                next_round.append(current[-1])
+            current = next_round
+
+        if current:
+            win_count[current[0][0]] += 1
+
+    # ── assemble result ───────────────────────────────────────────────────────
+    all_ids = list(all_teams.keys())
+
+    group_winners: dict[str, dict] = {}
+    for group_name in sorted(group_to_teams.keys()):
+        tids = list(group_to_teams[group_name])
+        if not tids:
+            continue
+        best_id = max(tids, key=lambda t: group_win_count.get(t, 0))
+        t = all_teams.get(best_id)
+        if t:
+            group_winners[group_name] = {
+                "team": t.short_name or t.name,
+                "tla":  t.tla or "?",
+                "prob": round(group_win_count.get(best_id, 0) / n_sims, 3),
+            }
+
+    semifinalists = sorted(
+        [{"team": all_teams[t].short_name or all_teams[t].name,
+          "tla":  all_teams[t].tla or "?",
+          "prob": round(semi_count[t] / n_sims, 3)}
+         for t in all_ids if semi_count.get(t, 0) > 0],
+        key=lambda x: -x["prob"],
+    )[:4]
+
+    finalists = sorted(
+        [{"team": all_teams[t].short_name or all_teams[t].name,
+          "tla":  all_teams[t].tla or "?",
+          "prob": round(final_count[t] / n_sims, 3)}
+         for t in all_ids if final_count.get(t, 0) > 0],
+        key=lambda x: -x["prob"],
+    )[:2]
+
+    if win_count:
+        winner_id = max(all_ids, key=lambda t: win_count.get(t, 0))
+        w = all_teams[winner_id]
+        winner = {
+            "team": w.short_name or w.name,
+            "tla":  w.tla or "?",
+            "prob": round(win_count.get(winner_id, 0) / n_sims, 3),
+        }
+    else:
+        winner = {"team": "?", "tla": "?", "prob": 0.0}
+
+    top_scorer = _compute_top_scorer(db)
+
+    record = models.WmtBonusPrediction(
+        group_winners=group_winners,
+        semifinalists=semifinalists,
+        finalists=finalists,
+        winner=winner,
+        top_scorer=top_scorer,
+        n_simulations=n_sims,
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return record
+
+
 # ── helpers for API response assembly ────────────────────────────────────────
 
 def _team_out(team: Optional[models.WmtTeam]) -> Optional[schemas.WmtTeamOut]:
@@ -573,3 +898,29 @@ def generate_summary_now(db: Session = Depends(get_db)):
     if content:
         return schemas.WmtRefreshOut(message="Zusammenfassung erstellt.", updated=1)
     return schemas.WmtRefreshOut(message="Keine abgeschlossenen Spiele für gestern gefunden.", updated=0)
+
+
+@router.get("/bonus", response_model=schemas.WmtBonusPredictionOut)
+def get_bonus(db: Session = Depends(get_db)):
+    record = (
+        db.query(models.WmtBonusPrediction)
+        .order_by(models.WmtBonusPrediction.generated_at.desc())
+        .first()
+    )
+    if not record:
+        raise HTTPException(status_code=404, detail="Noch keine Bonus-Prognose generiert.")
+    return record
+
+
+@router.post("/bonus/generate", response_model=schemas.WmtRefreshOut)
+def generate_bonus(db: Session = Depends(get_db)):
+    result = do_generate_bonus(db)
+    if result is None:
+        return schemas.WmtRefreshOut(
+            message="Keine Spielplan-Daten gefunden. Bitte zuerst ↻ klicken um Spielplan zu laden.",
+            updated=0,
+        )
+    return schemas.WmtRefreshOut(
+        message=f"Bonus-Prognose erstellt ({result.n_simulations:,} Simulationen).",
+        updated=1,
+    )
