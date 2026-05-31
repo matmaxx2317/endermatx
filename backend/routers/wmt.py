@@ -83,10 +83,13 @@ def update_elo_after_match(
 
 
 def _stage_de(stage: str) -> str:
+    # football-data.org v4 uses LAST_16 / LAST_32 for knockout rounds
     mapping = {
         "GROUP_STAGE":    "Gruppenphase",
-        "ROUND_OF_32":    "Rd. 32",
-        "ROUND_OF_16":    "Achtelfinale",
+        "LAST_32":        "Rd. 32",
+        "ROUND_OF_32":    "Rd. 32",       # kept as fallback
+        "LAST_16":        "Achtelfinale",
+        "ROUND_OF_16":    "Achtelfinale",  # kept as fallback
         "QUARTER_FINALS": "Viertelfinale",
         "SEMI_FINALS":    "Halbfinale",
         "THIRD_PLACE":    "Spiel um Platz 3",
@@ -135,6 +138,13 @@ def _api_headers() -> dict:
     return {"X-Auth-Token": FOOTBALL_API_KEY} if FOOTBALL_API_KEY else {}
 
 
+def _log_rate_limit(r: httpx.Response) -> None:
+    remaining = r.headers.get("X-Requests-Available-Minute")
+    reset_at   = r.headers.get("X-RequestCounter-Reset")
+    if remaining is not None:
+        logger.debug("WMT API: %s requests remaining this minute (resets %s)", remaining, reset_at)
+
+
 def _fetch_wc_teams() -> Optional[dict]:
     if not FOOTBALL_API_KEY:
         return None
@@ -145,9 +155,14 @@ def _fetch_wc_teams() -> Optional[dict]:
                 headers=_api_headers(),
                 params={"season": "2026"},
             )
+            _log_rate_limit(r)
             if r.status_code == 200:
                 return r.json()
-            logger.warning("teams fetch returned %d: %s", r.status_code, r.text[:200])
+            if r.status_code == 429:
+                reset_at = r.headers.get("X-RequestCounter-Reset", "unknown")
+                logger.warning("WMT teams fetch: rate limit hit, resets at %s", reset_at)
+                return None
+            logger.warning("WMT teams fetch returned %d: %s", r.status_code, r.text[:200])
     except Exception as exc:
         logger.error("WMT teams fetch error: %s", exc)
     return None
@@ -163,9 +178,14 @@ def _fetch_wc_matches() -> Optional[dict]:
                 headers=_api_headers(),
                 params={"season": "2026"},
             )
+            _log_rate_limit(r)
             if r.status_code == 200:
                 return r.json()
-            logger.warning("matches fetch returned %d: %s", r.status_code, r.text[:200])
+            if r.status_code == 429:
+                reset_at = r.headers.get("X-RequestCounter-Reset", "unknown")
+                logger.warning("WMT matches fetch: rate limit hit, resets at %s", reset_at)
+                return None
+            logger.warning("WMT matches fetch returned %d: %s", r.status_code, r.text[:200])
     except Exception as exc:
         logger.error("WMT matches fetch error: %s", exc)
     return None
