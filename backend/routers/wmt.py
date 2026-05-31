@@ -8,6 +8,8 @@ import logging
 import math
 import os
 import random
+import re
+import time
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 from typing import Optional
@@ -46,6 +48,39 @@ INITIAL_ELO: dict[str, float] = {
 }
 DEFAULT_ELO = 1700.0
 
+BASE_ELO = 1500.0  # starting ELO for historical warmup
+
+HISTORICAL_COMPETITIONS = [
+    ("WC", "2014"), ("EC", "2016"), ("WC", "2018"),
+    ("EC", "2020"), ("WC", "2022"), ("EC", "2024"),
+]
+
+COUNTRY_TO_TLA: dict[str, str] = {
+    "Argentina": "ARG", "France": "FRA", "Brazil": "BRA", "England": "ENG",
+    "Belgium": "BEL", "Portugal": "POR", "Spain": "ESP", "Netherlands": "NED",
+    "Germany": "GER", "Italy": "ITA", "Croatia": "CRO", "Morocco": "MAR",
+    "Uruguay": "URU", "Switzerland": "SUI", "United States": "USA",
+    "Japan": "JPN", "Denmark": "DEN", "Senegal": "SEN", "Colombia": "COL",
+    "Mexico": "MEX", "Austria": "AUT", "Poland": "POL", "Ukraine": "UKR",
+    "South Korea": "KOR", "Serbia": "SRB", "Türkiye": "TUR", "Turkey": "TUR",
+    "Ecuador": "ECU", "Canada": "CAN", "Australia": "AUS", "Ghana": "GHA",
+    "Cameroon": "CMR", "Saudi Arabia": "SAU", "Egypt": "EGY", "Iran": "IRN",
+    "Tunisia": "TUN", "Ivory Coast": "CIV", "Côte d'Ivoire": "CIV",
+    "Algeria": "ALG", "Romania": "ROU", "Hungary": "HUN",
+    "Czech Republic": "CZE", "Czechia": "CZE",
+    "Scotland": "SCO", "Wales": "WAL", "Northern Ireland": "NIR",
+    "Venezuela": "VEN", "Paraguay": "PAR", "Nigeria": "NGA",
+    "Costa Rica": "CRC", "Panama": "PAN", "Jamaica": "JAM",
+    "Qatar": "QAT", "Iraq": "IRQ", "Jordan": "JOR",
+    "Uzbekistan": "UZB", "Slovakia": "SVK", "Albania": "ALB",
+    "Greece": "GRE", "Honduras": "HON", "New Zealand": "NZL",
+    "South Africa": "RSA", "Russia": "RUS", "Sweden": "SWE",
+    "Chile": "CHI", "Peru": "PER", "Bolivia": "BOL",
+    "Bosnia-Herzegovina": "BIH", "Slovenia": "SVN",
+    "Iceland": "ISL", "Ireland": "IRL", "Finland": "FIN",
+    "Norway": "NOR", "North Macedonia": "MKD",
+}
+
 
 # ── prediction engine ────────────────────────────────────────────────────────
 
@@ -69,8 +104,10 @@ def elo_to_expected_goals(home_elo: float, away_elo: float) -> tuple[float, floa
 
 
 def update_elo_after_match(
-    home_elo: float, away_elo: float, score_home: int, score_away: int
+    home_elo: float, away_elo: float, score_home: int, score_away: int,
+    k_override: Optional[float] = None,
 ) -> tuple[float, float]:
+    k = k_override if k_override is not None else ELO_K
     expected_home = 1.0 / (1.0 + 10.0 ** ((away_elo - home_elo) / 400.0))
     if score_home > score_away:
         actual_home = 1.0
@@ -80,8 +117,16 @@ def update_elo_after_match(
         actual_home = 0.5
     gd = abs(score_home - score_away)
     gd_mult = 1.0 if gd <= 1 else (1.5 if gd == 2 else (1.75 + (gd - 3) * 0.1))
-    delta = ELO_K * gd_mult * (actual_home - expected_home)
+    delta = k * gd_mult * (actual_home - expected_home)
     return home_elo + delta, away_elo - delta
+
+
+def _form_decay_factor(years_ago: float) -> float:
+    """ELO K-factor multiplier: older matches count less."""
+    if years_ago <= 2:  return 1.00
+    if years_ago <= 3:  return 0.85
+    if years_ago <= 4:  return 0.70
+    return 0.55
 
 
 def _stage_de(stage: str) -> str:
@@ -191,6 +236,60 @@ def _fetch_wc_matches() -> Optional[dict]:
     except Exception as exc:
         logger.error("WMT matches fetch error: %s", exc)
     return None
+
+
+def _fetch_historical_matches(competition: str, season: str) -> Optional[dict]:
+    """Fetch all matches for a historical competition/season from football-data.org."""
+    if not FOOTBALL_API_KEY:
+        return None
+    try:
+        with httpx.Client(timeout=25.0) as client:
+            r = client.get(
+                f"{FOOTBALL_API_BASE}/competitions/{competition}/matches",
+                headers=_api_headers(),
+                params={"season": season},
+            )
+            _log_rate_limit(r)
+            if r.status_code == 200:
+                return r.json()
+            if r.status_code == 429:
+                logger.warning("%s/%s: rate limit hit", competition, season)
+                return None
+            logger.warning("%s/%s matches → %d: %s", competition, season, r.status_code, r.text[:200])
+    except Exception as exc:
+        logger.error("%s/%s fetch error: %s", competition, season, exc)
+    return None
+
+
+def _fetch_elo_ratings_net() -> dict[str, float]:
+    """Fetch current national team ELO ratings from eloratings.net World.tsv."""
+    result: dict[str, float] = {}
+    headers = {"User-Agent": "Mozilla/5.0 (compatible; WMT-Prediction/1.0)"}
+    for url in ("https://www.eloratings.net/World.tsv", "https://eloratings.net/World.tsv"):
+        try:
+            with httpx.Client(timeout=10.0, follow_redirects=True) as client:
+                r = client.get(url, headers=headers)
+                if r.status_code != 200 or "\t" not in r.text[:500]:
+                    continue
+                for line in r.text.splitlines():
+                    parts = line.split("\t")
+                    if len(parts) < 3:
+                        continue
+                    country = parts[1].strip()
+                    try:
+                        elo = float(parts[2].strip())
+                    except (ValueError, IndexError):
+                        continue
+                    if not (1000 <= elo <= 2500):
+                        continue
+                    tla = COUNTRY_TO_TLA.get(country)
+                    if tla:
+                        result[tla] = elo
+                if len(result) >= 5:
+                    return result
+        except Exception as exc:
+            logger.debug("eloratings.net %s: %s", url, exc)
+    return result
 
 
 # ── core business logic (sync, runs from scheduler or API endpoint) ──────────
@@ -797,6 +896,286 @@ def do_generate_bonus(db: Session, n_sims: int = 10000) -> Optional[models.WmtBo
     return record
 
 
+def do_historical_warmup(db: Session) -> dict:
+    """
+    Historical ELO calibration:
+    1. Seed teams from eloratings.net (current ratings as baseline)
+    2. Process WC2014 → EC2024 matches with form-decay K-factor
+    3. Re-apply WC2026 results from DB
+    Returns dict with logs, stats, elapsed time.
+    """
+    wall_start = time.time()
+    logs: list[dict] = []
+    now_dt = datetime.utcnow()
+
+    def log(text: str, level: str = "info") -> None:
+        logs.append({"ts": datetime.utcnow().isoformat() + "Z", "text": text, "level": level})
+        logger.info("WMT warmup: %s", text)
+
+    def _match_dt(m: dict) -> datetime:
+        raw = m.get("utcDate", "")
+        try:
+            return datetime.fromisoformat(raw.replace("Z", "+00:00")).replace(tzinfo=None)
+        except Exception:
+            return datetime.min
+
+    def _lbl(aid: int) -> str:
+        return tla_w.get(aid) or name_w.get(aid, str(aid))
+
+    # ── Step 1: Reset DB teams ─────────────────────────────────────────────
+    all_db_teams = db.query(models.WmtTeam).all()
+    for t in all_db_teams:
+        t.elo = BASE_ELO
+        t.matches_played = 0
+    db.commit()
+    log(f"Zurückgesetzt: {len(all_db_teams)} Teams auf {int(BASE_ELO)} ELO")
+
+    # ── Step 2: eloratings.net seed ────────────────────────────────────────
+    log("eloratings.net wird abgefragt…")
+    t_elo = time.time()
+    elo_net = _fetch_elo_ratings_net()
+    elo_net_time = time.time() - t_elo
+
+    elo_net_applied = 0
+    if elo_net:
+        for t in all_db_teams:
+            if t.tla and t.tla in elo_net:
+                t.elo = elo_net[t.tla]
+                elo_net_applied += 1
+        db.commit()
+        top5 = sorted(
+            [(tla, elo) for tla, elo in elo_net.items()
+             if any(dt.tla == tla for dt in all_db_teams)],
+            key=lambda x: -x[1],
+        )[:5]
+        top5_str = " | ".join(f"{tla} {elo:.0f}" for tla, elo in top5)
+        log(
+            f"eloratings.net ({elo_net_time:.2f}s): {len(elo_net)} Teams — "
+            f"{elo_net_applied} WM-Teams mit Startwerten belegt",
+            "done",
+        )
+        if top5:
+            log(f"  Top 5 extern: {top5_str}")
+    else:
+        log(
+            f"eloratings.net nicht verfügbar ({elo_net_time:.2f}s) — "
+            f"starte mit {int(BASE_ELO)} ELO",
+            "info",
+        )
+
+    # ── Step 3: In-memory ELO working set ─────────────────────────────────
+    elo_w: dict[int, float] = {}
+    tla_w: dict[int, str]   = {}
+    name_w: dict[int, str]  = {}
+
+    for t in all_db_teams:
+        if t.api_id:
+            elo_w[t.api_id] = t.elo
+            if t.tla:
+                tla_w[t.api_id] = t.tla
+            name_w[t.api_id] = t.short_name or t.name
+
+    # ── Step 4: Historical competitions ───────────────────────────────────
+    total_hist_matches = 0
+    competitions_processed = 0
+    ordinals = ["①", "②", "③", "④", "⑤", "⑥"]
+
+    for ci, (comp_code, season) in enumerate(HISTORICAL_COMPETITIONS):
+        ordinal = ordinals[ci] if ci < len(ordinals) else f"({ci+1})"
+        log(f"─── {comp_code}/{season} ({ordinal}) — Anfrage läuft…")
+
+        t_req = time.time()
+        raw = _fetch_historical_matches(comp_code, season)
+        req_time = time.time() - t_req
+
+        if raw is None:
+            reason = "Kein API-Key" if not FOOTBALL_API_KEY else f"Keine Antwort ({req_time:.2f}s)"
+            log(f"  {reason} — überspringe {comp_code}/{season}", "error")
+            if ci < len(HISTORICAL_COMPETITIONS) - 1:
+                time.sleep(6.0)
+            continue
+
+        finished = [m for m in raw.get("matches", []) if m.get("status") == "FINISHED"]
+
+        if not finished:
+            log(f"  Antwort {req_time:.2f}s — Keine abgeschlossenen Spiele")
+            if ci < len(HISTORICAL_COMPETITIONS) - 1:
+                time.sleep(6.0)
+            continue
+
+        # Register all teams seen in this competition
+        for m in finished:
+            for tk in ("homeTeam", "awayTeam"):
+                td = m.get(tk) or {}
+                aid = td.get("id")
+                if aid and aid not in elo_w:
+                    elo_w[aid] = BASE_ELO
+                    tla = (td.get("tla") or "").upper().strip()
+                    nm  = td.get("shortName") or td.get("name", "")
+                    if tla:
+                        tla_w[aid] = tla
+                    if nm:
+                        name_w[aid] = nm
+
+        finished.sort(key=_match_dt)
+        first_dt = _match_dt(finished[0])
+        last_dt  = _match_dt(finished[-1])
+
+        total_goals = 0
+        k_sum       = 0.0
+        elo_before  = {aid: elo_w[aid] for aid in elo_w}
+        highlight: Optional[str] = None
+        highlight_margin = 0
+        teams_seen: set = set()
+
+        for m in finished:
+            ht  = m.get("homeTeam") or {}
+            at  = m.get("awayTeam") or {}
+            h_id = ht.get("id")
+            a_id = at.get("id")
+            ft   = (m.get("score") or {}).get("fullTime") or {}
+            h_g  = ft.get("home")
+            a_g  = ft.get("away")
+
+            if h_id is None or a_id is None or h_g is None or a_g is None:
+                continue
+            if h_id not in elo_w: elo_w[h_id] = BASE_ELO
+            if a_id not in elo_w: elo_w[a_id] = BASE_ELO
+            teams_seen.update([h_id, a_id])
+
+            years_ago = (now_dt - _match_dt(m)).days / 365.25
+            k_mult = _form_decay_factor(years_ago)
+            k_eff  = ELO_K * k_mult
+            k_sum += k_mult
+
+            new_h, new_a = update_elo_after_match(
+                elo_w[h_id], elo_w[a_id], h_g, a_g, k_override=k_eff
+            )
+            elo_w[h_id] = new_h
+            elo_w[a_id] = new_a
+
+            total_goals += h_g + a_g
+            margin = abs(h_g - a_g)
+            if margin > highlight_margin:
+                highlight_margin = margin
+                h_tla = (tla_w.get(h_id) or name_w.get(h_id, str(h_id)))[:3]
+                a_tla = (tla_w.get(a_id) or name_w.get(a_id, str(a_id)))[:3]
+                highlight = f"{h_tla} {h_g}:{a_g} {a_tla}"
+
+        n = len(finished)
+        avg_goals = total_goals / n if n else 0
+        avg_k = k_sum / n if n else 1.0
+        date_range = f"{first_dt.strftime('%d.%m.%Y')} – {last_dt.strftime('%d.%m.%Y')}"
+        hl_str = f" | Highlight: {highlight}" if highlight else ""
+
+        log(
+            f"  Antwort {req_time:.2f}s | {len(teams_seen)} Teams | {n} Spiele "
+            f"({date_range}) | {total_goals} Tore (Ø {avg_goals:.2f}/Spiel) | "
+            f"K-Faktor Ø {avg_k:.2f}x{hl_str}",
+            "done",
+        )
+
+        deltas = {aid: elo_w[aid] - elo_before.get(aid, BASE_ELO) for aid in elo_w}
+        gainers = sorted([(a, d) for a, d in deltas.items() if d > 0.5], key=lambda x: -x[1])[:3]
+        losers  = sorted([(a, d) for a, d in deltas.items() if d < -0.5], key=lambda x: x[1])[:3]
+
+        if gainers:
+            log("  ▲ ELO-Gewinner: " + " | ".join(f"{_lbl(a)} +{d:.0f}" for a, d in gainers), "done")
+        if losers:
+            log("  ▼ ELO-Verlierer: " + " | ".join(f"{_lbl(a)} {d:.0f}" for a, d in losers))
+
+        total_hist_matches += n
+        competitions_processed += 1
+
+        if ci < len(HISTORICAL_COMPETITIONS) - 1:
+            log("  (Pause 6s — Rate-Limit)")
+            time.sleep(6.0)
+
+    # ── Step 5: Re-apply WC 2026 FINISHED matches ─────────────────────────
+    wc26_finished = (
+        db.query(models.WmtMatch)
+        .filter(models.WmtMatch.status == "FINISHED")
+        .order_by(models.WmtMatch.utc_date)
+        .all()
+    )
+    played_count: dict[int, int] = defaultdict(int)
+    if wc26_finished:
+        log(f"WC 2026: {len(wc26_finished)} gespielte Spiele werden eingerechnet…")
+        for m in wc26_finished:
+            home = db.get(models.WmtTeam, m.home_team_id)
+            away = db.get(models.WmtTeam, m.away_team_id)
+            if not home or not away:
+                continue
+            if m.score_home is None or m.score_away is None:
+                continue
+            h_id = home.api_id
+            a_id = away.api_id
+            if not h_id or not a_id:
+                continue
+            if h_id not in elo_w: elo_w[h_id] = BASE_ELO
+            if a_id not in elo_w: elo_w[a_id] = BASE_ELO
+            new_h, new_a = update_elo_after_match(elo_w[h_id], elo_w[a_id], m.score_home, m.score_away)
+            elo_w[h_id] = new_h
+            elo_w[a_id] = new_a
+            played_count[m.home_team_id] += 1
+            played_count[m.away_team_id] += 1
+        log(f"  {len(wc26_finished)} WC-2026-Spiele eingerechnet", "done")
+
+    # ── Step 6: Write back to DB ──────────────────────────────────────────
+    teams_updated = 0
+    db.expire_all()
+    for t in db.query(models.WmtTeam).all():
+        if t.api_id and t.api_id in elo_w:
+            t.elo = round(elo_w[t.api_id], 1)
+            t.matches_played = played_count.get(t.id, 0)
+            teams_updated += 1
+    db.commit()
+
+    # Invalidate stale predictions
+    db.query(models.WmtPrediction).delete()
+    db.commit()
+    log("Alte Prognosen gelöscht — bitte ↻ klicken um neue zu erstellen")
+
+    # ── Step 7: Comparison with eloratings.net ────────────────────────────
+    if elo_net:
+        diffs = [
+            abs(t.elo - elo_net[t.tla])
+            for t in db.query(models.WmtTeam).all()
+            if t.tla and t.tla in elo_net
+        ]
+        if diffs:
+            avg_diff = sum(diffs) / len(diffs)
+            log(
+                f"Abgleich eloratings.net: Ø Abweichung ±{avg_diff:.0f} ELO-Punkte "
+                f"({len(diffs)} Teams)"
+            )
+
+    top_teams = sorted(
+        db.query(models.WmtTeam).all(),
+        key=lambda t: t.elo, reverse=True,
+    )[:5]
+    top_str = " | ".join(f"{t.tla} {t.elo:.0f}" for t in top_teams if t.tla)
+
+    elapsed = time.time() - wall_start
+    log("━━━ Kalibrierung abgeschlossen ━━━", "done")
+    log(
+        f"Laufzeit: {elapsed:.1f}s | Wettbewerbe: {competitions_processed} | "
+        f"Spiele: {total_hist_matches} | Teams aktualisiert: {teams_updated}",
+        "done",
+    )
+    if top_str:
+        log(f"Stärkste Teams: {top_str}", "done")
+
+    return {
+        "message": f"Kalibrierung abgeschlossen ({competitions_processed} Wettbewerbe, {total_hist_matches} Spiele).",
+        "logs": logs,
+        "competitions_processed": competitions_processed,
+        "matches_processed": total_hist_matches,
+        "teams_updated": teams_updated,
+        "elapsed_seconds": round(elapsed, 1),
+    }
+
+
 # ── helpers for API response assembly ────────────────────────────────────────
 
 def _team_out(team: Optional[models.WmtTeam]) -> Optional[schemas.WmtTeamOut]:
@@ -953,6 +1332,25 @@ def generate_bonus(db: Session = Depends(get_db)):
         message=f"Bonus-Prognose erstellt ({result.n_simulations:,} Simulationen).",
         updated=1,
     )
+
+
+@router.post("/warmup", response_model=schemas.WmtWarmupOut)
+def historical_warmup(db: Session = Depends(get_db)):
+    if not FOOTBALL_API_KEY:
+        return schemas.WmtWarmupOut(
+            message="Kein API-Schlüssel konfiguriert.",
+            logs=[{
+                "ts": datetime.utcnow().isoformat() + "Z",
+                "text": "Kein FOOTBALL_DATA_API_KEY — historische Turnierdaten nicht abrufbar.",
+                "level": "error",
+            }],
+            competitions_processed=0,
+            matches_processed=0,
+            teams_updated=0,
+            elapsed_seconds=0.0,
+        )
+    result = do_historical_warmup(db)
+    return schemas.WmtWarmupOut(**result)
 
 
 @router.post("/clear", response_model=schemas.WmtRefreshOut)

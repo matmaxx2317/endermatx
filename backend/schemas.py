@@ -235,3 +235,12 @@ class WmtBonusPredictionOut(BaseModel):
     n_simulations: int
     model_config = {"from_attributes": True}
 
+
+class WmtWarmupOut(BaseModel):
+    message: str
+    logs: list[dict]
+    competitions_processed: int
+    matches_processed: int
+    teams_updated: int
+    elapsed_seconds: float
+
