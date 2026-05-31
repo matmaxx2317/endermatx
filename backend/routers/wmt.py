@@ -621,6 +621,8 @@ def do_generate_bonus(db: Session, n_sims: int = 10000) -> Optional[models.WmtBo
 
     # Counters
     group_win_count: dict[int, int] = defaultdict(int)
+    top2_count:      dict[int, int] = defaultdict(int)
+    top3_count:      dict[int, int] = defaultdict(int)
     semi_count:      dict[int, int] = defaultdict(int)
     final_count:     dict[int, int] = defaultdict(int)
     win_count:       dict[int, int] = defaultdict(int)
@@ -676,10 +678,15 @@ def do_generate_bonus(db: Session, n_sims: int = 10000) -> Optional[models.WmtBo
                 elo = all_teams[tid].elo if tid in all_teams else DEFAULT_ELO
                 if rank == 0:
                     group_win_count[tid] += 1
+                    top2_count[tid] += 1
+                    top3_count[tid] += 1
                     qualifiers.append((tid, elo))
                 elif rank == 1:
+                    top2_count[tid] += 1
+                    top3_count[tid] += 1
                     qualifiers.append((tid, elo))
                 elif rank == 2:
+                    top3_count[tid] += 1
                     third_pool.append((pts[tid], gd[tid], gf[tid], tid, elo))
 
         # Best 8 third-place teams (by points, then GD, then GF)
@@ -728,19 +735,24 @@ def do_generate_bonus(db: Session, n_sims: int = 10000) -> Optional[models.WmtBo
     # ── assemble result ───────────────────────────────────────────────────────
     all_ids = list(all_teams.keys())
 
-    group_winners: dict[str, dict] = {}
+    # group_winners: sorted list of all 4 teams with finish probabilities
+    group_winners: dict[str, list] = {}
     for group_name in sorted(group_to_teams.keys()):
         tids = list(group_to_teams[group_name])
         if not tids:
             continue
-        best_id = max(tids, key=lambda t: group_win_count.get(t, 0))
-        t = all_teams.get(best_id)
-        if t:
-            group_winners[group_name] = {
-                "team": t.short_name or t.name,
-                "tla":  t.tla or "?",
-                "prob": round(group_win_count.get(best_id, 0) / n_sims, 3),
+        ranked = sorted(tids, key=lambda t: group_win_count.get(t, 0), reverse=True)
+        group_winners[group_name] = [
+            {
+                "team":      all_teams[tid].short_name or all_teams[tid].name,
+                "tla":       all_teams[tid].tla or "?",
+                "prob_1st":  round(group_win_count.get(tid, 0) / n_sims, 3),
+                "prob_top2": round(top2_count.get(tid, 0) / n_sims, 3),
+                "prob_top3": round(top3_count.get(tid, 0) / n_sims, 3),
             }
+            for tid in ranked
+            if all_teams.get(tid)
+        ]
 
     semifinalists = sorted(
         [{"team": all_teams[t].short_name or all_teams[t].name,

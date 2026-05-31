@@ -423,7 +423,7 @@ export default function Wmt() {
             }}>
             {refreshing ? '…' : '↻'}
           </button>
-          <span className="topbar-version">v1.6</span>
+          <span className="topbar-version">v1.7</span>
         </div>
       </div>
 
@@ -565,7 +565,59 @@ export default function Wmt() {
   )
 }
 
+function GroupModal({ group, teams, onClose }) {
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(7,9,26,0.88)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: 200,
+      }}>
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: '#0d1221', border: '1px solid #2a3d5c',
+          borderRadius: 12, padding: '20px 24px', width: 320,
+        }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <span style={{ fontSize: 11, color: '#374d66', letterSpacing: '0.1em' }}>GRUPPE {group}</span>
+          <button
+            onClick={onClose}
+            style={{ background: 'none', border: 'none', color: '#374d66', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: 0 }}>
+            ✕
+          </button>
+        </div>
+        {teams.map((t, i) => (
+          <div key={i} style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            padding: '9px 0', borderTop: i > 0 ? '1px solid #1a2840' : 'none',
+          }}>
+            <span style={{ fontSize: 11, color: '#374d66', width: 16, flexShrink: 0 }}>{i + 1}.</span>
+            <div style={{ flex: 1 }}>
+              <span style={{ fontSize: 13, fontWeight: i === 0 ? 600 : 400, color: i === 0 ? '#eef2ff' : '#9ab0d0', marginRight: 7 }}>
+                {t.tla}
+              </span>
+              <span style={{ fontSize: 11, color: '#374d66' }}>{t.team}</span>
+            </div>
+            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+              <div style={{ fontSize: 12, color: '#4d6fa0', fontVariantNumeric: 'tabular-nums' }}>
+                {(t.prob_1st * 100).toFixed(0)}% 1.
+              </div>
+              <div style={{ fontSize: 10, color: '#374d66', marginTop: 2, fontVariantNumeric: 'tabular-nums' }}>
+                {(t.prob_top2 * 100).toFixed(0)}% Top 2 · {(t.prob_top3 * 100).toFixed(0)}% Top 3
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function BonusView({ bonus, generating, onGenerate }) {
+  const [modalGroup, setModalGroup] = useState(null)
+
   const cardStyle = {
     background: '#0d1221', border: '1px solid #1a2840',
     borderRadius: 10, padding: '16px', marginBottom: 12,
@@ -621,8 +673,19 @@ function BonusView({ bonus, generating, onGenerate }) {
   const generatedDate = new Date(bonus.generated_at).toLocaleDateString('de-DE',
     { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 
+  // Normalise group entry: new format is array, old format is plain object (legacy)
+  const groupTeams = (data) => Array.isArray(data) ? data : [{ tla: data.tla, team: data.team, prob_1st: data.prob, prob_top2: data.prob, prob_top3: 1 }]
+
   return (
     <div>
+      {modalGroup && (
+        <GroupModal
+          group={modalGroup}
+          teams={groupTeams(bonus.group_winners[modalGroup])}
+          onClose={() => setModalGroup(null)}
+        />
+      )}
+
       {generateBtn}
 
       {/* Turniersieger */}
@@ -684,25 +747,51 @@ function BonusView({ bonus, generating, onGenerate }) {
         </div>
       )}
 
-      {/* Gruppensieger */}
+      {/* Gruppensieger – click for full ranking modal */}
       {groups.length > 0 && (
         <div style={cardStyle}>
-          <div style={labelStyle}>GRUPPENSIEGER</div>
+          <div style={labelStyle}>GRUPPENRANKING</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-            {groups.map(([group, data]) => (
-              <div key={group} style={{
-                background: '#07091a', border: '1px solid #1a2840', borderRadius: 6,
-                padding: '8px 10px',
-              }}>
-                <div style={{ fontSize: 9, color: '#374d66', letterSpacing: '0.1em', marginBottom: 5 }}>
-                  GRUPPE {group}
+            {groups.map(([group, data]) => {
+              const teams = groupTeams(data)
+              return (
+                <div
+                  key={group}
+                  onClick={() => setModalGroup(group)}
+                  style={{
+                    background: '#07091a', border: '1px solid #1a2840', borderRadius: 6,
+                    padding: '8px 10px', cursor: 'pointer',
+                    transition: 'border-color 0.15s',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = '#2a3d5c'}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = '#1a2840'}>
+                  <div style={{ fontSize: 9, color: '#374d66', letterSpacing: '0.1em', marginBottom: 6 }}>
+                    GRUPPE {group}
+                  </div>
+                  {teams.slice(0, 4).map((t, i) => (
+                    <div key={i} style={{
+                      display: 'flex', justifyContent: 'space-between',
+                      marginBottom: i < 3 ? 3 : 0,
+                    }}>
+                      <span style={{
+                        fontSize: i === 0 ? 12 : 11,
+                        fontWeight: i === 0 ? 600 : 400,
+                        color: i === 0 ? '#eef2ff' : i === 1 ? '#9ab0d0' : '#374d66',
+                      }}>
+                        {i + 1}. {t.tla}
+                      </span>
+                      <span style={{
+                        fontSize: i === 0 ? 11 : 10,
+                        color: i === 0 ? '#4d6fa0' : '#374d66',
+                        fontVariantNumeric: 'tabular-nums',
+                      }}>
+                        {(t.prob_1st * 100).toFixed(0)}%
+                      </span>
+                    </div>
+                  ))}
                 </div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#eef2ff' }}>{data.tla}</div>
-                <div style={{ fontSize: 10, color: '#4d6fa0', marginTop: 2 }}>
-                  {(data.prob * 100).toFixed(0)}%
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}
