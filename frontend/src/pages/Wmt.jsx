@@ -283,12 +283,14 @@ function resultColor(tipH, tipA, actH, actA) {
 export default function Wmt() {
   const [matches, setMatches]           = useState([])
   const [summaries, setSummaries]       = useState([])
+  const [bonus, setBonus]               = useState(null)
   const [view, setView]                 = useState('spieltage')
   const [selectedKey, setSelectedKey]   = useState(null)
   const [expandedId, setExpandedId]     = useState(null)
   const [predHistory, setPredHistory]   = useState({})
   const [loading, setLoading]           = useState(true)
   const [refreshing, setRefreshing]     = useState(false)
+  const [generatingBonus, setGeneratingBonus] = useState(false)
   const [logs, setLogs]                 = useState([])
   const logRef                          = useRef(null)
 
@@ -322,6 +324,11 @@ export default function Wmt() {
       setSummaries(ss)
       if (!silent) addLog(`${ss.length} Morgenberichte geladen`, 'done')
 
+      try {
+        const b = await wmt.getBonus()
+        setBonus(b)
+      } catch { /* 404 = not generated yet */ }
+
       const grouped   = groupMatches(ms)
       const gKeys     = sortGroupKeys(Object.keys(grouped))
       const activeKey = gKeys.find(k => grouped[k].some(m =>
@@ -338,6 +345,25 @@ export default function Wmt() {
   }, [addLog])
 
   useEffect(() => { loadAll() }, [loadAll])
+
+  async function handleGenerateBonus() {
+    setGeneratingBonus(true)
+    addLog('Bonus-Prognose wird berechnet (Monte-Carlo-Simulation)…')
+    const t0 = Date.now()
+    try {
+      const res = await wmt.generateBonus()
+      const elapsed = ((Date.now() - t0) / 1000).toFixed(1)
+      addLog(`${res.message} (${elapsed}s)`, res.updated ? 'done' : 'error')
+      if (res.updated) {
+        const b = await wmt.getBonus()
+        setBonus(b)
+      }
+    } catch (e) {
+      addLog('Fehler bei Bonus-Prognose', 'error')
+    } finally {
+      setGeneratingBonus(false)
+    }
+  }
 
   async function handleRefresh() {
     setRefreshing(true)
@@ -397,14 +423,14 @@ export default function Wmt() {
             }}>
             {refreshing ? '…' : '↻'}
           </button>
-          <span className="topbar-version">v1.5</span>
+          <span className="topbar-version">v1.6</span>
         </div>
       </div>
 
       <div className="page">
         {/* view tabs */}
-        <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
-          {[['spieltage', 'Spieltage'], ['zusammenfassung', 'Morgenberichte'], ['log', 'Log']].map(([key, label]) => (
+        <div style={{ display: 'flex', gap: 6, marginBottom: 20, flexWrap: 'wrap' }}>
+          {[['spieltage', 'Spieltage'], ['bonus', 'Bonus-Tipps'], ['zusammenfassung', 'Morgenberichte'], ['log', 'Log']].map(([key, label]) => (
             <button
               key={key}
               onClick={() => setView(key)}
@@ -500,6 +526,15 @@ export default function Wmt() {
           </div>
         )}
 
+        {/* ── Bonus-Tipps view ──────────────────────────────────────────── */}
+        {!loading && view === 'bonus' && (
+          <BonusView
+            bonus={bonus}
+            generating={generatingBonus}
+            onGenerate={handleGenerateBonus}
+          />
+        )}
+
         {/* ── Morgenberichte view ────────────────────────────────────────── */}
         {!loading && view === 'zusammenfassung' && (
           <>
@@ -525,6 +560,155 @@ export default function Wmt() {
             )}
           </>
         )}
+      </div>
+    </div>
+  )
+}
+
+function BonusView({ bonus, generating, onGenerate }) {
+  const cardStyle = {
+    background: '#0d1221', border: '1px solid #1a2840',
+    borderRadius: 10, padding: '16px', marginBottom: 12,
+  }
+  const labelStyle = { fontSize: 10, color: '#374d66', letterSpacing: '0.1em', marginBottom: 8 }
+  const teamChip = (item, rank) => (
+    <div key={rank} style={{
+      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+      padding: '7px 0', borderTop: rank > 0 ? '1px solid #1a2840' : 'none',
+    }}>
+      <div>
+        <span style={{ fontSize: 13, fontWeight: 600, color: '#eef2ff', marginRight: 8 }}>{item.tla}</span>
+        <span style={{ fontSize: 12, color: '#9ab0d0' }}>{item.team}</span>
+      </div>
+      <span style={{ fontSize: 12, color: '#4d6fa0', fontVariantNumeric: 'tabular-nums' }}>
+        {(item.prob * 100).toFixed(0)}%
+      </span>
+    </div>
+  )
+
+  const generateBtn = (
+    <button
+      onClick={onGenerate}
+      disabled={generating}
+      style={{
+        background: 'none', border: '1px solid #1a2840', color: '#4d6fa0',
+        borderRadius: 6, padding: '6px 14px', fontSize: 12,
+        cursor: generating ? 'not-allowed' : 'pointer',
+        fontFamily: 'inherit', opacity: generating ? 0.5 : 1,
+        marginBottom: 20,
+      }}>
+      {generating ? '… wird berechnet' : bonus ? '↻ Prognose neu berechnen' : '▶ Prognose berechnen'}
+    </button>
+  )
+
+  if (!bonus) {
+    return (
+      <div>
+        {generateBtn}
+        <div style={{ ...cardStyle, textAlign: 'center' }}>
+          <div style={{ fontSize: 13, color: '#9ab0d0', marginBottom: 8 }}>
+            Noch keine Bonus-Prognose vorhanden.
+          </div>
+          <div style={{ fontSize: 12, color: '#374d66', lineHeight: 1.6 }}>
+            Bitte zuerst ↻ klicken um den Spielplan zu laden, dann Prognose berechnen.
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const groups = Object.entries(bonus.group_winners || {}).sort(([a], [b]) => a.localeCompare(b))
+  const generatedDate = new Date(bonus.generated_at).toLocaleDateString('de-DE',
+    { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+
+  return (
+    <div>
+      {generateBtn}
+
+      {/* Turniersieger */}
+      {bonus.winner && (
+        <div style={{ ...cardStyle, borderColor: '#2a3d5c' }}>
+          <div style={labelStyle}>TURNIERSIEGER</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <span style={{ fontSize: 18, fontWeight: 700, color: '#eef2ff', marginRight: 10 }}>
+                {bonus.winner.tla}
+              </span>
+              <span style={{ fontSize: 14, color: '#9ab0d0' }}>{bonus.winner.team}</span>
+            </div>
+            <span style={{ fontSize: 16, fontWeight: 600, color: '#4d6fa0' }}>
+              {(bonus.winner.prob * 100).toFixed(0)}%
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Finalisten */}
+      {bonus.finalists?.length > 0 && (
+        <div style={cardStyle}>
+          <div style={labelStyle}>FINALISTEN</div>
+          {bonus.finalists.map((item, i) => teamChip(item, i))}
+        </div>
+      )}
+
+      {/* Halbfinalisten */}
+      {bonus.semifinalists?.length > 0 && (
+        <div style={cardStyle}>
+          <div style={labelStyle}>HALBFINALISTEN</div>
+          {bonus.semifinalists.map((item, i) => teamChip(item, i))}
+        </div>
+      )}
+
+      {/* Torschützenkönig */}
+      {bonus.top_scorer && (
+        <div style={cardStyle}>
+          <div style={labelStyle}>TORSCHÜTZENKÖNIG</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#eef2ff', marginBottom: 3 }}>
+                {bonus.top_scorer.player}
+              </div>
+              <div style={{ fontSize: 12, color: '#9ab0d0' }}>
+                {bonus.top_scorer.tla} · {bonus.top_scorer.team}
+              </div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#4d6fa0' }}>
+                ~{bonus.top_scorer.goals} Tore
+              </div>
+              <div style={{ fontSize: 10, color: '#374d66', marginTop: 3 }}>
+                {bonus.top_scorer.source}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Gruppensieger */}
+      {groups.length > 0 && (
+        <div style={cardStyle}>
+          <div style={labelStyle}>GRUPPENSIEGER</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+            {groups.map(([group, data]) => (
+              <div key={group} style={{
+                background: '#07091a', border: '1px solid #1a2840', borderRadius: 6,
+                padding: '8px 10px',
+              }}>
+                <div style={{ fontSize: 9, color: '#374d66', letterSpacing: '0.1em', marginBottom: 5 }}>
+                  GRUPPE {group}
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#eef2ff' }}>{data.tla}</div>
+                <div style={{ fontSize: 10, color: '#4d6fa0', marginTop: 2 }}>
+                  {(data.prob * 100).toFixed(0)}%
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div style={{ fontSize: 10, color: '#374d66', textAlign: 'right', marginTop: 4 }}>
+        {bonus.n_simulations.toLocaleString('de-DE')} Simulationen · {generatedDate}
       </div>
     </div>
   )

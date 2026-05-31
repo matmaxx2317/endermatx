@@ -132,3 +132,15 @@ class WmtSummary(Base):
     content       = Column(String, nullable=False)
     matches_count = Column(Integer, default=0)
     created_at    = Column(DateTime, default=datetime.utcnow)
+
+
+class WmtBonusPrediction(Base):
+    __tablename__ = "wmt_bonus_predictions"
+    id            = Column(Integer, primary_key=True, autoincrement=True)
+    generated_at  = Column(DateTime, default=datetime.utcnow)
+    group_winners = Column(JSONB)   # {"A": {"team": "...", "tla": "...", "prob": 0.45}}
+    semifinalists = Column(JSONB)   # [{"team": "...", "tla": "...", "prob": 0.32}, ...]
+    finalists     = Column(JSONB)   # [{"team": "...", "tla": "...", "prob": 0.20}, ...]
+    winner        = Column(JSONB)   # {"team": "...", "tla": "...", "prob": 0.15}
+    top_scorer    = Column(JSONB)   # {"player": "...", "team": "...", "tla": "...", "goals": 4.2, "source": "..."}
+    n_simulations = Column(Integer, default=10000)

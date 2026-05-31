@@ -66,5 +66,7 @@ export const wmt = {
   getSummaries: ()           => get('/wmt/summaries'),
   refresh: ()                => post('/wmt/refresh'),
   generateSummary: ()        => post('/wmt/summary/generate'),
+  getBonus: ()               => get('/wmt/bonus'),
+  generateBonus: ()          => post('/wmt/bonus/generate'),
 }
 

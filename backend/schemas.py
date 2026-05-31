@@ -223,3 +223,15 @@ class WmtRefreshOut(BaseModel):
     message: str
     updated: int
 
+
+class WmtBonusPredictionOut(BaseModel):
+    id: int
+    generated_at: UtcDt
+    group_winners: Any
+    semifinalists: Any
+    finalists: Any
+    winner: Any
+    top_scorer: Any
+    n_simulations: int
+    model_config = {"from_attributes": True}
+
