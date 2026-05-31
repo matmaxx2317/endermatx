@@ -291,6 +291,7 @@ export default function Wmt() {
   const [loading, setLoading]           = useState(true)
   const [refreshing, setRefreshing]     = useState(false)
   const [clearing, setClearing]         = useState(false)
+  const [warming, setWarming]           = useState(false)
   const [generatingBonus, setGeneratingBonus] = useState(false)
   const [logs, setLogs]                 = useState([])
   const logRef                          = useRef(null)
@@ -401,6 +402,28 @@ export default function Wmt() {
     }
   }
 
+  async function handleWarmup() {
+    setWarming(true)
+    setView('log')
+    addLog('Historische ELO-Kalibrierung wird gestartet…')
+    try {
+      const res = await wmt.warmup()
+      const serverLogs = (res.logs || []).map(l => ({
+        ts: new Date(l.ts).getTime() || Date.now(),
+        text: l.text,
+        level: l.level || 'info',
+      }))
+      setLogs(prev => [...prev, ...serverLogs])
+      addLog(`Kalibrierung abgeschlossen (${res.elapsed_seconds?.toFixed(1)}s)`, 'done')
+      await loadAll(true)
+      addLog('ELO-Ratings aktualisiert — bitte ↻ für neue Prognosen klicken', 'done')
+    } catch (e) {
+      addLog('Fehler bei der Kalibrierung', 'error')
+    } finally {
+      setWarming(false)
+    }
+  }
+
   async function handleTogglePred(matchId) {
     if (expandedId === matchId) {
       setExpandedId(null)
@@ -433,19 +456,8 @@ export default function Wmt() {
         </div>
         <div className="topbar-right">
           <button
-            onClick={handleClear}
-            disabled={clearing || refreshing}
-            title="Alle WMT-Daten löschen"
-            style={{
-              background: 'none', border: 'none', color: '#374d66',
-              fontSize: 13, cursor: 'pointer', marginRight: 8, fontFamily: 'inherit',
-              opacity: clearing ? 0.5 : 1,
-            }}>
-            {clearing ? '…' : '✕'}
-          </button>
-          <button
             onClick={handleRefresh}
-            disabled={refreshing || clearing}
+            disabled={refreshing || clearing || warming}
             style={{
               background: 'none', border: 'none', color: '#4d6fa0',
               fontSize: 14, cursor: 'pointer', marginRight: 10, fontFamily: 'inherit',
@@ -453,7 +465,7 @@ export default function Wmt() {
             }}>
             {refreshing ? '…' : '↻'}
           </button>
-          <span className="topbar-version">v1.7</span>
+          <span className="topbar-version">v1.8</span>
         </div>
       </div>
 
@@ -532,27 +544,55 @@ export default function Wmt() {
 
         {/* ── Log view ──────────────────────────────────────────────────── */}
         {view === 'log' && (
-          <div
-            ref={logRef}
-            style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 160px)', display: 'flex', flexDirection: 'column' }}
-          >
-            {logs.length === 0 ? (
-              <div style={{ color: '#374d66', fontSize: 12 }}>Noch keine Einträge.</div>
-            ) : (
-              logs.map((e, i) => (
-                <div key={i} style={{
-                  display: 'flex', gap: 10, padding: '2px 0',
-                  fontSize: 11, fontVariantNumeric: 'tabular-nums',
+          <div>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+              <button
+                onClick={handleWarmup}
+                disabled={warming || refreshing || clearing}
+                style={{
+                  background: 'none', border: '1px solid #1a2840',
+                  color: warming ? '#374d66' : '#4d6fa0',
+                  borderRadius: 6, padding: '5px 12px', fontSize: 12,
+                  cursor: warming ? 'not-allowed' : 'pointer',
+                  fontFamily: 'inherit', opacity: warming ? 0.6 : 1,
                 }}>
-                  <span style={{ color: '#1a2840', flexShrink: 0 }}>
-                    {new Date(e.ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                  </span>
-                  <span style={{ color: e.level === 'done' ? '#4d8a4d' : e.level === 'error' ? '#8a4d4d' : '#374d66' }}>
-                    {e.text}
-                  </span>
-                </div>
-              ))
-            )}
+                {warming ? '… Kalibrierung läuft' : '⊕ Historische Kalibrierung'}
+              </button>
+              <button
+                onClick={handleClear}
+                disabled={clearing || refreshing || warming}
+                style={{
+                  background: 'none', border: '1px solid #1a2840',
+                  color: clearing ? '#374d66' : '#8a4d4d',
+                  borderRadius: 6, padding: '5px 12px', fontSize: 12,
+                  cursor: clearing ? 'not-allowed' : 'pointer',
+                  fontFamily: 'inherit', opacity: clearing ? 0.5 : 1,
+                }}>
+                {clearing ? '…' : '✕ Daten löschen'}
+              </button>
+            </div>
+            <div
+              ref={logRef}
+              style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 220px)', display: 'flex', flexDirection: 'column' }}
+            >
+              {logs.length === 0 ? (
+                <div style={{ color: '#374d66', fontSize: 12 }}>Noch keine Einträge.</div>
+              ) : (
+                logs.map((e, i) => (
+                  <div key={i} style={{
+                    display: 'flex', gap: 10, padding: '2px 0',
+                    fontSize: 11, fontVariantNumeric: 'tabular-nums',
+                  }}>
+                    <span style={{ color: '#1a2840', flexShrink: 0 }}>
+                      {new Date(e.ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                    </span>
+                    <span style={{ color: e.level === 'done' ? '#4d8a4d' : e.level === 'error' ? '#8a4d4d' : '#374d66' }}>
+                      {e.text}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         )}
 
