@@ -177,6 +177,9 @@ function MatchCard({ match, predHistory, onTogglePred, isExpanded }) {
           <div style={{ fontSize: 11, color: '#9ab0d0', marginBottom: 8 }}>
             {isFinished ? 'Prognose war' : 'Tipp-Empfehlung'}:{' '}
             <span style={{ fontWeight: 600, color: '#eef2ff' }}>{tipHome}:{tipAway}</span>
+            <span style={{ color: '#374d66', marginLeft: 6 }}>
+              (xG {p.pred_home_goals.toFixed(1)} : {p.pred_away_goals.toFixed(1)})
+            </span>
             {isFinished && match.score_home !== null && (
               <span style={{ marginLeft: 8, color: resultColor(tipHome, tipAway, match.score_home, match.score_away) }}>
                 {resultMark(tipHome, tipAway, match.score_home, match.score_away)}
@@ -226,6 +229,9 @@ function MatchCard({ match, predHistory, onTogglePred, isExpanded }) {
                       <span style={{ marginRight: 8 }}>{formatDateLong(ph.created_at)}</span>
                       <span style={{ fontVariantNumeric: 'tabular-nums' }}>
                         {Math.round(ph.pred_home_goals)}:{Math.round(ph.pred_away_goals)}
+                        {' '}<span style={{ color: '#374d66' }}>
+                          (xG {ph.pred_home_goals.toFixed(1)}:{ph.pred_away_goals.toFixed(1)})
+                        </span>
                         {' '}({(ph.home_win_prob * 100).toFixed(0)}%/
                         {(ph.draw_prob * 100).toFixed(0)}%/
                         {(ph.away_win_prob * 100).toFixed(0)}%)
@@ -349,7 +355,7 @@ export default function Wmt() {
             }}>
             {refreshing ? '…' : '↻'}
           </button>
-          <span className="topbar-version">v1.1</span>
+          <span className="topbar-version">v1.2</span>
         </div>
       </div>
 
