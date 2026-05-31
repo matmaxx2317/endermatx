@@ -280,32 +280,6 @@ function resultColor(tipH, tipA, actH, actA) {
 
 // ── main page ─────────────────────────────────────────────────────────────────
 
-// step: { label, status: 'pending'|'loading'|'done'|'error', detail }
-function LoadProgress({ steps }) {
-  return (
-    <div style={{ fontFamily: 'inherit' }}>
-      {steps.map((step, i) => {
-        const icon  = step.status === 'done'    ? '✓'
-                    : step.status === 'error'   ? '✗'
-                    : step.status === 'loading' ? '…'
-                    : '·'
-        const color = step.status === 'done'    ? '#4d8a4d'
-                    : step.status === 'error'   ? '#8a4d4d'
-                    : step.status === 'loading' ? '#9ab0d0'
-                    : '#374d66'
-        return (
-          <div key={i} style={{ display: 'flex', gap: 10, padding: '3px 0', alignItems: 'baseline' }}>
-            <span style={{ width: 10, fontSize: 11, color, flexShrink: 0 }}>{icon}</span>
-            <span style={{ fontSize: 12, color }}>
-              {step.detail ?? step.label}
-            </span>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
 export default function Wmt() {
   const [matches, setMatches]           = useState([])
   const [summaries, setSummaries]       = useState([])
@@ -314,10 +288,7 @@ export default function Wmt() {
   const [expandedId, setExpandedId]     = useState(null)
   const [predHistory, setPredHistory]   = useState({})
   const [loading, setLoading]           = useState(true)
-  const [loadSteps, setLoadSteps]       = useState([])
   const [refreshing, setRefreshing]     = useState(false)
-  const [refreshSteps, setRefreshSteps] = useState([])
-  const [statusMsg, setStatusMsg]       = useState('')
   const [logs, setLogs]                 = useState([])
   const logRef                          = useRef(null)
 
@@ -331,13 +302,7 @@ export default function Wmt() {
   }, [logs])
 
   const loadAll = useCallback(async (silent = false) => {
-    if (!silent) {
-      setLoading(true)
-      setLoadSteps([
-        { label: 'Spiele laden',         status: 'loading', detail: null },
-        { label: 'Morgenberichte laden', status: 'pending', detail: null },
-      ])
-    }
+    if (!silent) setLoading(true)
     try {
       const ms = await wmt.getMatches()
       setMatches(ms)
@@ -347,33 +312,18 @@ export default function Wmt() {
           const home = m.home_team?.tla ?? m.home_team?.short_name ?? '?'
           const away = m.away_team?.tla ?? m.away_team?.short_name ?? '?'
           const ctx  = m.group_name ? `Gr.${m.group_name}` : stageLabel(m.stage)
-          const line = `${ctx} · ${home} vs ${away}`
-          setLoadSteps(prev => [
-            { ...prev[0], status: 'loading', detail: line },
-            prev[1],
-          ])
-          addLog(line)
+          addLog(`${ctx} · ${home} vs ${away}`)
           await new Promise(r => setTimeout(r, 20))
         }
-        setLoadSteps(prev => [
-          { status: 'done', detail: `${ms.length} Spiel${ms.length !== 1 ? 'e' : ''} geladen` },
-          { ...prev[1], status: 'loading' },
-        ])
         addLog(`${ms.length} Spiele geladen`, 'done')
       }
 
       const ss = await wmt.getSummaries()
       setSummaries(ss)
-      if (!silent) {
-        setLoadSteps(prev => [
-          prev[0],
-          { label: 'Morgenberichte', status: 'done', detail: `${ss.length} Bericht${ss.length !== 1 ? 'e' : ''} geladen` },
-        ])
-        addLog(`${ss.length} Morgenberichte geladen`, 'done')
-      }
+      if (!silent) addLog(`${ss.length} Morgenberichte geladen`, 'done')
 
-      const grouped = groupMatches(ms)
-      const gKeys   = sortGroupKeys(Object.keys(grouped))
+      const grouped   = groupMatches(ms)
+      const gKeys     = sortGroupKeys(Object.keys(grouped))
       const activeKey = gKeys.find(k => grouped[k].some(m =>
         m.status === 'IN_PLAY' || m.status === 'PAUSED' ||
         m.status === 'SCHEDULED' || m.status === 'TIMED'
@@ -382,9 +332,6 @@ export default function Wmt() {
     } catch (e) {
       console.error(e)
       addLog('Fehler beim Laden', 'error')
-      if (!silent) setLoadSteps(prev => prev.map(s =>
-        s.status === 'loading' ? { ...s, status: 'error', detail: 'Fehler beim Laden' } : s
-      ))
     } finally {
       if (!silent) setLoading(false)
     }
@@ -394,38 +341,16 @@ export default function Wmt() {
 
   async function handleRefresh() {
     setRefreshing(true)
-    setStatusMsg('')
-    addLog('Refresh gestartet')
+    addLog('football-data.org wird abgefragt…')
     const t0 = Date.now()
-    const ticker = setInterval(() => {
-      const s = Math.floor((Date.now() - t0) / 1000)
-      setRefreshSteps([{ label: 'football-data.org abfragen', status: 'loading', detail: `${s}s` }])
-    }, 500)
-    setRefreshSteps([{ label: 'football-data.org abfragen', status: 'loading', detail: '0s' }])
     try {
       const res = await wmt.refresh()
-      clearInterval(ticker)
       const elapsed = ((Date.now() - t0) / 1000).toFixed(1)
       addLog(`${res.message} (${elapsed}s)`, 'done')
-      setRefreshSteps([
-        { label: 'football-data.org', status: 'done', detail: `${res.message} (${elapsed}s)` },
-        { label: 'Ansicht aktualisieren', status: 'loading', detail: null },
-      ])
       await loadAll(true)
-      setRefreshSteps(prev => [
-        prev[0],
-        { label: 'Ansicht aktualisieren', status: 'done', detail: 'Fertig' },
-      ])
       addLog('Ansicht aktualisiert', 'done')
-      setTimeout(() => setRefreshSteps([]), 3000)
     } catch (e) {
-      clearInterval(ticker)
       addLog('Fehler beim Refresh', 'error')
-      setRefreshSteps(prev => prev.map(s =>
-        s.status === 'loading' ? { ...s, status: 'error', detail: 'Fehler' } : s
-      ))
-      setStatusMsg('Fehler beim Aktualisieren.')
-      setTimeout(() => { setStatusMsg(''); setRefreshSteps([]) }, 5000)
     } finally {
       setRefreshing(false)
     }
@@ -472,34 +397,11 @@ export default function Wmt() {
             }}>
             {refreshing ? '…' : '↻'}
           </button>
-          <span className="topbar-version">v1.4</span>
+          <span className="topbar-version">v1.5</span>
         </div>
       </div>
 
       <div className="page">
-        {/* initial load progress */}
-        {loading && loadSteps.length > 0 && (
-          <div style={{ marginBottom: 20 }}>
-            <LoadProgress steps={loadSteps} />
-          </div>
-        )}
-
-        {/* refresh progress */}
-        {refreshSteps.length > 0 && (
-          <div style={{ marginBottom: 14, padding: '10px 12px',
-            background: '#0d1221', border: '1px solid #1a2840', borderRadius: 6 }}>
-            <LoadProgress steps={refreshSteps} />
-          </div>
-        )}
-
-        {/* status message (errors only) */}
-        {statusMsg && (
-          <div style={{ fontSize: 12, color: '#9ab0d0', marginBottom: 14, padding: '8px 12px',
-            background: '#0d1221', border: '1px solid #1a2840', borderRadius: 6 }}>
-            {statusMsg}
-          </div>
-        )}
-
         {/* view tabs */}
         <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
           {[['spieltage', 'Spieltage'], ['zusammenfassung', 'Morgenberichte'], ['log', 'Log']].map(([key, label]) => (
@@ -518,7 +420,7 @@ export default function Wmt() {
           ))}
         </div>
 
-        {loading && loadSteps.length === 0 && (
+        {loading && (
           <div style={{ color: '#374d66', fontSize: 12 }}>…</div>
         )}
 
