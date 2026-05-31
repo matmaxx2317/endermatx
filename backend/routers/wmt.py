@@ -238,10 +238,10 @@ def _fetch_wc_matches() -> Optional[dict]:
     return None
 
 
-def _fetch_historical_matches(competition: str, season: str) -> Optional[dict]:
-    """Fetch all matches for a historical competition/season from football-data.org."""
+def _fetch_historical_matches(competition: str, season: str) -> tuple[Optional[dict], Optional[int]]:
+    """Fetch all matches for a historical competition/season. Returns (data, http_status)."""
     if not FOOTBALL_API_KEY:
-        return None
+        return None, None
     try:
         with httpx.Client(timeout=25.0) as client:
             r = client.get(
@@ -251,14 +251,12 @@ def _fetch_historical_matches(competition: str, season: str) -> Optional[dict]:
             )
             _log_rate_limit(r)
             if r.status_code == 200:
-                return r.json()
-            if r.status_code == 429:
-                logger.warning("%s/%s: rate limit hit", competition, season)
-                return None
+                return r.json(), 200
             logger.warning("%s/%s matches → %d: %s", competition, season, r.status_code, r.text[:200])
+            return None, r.status_code
     except Exception as exc:
         logger.error("%s/%s fetch error: %s", competition, season, exc)
-    return None
+        return None, None
 
 
 def _fetch_elo_ratings_net() -> dict[str, float]:
@@ -957,9 +955,16 @@ def do_historical_warmup(db: Session) -> dict:
         if top5:
             log(f"  Top 5 extern: {top5_str}")
     else:
+        # Fallback: seed from hand-calibrated INITIAL_ELO dict
+        init_applied = 0
+        for t in all_db_teams:
+            if t.tla and t.tla in INITIAL_ELO:
+                t.elo = INITIAL_ELO[t.tla]
+                init_applied += 1
+        db.commit()
         log(
             f"eloratings.net nicht verfügbar ({elo_net_time:.2f}s) — "
-            f"starte mit {int(BASE_ELO)} ELO",
+            f"Fallback: {init_applied} Teams mit vorkalibrierten ELO-Werten belegt",
             "info",
         )
 
@@ -985,11 +990,22 @@ def do_historical_warmup(db: Session) -> dict:
         log(f"─── {comp_code}/{season} ({ordinal}) — Anfrage läuft…")
 
         t_req = time.time()
-        raw = _fetch_historical_matches(comp_code, season)
+        raw, http_status = _fetch_historical_matches(comp_code, season)
         req_time = time.time() - t_req
 
         if raw is None:
-            reason = "Kein API-Key" if not FOOTBALL_API_KEY else f"Keine Antwort ({req_time:.2f}s)"
+            if not FOOTBALL_API_KEY:
+                reason = "Kein API-Key konfiguriert"
+            elif http_status == 403:
+                reason = f"HTTP 403 — historische Daten erfordern kostenpflichtige API-Stufe"
+            elif http_status == 404:
+                reason = f"HTTP 404 — {comp_code}/{season} nicht gefunden"
+            elif http_status == 429:
+                reason = f"HTTP 429 — Rate-Limit erreicht"
+            elif http_status is not None:
+                reason = f"HTTP {http_status} ({req_time:.2f}s)"
+            else:
+                reason = f"Netzwerkfehler ({req_time:.2f}s)"
             log(f"  {reason} — überspringe {comp_code}/{season}", "error")
             if ci < len(HISTORICAL_COMPETITIONS) - 1:
                 time.sleep(6.0)
