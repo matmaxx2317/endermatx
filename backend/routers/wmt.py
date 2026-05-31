@@ -52,7 +52,7 @@ BASE_ELO = 1500.0  # starting ELO for historical warmup
 
 HISTORICAL_COMPETITIONS = [
     ("WC", "2014"), ("EC", "2016"), ("WC", "2018"),
-    ("EC", "2020"), ("WC", "2022"), ("EC", "2024"),
+    ("EC", "2021"), ("WC", "2022"), ("EC", "2024"),
 ]
 
 COUNTRY_TO_TLA: dict[str, str] = {
@@ -267,24 +267,25 @@ def _fetch_elo_ratings_net() -> dict[str, float]:
         try:
             with httpx.Client(timeout=10.0, follow_redirects=True) as client:
                 r = client.get(url, headers=headers)
-                if r.status_code != 200 or "\t" not in r.text[:500]:
-                    continue
-                for line in r.text.splitlines():
-                    parts = line.split("\t")
-                    if len(parts) < 3:
-                        continue
-                    country = parts[1].strip()
-                    try:
-                        elo = float(parts[2].strip())
-                    except (ValueError, IndexError):
-                        continue
-                    if not (1000 <= elo <= 2500):
-                        continue
-                    tla = COUNTRY_TO_TLA.get(country)
-                    if tla:
-                        result[tla] = elo
-                if len(result) >= 5:
-                    return result
+                if r.status_code == 200 and "\t" in r.text[:500]:
+                    for line in r.text.splitlines():
+                        parts = line.split("\t")
+                        if len(parts) < 3:
+                            continue
+                        country = parts[1].strip()
+                        try:
+                            elo = float(parts[2].strip())
+                        except (ValueError, IndexError):
+                            continue
+                        if not (1000 <= elo <= 2500):
+                            continue
+                        tla = COUNTRY_TO_TLA.get(country)
+                        if tla:
+                            result[tla] = elo
+                    if len(result) >= 5:
+                        return result
+                if r.status_code == 200:
+                    break  # server responded but not TSV — backup URL won't help
         except Exception as exc:
             logger.debug("eloratings.net %s: %s", url, exc)
     return result
