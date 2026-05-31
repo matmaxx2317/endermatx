@@ -4,9 +4,12 @@ import { wmt } from '../api'
 
 // ── constants & helpers ───────────────────────────────────────────────────────
 
+// football-data.org v4 uses LAST_16 / LAST_32; keep ROUND_OF_* as fallbacks
 const STAGE_LABELS = {
   GROUP_STAGE:    'Gruppenphase',
+  LAST_32:        'Rd. 32',
   ROUND_OF_32:    'Rd. 32',
+  LAST_16:        'Achtelfinale',
   ROUND_OF_16:    'Achtelfinale',
   QUARTER_FINALS: 'Viertelfinale',
   SEMI_FINALS:    'Halbfinale',
