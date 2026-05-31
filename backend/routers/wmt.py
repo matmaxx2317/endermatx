@@ -60,7 +60,7 @@ def elo_to_win_prob(home_elo: float, away_elo: float) -> tuple[float, float, flo
 
 def elo_to_expected_goals(home_elo: float, away_elo: float) -> tuple[float, float]:
     diff = (home_elo - away_elo) / 400.0
-    factor = 10.0 ** (diff * 0.3)
+    factor = 10.0 ** (diff * 0.5)
     home_xg = WC_AVG_GOALS * factor
     away_xg = WC_AVG_GOALS / factor
     return max(0.3, min(5.0, home_xg)), max(0.3, min(5.0, away_xg))
