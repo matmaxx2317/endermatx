@@ -290,6 +290,7 @@ export default function Wmt() {
   const [predHistory, setPredHistory]   = useState({})
   const [loading, setLoading]           = useState(true)
   const [refreshing, setRefreshing]     = useState(false)
+  const [clearing, setClearing]         = useState(false)
   const [generatingBonus, setGeneratingBonus] = useState(false)
   const [logs, setLogs]                 = useState([])
   const logRef                          = useRef(null)
@@ -345,6 +346,24 @@ export default function Wmt() {
   }, [addLog])
 
   useEffect(() => { loadAll() }, [loadAll])
+
+  async function handleClear() {
+    if (!window.confirm('Alle WMT-Daten löschen? (Teams, Spiele, Prognosen, Morgenberichte, Bonus)')) return
+    setClearing(true)
+    addLog('Datenbank wird geleert…')
+    try {
+      await wmt.clearData()
+      setMatches([])
+      setSummaries([])
+      setBonus(null)
+      setSelectedKey(null)
+      addLog('Alle WMT-Daten gelöscht', 'done')
+    } catch (e) {
+      addLog('Fehler beim Löschen', 'error')
+    } finally {
+      setClearing(false)
+    }
+  }
 
   async function handleGenerateBonus() {
     setGeneratingBonus(true)
@@ -414,8 +433,19 @@ export default function Wmt() {
         </div>
         <div className="topbar-right">
           <button
+            onClick={handleClear}
+            disabled={clearing || refreshing}
+            title="Alle WMT-Daten löschen"
+            style={{
+              background: 'none', border: 'none', color: '#374d66',
+              fontSize: 13, cursor: 'pointer', marginRight: 8, fontFamily: 'inherit',
+              opacity: clearing ? 0.5 : 1,
+            }}>
+            {clearing ? '…' : '✕'}
+          </button>
+          <button
             onClick={handleRefresh}
-            disabled={refreshing}
+            disabled={refreshing || clearing}
             style={{
               background: 'none', border: 'none', color: '#4d6fa0',
               fontSize: 14, cursor: 'pointer', marginRight: 10, fontFamily: 'inherit',

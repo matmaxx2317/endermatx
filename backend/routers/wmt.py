@@ -953,3 +953,15 @@ def generate_bonus(db: Session = Depends(get_db)):
         message=f"Bonus-Prognose erstellt ({result.n_simulations:,} Simulationen).",
         updated=1,
     )
+
+
+@router.post("/clear", response_model=schemas.WmtRefreshOut)
+def clear_data(db: Session = Depends(get_db)):
+    """Delete all WMT data from the database."""
+    db.query(models.WmtBonusPrediction).delete()
+    db.query(models.WmtPrediction).delete()
+    db.query(models.WmtSummary).delete()
+    db.query(models.WmtMatch).delete()
+    db.query(models.WmtTeam).delete()
+    db.commit()
+    return schemas.WmtRefreshOut(message="Alle WMT-Daten gelöscht.", updated=0)
