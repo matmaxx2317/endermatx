@@ -796,8 +796,69 @@ function BonusView({ bonus, generating, onGenerate }) {
         </div>
       )}
 
-      <div style={{ fontSize: 10, color: '#374d66', textAlign: 'right', marginTop: 4 }}>
+      <div style={{ fontSize: 10, color: '#374d66', textAlign: 'right', marginTop: 4, marginBottom: 24 }}>
         {bonus.n_simulations.toLocaleString('de-DE')} Simulationen · {generatedDate}
+      </div>
+
+      {/* Simulation explanation */}
+      <div style={{ borderTop: '1px solid #1a2840', paddingTop: 20 }}>
+        <div style={{ fontSize: 10, color: '#374d66', letterSpacing: '0.1em', marginBottom: 14 }}>
+          WIE FUNKTIONIERT DIE SIMULATION?
+        </div>
+
+        <div style={{ fontSize: 12, color: '#374d66', lineHeight: 1.8 }}>
+          <p style={{ marginBottom: 12 }}>
+            Die Prognose basiert auf einer{' '}
+            <span style={{ color: '#9ab0d0' }}>Monte-Carlo-Simulation</span>{' '}
+            mit {bonus.n_simulations.toLocaleString('de-DE')} Turnierdurchläufen.
+            Jeder Durchlauf simuliert das gesamte WM-Turnier von der Gruppenphase bis zum Finale.
+            Die angezeigten Prozentwerte geben an, wie häufig ein Ergebnis in diesen Durchläufen eingetreten ist.
+          </p>
+
+          <div style={{ marginBottom: 10 }}>
+            <span style={{ color: '#9ab0d0' }}>ELO-Rating</span>
+            <span style={{ color: '#374d66' }}>
+              {' '}— Jedes Team erhält ein ELO-Rating, das auf Ergebnissen der letzten WM und anderen internationalen Spielen basiert.
+              Stärkere Teams haben höhere Ratings; ein Unterschied von 400 Punkten entspricht grob einer Gewinnwahrscheinlichkeit von ca. 85:15.
+            </span>
+          </div>
+
+          <div style={{ marginBottom: 10 }}>
+            <span style={{ color: '#9ab0d0' }}>Gruppenphase</span>
+            <span style={{ color: '#374d66' }}>
+              {' '}— In jedem Durchlauf wird jedes Gruppenspiel einzeln simuliert.
+              Aus den ELO-Ratings wird eine erwartete Toranzahl (xG) pro Team abgeleitet;
+              die tatsächlichen Tore werden per Poisson-Verteilung zufällig gezogen.
+              Bereits gespielte Partien fließen mit ihrem echten Ergebnis ein.
+            </span>
+          </div>
+
+          <div style={{ marginBottom: 10 }}>
+            <span style={{ color: '#9ab0d0' }}>K.O.-Runde</span>
+            <span style={{ color: '#374d66' }}>
+              {' '}— Die besten zwei jeder Gruppe sowie die acht besten Gruppendritter (nach Punkten, Tordifferenz, Toren) qualifizieren sich für die Runde der 32.
+              Der K.O.-Baum wird in jedem Durchlauf zufällig neu gelost, damit keine bestimmte Hälfte bevorzugt wird.
+              Bei Unentschieden nach 90 Minuten entscheidet ein ELO-gewichteter Münzwurf (analog Elfmeterschießen).
+            </span>
+          </div>
+
+          <div style={{ marginBottom: 10 }}>
+            <span style={{ color: '#9ab0d0' }}>Torschützenkönig</span>
+            <span style={{ color: '#374d66' }}>
+              {' '}— Die Prognose nutzt Torschützendaten aus WC 2026 (sofern verfügbar), WC 2022 und EC 2024 von football-data.org.
+              Aus der Torrate pro Spiel und der erwarteten Turnierlänge (abhängig vom ELO-Rating des Teams) wird eine prognostizierte Gesamttoranzahl berechnet.
+              Für Teams ohne aktuelle Daten wird auf eine kuratierte Rückfallliste bekannter Torjäger zurückgegriffen.
+            </span>
+          </div>
+
+          <div>
+            <span style={{ color: '#9ab0d0' }}>Hinweis</span>
+            <span style={{ color: '#374d66' }}>
+              {' '}— Die Simulation spiegelt den Wissensstand zum Zeitpunkt der letzten Datenaktualisierung wider.
+              Nach jedem Spieltag ELO-Ratings neu berechnen (↻) und anschließend die Bonus-Prognose neu generieren, um aktuelle Ergebnisse einzubeziehen.
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   )
