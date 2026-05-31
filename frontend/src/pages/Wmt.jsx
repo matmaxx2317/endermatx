@@ -488,7 +488,7 @@ export default function Wmt() {
           ))}
         </div>
 
-        {loading && (
+        {loading && view !== 'log' && (
           <div style={{ color: '#374d66', fontSize: 12 }}>…</div>
         )}
 
