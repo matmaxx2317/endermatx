@@ -482,73 +482,90 @@ def _sample_goals_poisson(lam: float) -> int:
     return k - 1
 
 
-def _fetch_ec_scorers() -> list[dict]:
-    """Fetch Euro 2024 top scorers from football-data.org (free tier)."""
+def _fetch_scorers(competition: str, season: str) -> list[dict]:
+    """Fetch top scorers from football-data.org for a given competition + season."""
     if not FOOTBALL_API_KEY:
         return []
     try:
         with httpx.Client(timeout=20.0) as client:
             r = client.get(
-                f"{FOOTBALL_API_BASE}/competitions/EC/scorers",
+                f"{FOOTBALL_API_BASE}/competitions/{competition}/scorers",
                 headers=_api_headers(),
-                params={"season": "2024", "limit": 20},
+                params={"season": season, "limit": 20},
             )
             _log_rate_limit(r)
             if r.status_code == 200:
                 return r.json().get("scorers", [])
-            logger.warning("EC scorers fetch returned %d", r.status_code)
+            logger.warning("%s/%s scorers fetch returned %d", competition, season, r.status_code)
     except Exception as exc:
-        logger.error("EC scorers fetch error: %s", exc)
+        logger.error("%s/%s scorers fetch error: %s", competition, season, exc)
     return []
+
+
+def _scorers_to_best_per_tla(scorers: list[dict], source_label: str) -> dict[str, dict]:
+    """Collapse a scorers list to the top scorer per team TLA."""
+    best: dict[str, dict] = {}
+    for s in scorers:
+        player = s.get("player") or {}
+        team   = s.get("team") or {}
+        goals  = s.get("goals") or 0
+        tla    = (team.get("tla") or "").upper()
+        name   = (player.get("name") or "").strip()
+        if not name or not tla or goals == 0:
+            continue
+        if tla not in best or best[tla]["goals_src"] < goals:
+            best[tla] = {
+                "player":    name,
+                "team_name": team.get("shortName") or team.get("name", tla),
+                "tla":       tla,
+                "goals_src": goals,
+                "played":    s.get("playedMatches") or 1,
+                "source":    source_label,
+            }
+    return best
 
 
 def _compute_top_scorer(db: Session) -> dict:
     """
-    Predict top WC 2026 scorer.
-    Uses Euro 2024 scorer data (football-data.org) weighted by team ELO and
-    expected tournament depth; falls back to TOP_PLAYERS dict.
+    Predict top WC 2026 scorer using a tiered data strategy:
+      1. WC 2026 in-tournament scorers (if available — tournament may have started)
+      2. WC 2022 scorers (covers all confederations; same competition format)
+      3. EC 2024 scorers (supplements European teams absent from WC 2022 top scorers)
+      4. Static TOP_PLAYERS fallback
     """
-    ec_scorers  = _fetch_ec_scorers()
     all_teams   = {t.id: t for t in db.query(models.WmtTeam).all()}
     tla_to_team = {t.tla: t for t in all_teams.values() if t.tla}
 
+    # Fetch all three sources (WC 2026 will be empty until tournament starts)
+    wc26 = _scorers_to_best_per_tla(_fetch_scorers("WC", "2026"), "WC 2026")
+    wc22 = _scorers_to_best_per_tla(_fetch_scorers("WC", "2022"), "WC 2022")
+    ec24 = _scorers_to_best_per_tla(_fetch_scorers("EC", "2024"), "EC 2024")
+
+    # Merge: WC 2026 > WC 2022 > EC 2024 (first write wins)
+    merged: dict[str, dict] = {}
+    for source in (wc26, wc22, ec24):
+        for tla, data in source.items():
+            if tla not in merged:
+                merged[tla] = data
+
     candidates: list[dict] = []
 
-    if ec_scorers:
-        best_per_tla: dict[str, dict] = {}
-        for s in ec_scorers:
-            player = s.get("player") or {}
-            team   = s.get("team") or {}
-            goals  = s.get("goals") or 0
-            tla    = (team.get("tla") or "").upper()
-            name   = (player.get("name") or "").strip()
-            if not name or not tla or goals == 0:
-                continue
-            if tla not in best_per_tla or best_per_tla[tla]["goals_src"] < goals:
-                best_per_tla[tla] = {
-                    "player":    name,
-                    "team_name": team.get("shortName") or team.get("name", tla),
-                    "tla":       tla,
-                    "goals_src": goals,
-                    "played":    s.get("playedMatches") or 6,
-                    "source":    "EC 2024",
-                }
-        for tla, data in best_per_tla.items():
-            wc_team = tla_to_team.get(tla)
-            if not wc_team:
-                continue
-            rate  = data["goals_src"] / data["played"]
-            exp_m = 3.0 + 3.5 * min(1.0, max(0.0, (wc_team.elo - 1600) / 400))
-            candidates.append({
-                "player": data["player"],
-                "team":   wc_team.short_name or wc_team.name,
-                "tla":    tla,
-                "goals":  round(rate * exp_m, 1),
-                "source": data["source"],
-                "_score": rate * exp_m,
-            })
+    for tla, data in merged.items():
+        wc_team = tla_to_team.get(tla)
+        if not wc_team:
+            continue
+        rate  = data["goals_src"] / data["played"]
+        exp_m = 3.0 + 3.5 * min(1.0, max(0.0, (wc_team.elo - 1600) / 400))
+        candidates.append({
+            "player": data["player"],
+            "team":   wc_team.short_name or wc_team.name,
+            "tla":    tla,
+            "goals":  round(rate * exp_m, 1),
+            "source": data["source"],
+            "_score": rate * exp_m,
+        })
 
-    # Static fallback for teams not covered by EC 2024 data
+    # Static fallback for teams not covered by any API source
     covered = {c["tla"] for c in candidates}
     for tla, (player, rate) in TOP_PLAYERS.items():
         if tla in covered:
