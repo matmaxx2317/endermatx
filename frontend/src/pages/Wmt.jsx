@@ -356,26 +356,13 @@ export default function Wmt() {
     if (el) el.scrollTop = el.scrollHeight
   }, [logs])
 
-  const loadAll = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true)
+  const loadAll = useCallback(async () => {
     try {
       const ms = await wmt.getMatches()
       setMatches(ms)
-      if (!silent) {
-        for (let i = 0; i < ms.length; i++) {
-          const m    = ms[i]
-          const home = m.home_team?.tla ?? m.home_team?.short_name ?? '?'
-          const away = m.away_team?.tla ?? m.away_team?.short_name ?? '?'
-          const ctx  = m.group_name ? `Gr.${m.group_name}` : stageLabel(m.stage)
-          addLog(`${ctx} · ${home} vs ${away}`)
-          await new Promise(r => setTimeout(r, 20))
-        }
-        addLog(`${ms.length} Spiele geladen`, 'done')
-      }
 
       const ss = await wmt.getSummaries()
       setSummaries(ss)
-      if (!silent) addLog(`${ss.length} Morgenberichte geladen`, 'done')
 
       try {
         const b = await wmt.getBonus()
@@ -391,13 +378,49 @@ export default function Wmt() {
       setSelectedKey(prev => prev ?? activeKey ?? null)
     } catch (e) {
       console.error(e)
-      addLog('Fehler beim Laden', 'error')
-    } finally {
-      if (!silent) setLoading(false)
+      throw e
     }
-  }, [addLog])
+  }, [])
 
-  useEffect(() => { loadAll() }, [loadAll])
+  useEffect(() => {
+    async function startup() {
+      setLoading(true)
+      setView('import')
+      try {
+        const status = await wmt.getStatus()
+
+        if (status.match_count === 0) {
+          addLog('Kein Spielplan in der Datenbank', 'error')
+          addLog('→ Spielplan aktualisieren (☰) um Daten zu laden')
+          return
+        }
+
+        addLog(`${status.match_count} Spiele im Spielplan`, 'done')
+
+        if (status.calibrated) {
+          addLog('ELO: kalibriert — historische Kalibrierung aktiv', 'done')
+        } else {
+          addLog('ELO: Standard-Schätzungen aktiv (keine historische Kalibrierung)')
+          addLog('→ Historische Kalibrierung (☰) für genauere Prognosen empfohlen')
+        }
+
+        if (status.prediction_count > 0) {
+          addLog(`${status.prediction_count} Prognosen vorhanden`, 'done')
+        } else {
+          addLog('Keine Prognosen — Spielplan aktualisieren (☰) um Prognosen zu berechnen')
+        }
+
+        await loadAll()
+        setView('spieltage')
+      } catch (e) {
+        addLog('Fehler beim Starten', 'error')
+        console.error(e)
+      } finally {
+        setLoading(false)
+      }
+    }
+    startup()
+  }, [addLog, loadAll])
 
   async function handleClear() {
     if (!window.confirm('Alle WMT-Daten löschen? (Teams, Spiele, Prognosen, Morgenberichte, Bonus)')) return
@@ -446,7 +469,7 @@ export default function Wmt() {
       const elapsed = ((Date.now() - t0) / 1000).toFixed(1)
       const isErr = !res.updated && !res.message?.startsWith('Aktualisierung')
       addLog(`${res.message} (${elapsed}s)`, isErr ? 'error' : 'done')
-      if (!isErr) await loadAll(true)
+      if (!isErr) await loadAll()
       addLog('Ansicht aktualisiert', 'done')
     } catch (e) {
       addLog('Fehler beim Refresh', 'error')
@@ -468,7 +491,7 @@ export default function Wmt() {
       }))
       setLogs(prev => [...prev, ...serverLogs])
       addLog(`Kalibrierung abgeschlossen (${res.elapsed_seconds?.toFixed(1)}s)`, 'done')
-      await loadAll(true)
+      await loadAll()
       addLog('ELO-Ratings aktualisiert — bitte Spielplan aktualisieren (☰) für neue Prognosen', 'done')
     } catch (e) {
       addLog('Fehler bei der Kalibrierung', 'error')
@@ -487,7 +510,7 @@ export default function Wmt() {
       const elapsed = ((Date.now() - t0) / 1000).toFixed(1)
       addLog(`${res.message} (${elapsed}s)`, res.updated ? 'done' : 'error')
       if (res.updated) {
-        await loadAll(true)
+        await loadAll()
         setView('spieltage')
         setSelectedKey('md_1')
       }
@@ -543,7 +566,7 @@ export default function Wmt() {
             }}>
             {anyBusy ? '…' : '☰'}
           </button>
-          <span className="topbar-version">v2.0</span>
+          <span className="topbar-version">v2.1</span>
         </div>
       </div>
 
