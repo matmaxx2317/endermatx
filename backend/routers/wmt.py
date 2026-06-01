@@ -1277,6 +1277,30 @@ def _match_out(match: models.WmtMatch, db: Session) -> schemas.WmtMatchOut:
 
 # ── API endpoints ─────────────────────────────────────────────────────────────
 
+def _is_calibrated(db: Session) -> bool:
+    """True wenn ELO-Werte merklich von INITIAL_ELO abweichen (Warmup wurde durchgeführt)."""
+    teams = db.query(models.WmtTeam).filter(models.WmtTeam.tla.isnot(None)).all()
+    if not teams:
+        return False
+    total_diff, count = 0.0, 0
+    for t in teams:
+        initial = INITIAL_ELO.get(t.tla)
+        if initial is not None:
+            total_diff += abs(t.elo - initial)
+            count += 1
+    return count > 0 and (total_diff / count) > 10.0
+
+
+@router.get("/status", response_model=schemas.WmtStatusOut)
+def get_status(db: Session = Depends(get_db)):
+    return schemas.WmtStatusOut(
+        match_count=db.query(models.WmtMatch).count(),
+        team_count=db.query(models.WmtTeam).count(),
+        prediction_count=db.query(models.WmtPrediction).count(),
+        calibrated=_is_calibrated(db),
+    )
+
+
 @router.get("/matches", response_model=list[schemas.WmtMatchOut])
 def list_matches(db: Session = Depends(get_db)):
     matches = (

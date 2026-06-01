@@ -60,6 +60,7 @@ export const str = {
 
 // ── wmt ───────────────────────────────────────────────────────
 export const wmt = {
+  getStatus: ()              => get('/wmt/status'),
   getMatches: ()             => get('/wmt/matches'),
   getMatchPredictions: (id)  => get(`/wmt/matches/${id}/predictions`),
   getTeams: ()               => get('/wmt/teams'),

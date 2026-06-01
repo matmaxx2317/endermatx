@@ -244,3 +244,10 @@ class WmtWarmupOut(BaseModel):
     teams_updated: int
     elapsed_seconds: float
 
+
+class WmtStatusOut(BaseModel):
+    match_count: int
+    team_count: int
+    prediction_count: int
+    calibrated: bool
+
