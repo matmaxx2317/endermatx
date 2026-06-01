@@ -150,7 +150,7 @@ function ProbBar({ home, draw, away, homeTla, awayTla }) {
   )
 }
 
-function MatchCard({ match, predHistory, onTogglePred, isExpanded }) {
+function MatchCard({ match }) {
   const p = match.prediction
   const isFinished = match.status === 'FINISHED'
   const isLive = match.status === 'IN_PLAY' || match.status === 'PAUSED'
@@ -233,19 +233,7 @@ function MatchCard({ match, predHistory, onTogglePred, isExpanded }) {
             homeTla={homeTla} awayTla={awayTla}
           />
 
-          <button
-            onClick={() => onTogglePred(match.id)}
-            style={{
-              marginTop: 10, background: 'none', border: 'none',
-              color: '#4d6fa0', fontSize: 11, cursor: 'pointer',
-              padding: 0, fontFamily: 'inherit',
-            }}>
-            {isExpanded ? 'Begründung ▲' : 'Begründung ▼'}
-            {predHistory && predHistory.length > 1 && ` · ${predHistory.length} Versionen`}
-          </button>
-
-          {isExpanded && (
-            <div style={{ marginTop: 10, borderTop: '1px solid #1a2840', paddingTop: 10 }}>
+          <div style={{ marginTop: 10, borderTop: '1px solid #1a2840', paddingTop: 10 }}>
               <div style={{ fontSize: 12, color: '#9ab0d0', lineHeight: 1.65, marginBottom: p.home_elo ? 10 : 0 }}>
                 {p.reasoning}
               </div>
@@ -256,12 +244,12 @@ function MatchCard({ match, predHistory, onTogglePred, isExpanded }) {
                 </div>
               )}
 
-              {predHistory && predHistory.length > 1 && (
+              {match.predictions?.length > 1 && (
                 <div style={{ marginTop: 12 }}>
                   <div style={{ fontSize: 10, color: '#374d66', letterSpacing: '0.1em', marginBottom: 6 }}>
-                    VERLAUF ({predHistory.length} VERSIONEN)
+                    VERLAUF ({match.predictions.length} VERSIONEN)
                   </div>
-                  {predHistory.map((ph, i) => (
+                  {match.predictions.map((ph, i) => (
                     <div key={ph.id} style={{
                       padding: '6px 0',
                       borderTop: '1px solid #1a2840',
@@ -284,7 +272,6 @@ function MatchCard({ match, predHistory, onTogglePred, isExpanded }) {
                 </div>
               )}
             </div>
-          )}
         </div>
       ) : (
         <div style={{ fontSize: 11, color: '#374d66' }}>Noch keine Prognose verfügbar.</div>
@@ -335,8 +322,6 @@ export default function Wmt() {
   const [bonus, setBonus]               = useState(null)
   const [view, setView]                 = useState('spieltage')
   const [selectedKey, setSelectedKey]   = useState(null)
-  const [expandedId, setExpandedId]     = useState(null)
-  const [predHistory, setPredHistory]   = useState({})
   const [loading, setLoading]           = useState(true)
   const [refreshing, setRefreshing]     = useState(false)
   const [clearing, setClearing]         = useState(false)
@@ -524,22 +509,6 @@ export default function Wmt() {
     }
   }
 
-  async function handleTogglePred(matchId) {
-    if (expandedId === matchId) {
-      setExpandedId(null)
-      return
-    }
-    setExpandedId(matchId)
-    if (!predHistory[matchId]) {
-      try {
-        const hist = await wmt.getMatchPredictions(matchId)
-        setPredHistory(prev => ({ ...prev, [matchId]: hist }))
-      } catch (e) {
-        console.error(e)
-      }
-    }
-  }
-
   const anyBusy = refreshing || clearing || warming || generatingBonus || fakingMd1
 
   const grouped       = groupMatches(matches)
@@ -569,7 +538,7 @@ export default function Wmt() {
             }}>
             {anyBusy ? '…' : '☰'}
           </button>
-          <span className="topbar-version">v2.1</span>
+          <span className="topbar-version">v2.2</span>
         </div>
       </div>
 
@@ -719,26 +688,14 @@ export default function Wmt() {
                         {calDayLabel(isoDay).toUpperCase()}
                       </div>
                       {dayMatches.map(m => (
-                        <MatchCard
-                          key={m.id}
-                          match={m}
-                          predHistory={predHistory[m.id]}
-                          onTogglePred={handleTogglePred}
-                          isExpanded={expandedId === m.id}
-                        />
+                        <MatchCard key={m.id} match={m} />
                       ))}
                     </div>
                   ))
                 ) : (
                   // Knockout rounds: flat list
                   currentMatches.map(m => (
-                    <MatchCard
-                      key={m.id}
-                      match={m}
-                      predHistory={predHistory[m.id]}
-                      onTogglePred={handleTogglePred}
-                      isExpanded={expandedId === m.id}
-                    />
+                    <MatchCard key={m.id} match={m} />
                   ))
                 )}
               </>

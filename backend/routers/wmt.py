@@ -254,8 +254,8 @@ def _stage_de(stage: str) -> str:
 def build_reasoning(
     home_name: str, away_name: str, home_tla: str, away_tla: str,
     home_elo: float, away_elo: float,
-    home_win: float, draw: float, away_win: float,
-    home_xg: float, away_xg: float,
+    home_win: float = 0.0, draw: float = 0.0, away_win: float = 0.0,
+    home_xg: float = 0.0, away_xg: float = 0.0,
 ) -> str:
     diff = home_elo - away_elo
     if abs(diff) < 30:
@@ -267,20 +267,9 @@ def build_reasoning(
         label = "leichter" if abs(diff) < 100 else ("klarer" if abs(diff) < 200 else "deutlicher")
         strength = f"{away_name} ist {label} Favorit ({diff:.0f} ELO)"
 
-    tip_home = max(0, round(home_xg))
-    tip_away = max(0, round(away_xg))
-    if tip_home == tip_away:
-        if home_win > away_win + 0.1:
-            tip_home += 1
-        elif away_win > home_win + 0.1:
-            tip_away += 1
-
     return (
         f"{strength}. "
-        f"ELO: {home_tla} {home_elo:.0f} vs. {away_tla} {away_elo:.0f}. "
-        f"Gewinnchancen: {home_tla} {home_win*100:.0f}% | "
-        f"Remis {draw*100:.0f}% | {away_tla} {away_win*100:.0f}%. "
-        f"Empfohlener Tipp: {tip_home}:{tip_away}."
+        f"ELO: {home_tla} {home_elo:.0f} vs. {away_tla} {away_elo:.0f}."
     )
 
 
@@ -1278,6 +1267,7 @@ def _assemble_match_out(
     home: Optional[models.WmtTeam],
     away: Optional[models.WmtTeam],
     pred: Optional[models.WmtPrediction],
+    all_preds: Optional[list[models.WmtPrediction]] = None,
 ) -> schemas.WmtMatchOut:
     return schemas.WmtMatchOut(
         id=match.id,
@@ -1292,6 +1282,7 @@ def _assemble_match_out(
         home_team=_team_out(home),
         away_team=_team_out(away),
         prediction=_pred_out(pred),
+        predictions=[_pred_out(p) for p in (all_preds or ([pred] if pred else []))],
     )
 
 
@@ -1328,19 +1319,18 @@ def list_matches(db: Session = Depends(get_db)):
         .order_by(models.WmtMatch.utc_date)
         .all()
     )
-    # Bulk-load teams and latest predictions (avoids N+1: 3 queries instead of ~312)
+    # Bulk-load teams and all predictions (avoids N+1: 3 queries total)
     teams = {t.id: t for t in db.query(models.WmtTeam).all()}
-    # Latest prediction per match: load all ordered desc, keep first seen per match_id
-    pred_by_match: dict[int, models.WmtPrediction] = {}
+    all_preds_by_match: dict[int, list[models.WmtPrediction]] = {}
     for p in db.query(models.WmtPrediction).order_by(models.WmtPrediction.created_at.desc()).all():
-        if p.match_id not in pred_by_match:
-            pred_by_match[p.match_id] = p
+        all_preds_by_match.setdefault(p.match_id, []).append(p)
     return [
         _assemble_match_out(
             m,
             teams.get(m.home_team_id) if m.home_team_id else None,
             teams.get(m.away_team_id) if m.away_team_id else None,
-            pred_by_match.get(m.id),
+            all_preds_by_match.get(m.id, [None])[0],
+            all_preds_by_match.get(m.id, []),
         )
         for m in matches
     ]
