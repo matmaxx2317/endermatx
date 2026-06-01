@@ -520,7 +520,7 @@ export default function Wmt() {
             }}>
             {anyBusy ? '…' : '☰'}
           </button>
-          <span className="topbar-version">v1.12</span>
+          <span className="topbar-version">v2.0</span>
         </div>
       </div>
 
