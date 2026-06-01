@@ -85,10 +85,36 @@ function groupLabel(key) {
   return stageLabel(key.slice(6))
 }
 
+// Returns ISO date string yyyy-mm-dd in local timezone for a match
+function matchLocalDateKey(m) {
+  const d = new Date(m.utc_date)
+  const y = d.getFullYear()
+  const mo = String(d.getMonth() + 1).padStart(2, '0')
+  const dy = String(d.getDate()).padStart(2, '0')
+  return `${y}-${mo}-${dy}`
+}
+
+function calDayLabel(isoDate) {
+  const [y, mo, d] = isoDate.split('-').map(Number)
+  return new Date(y, mo - 1, d).toLocaleDateString('de-DE', {
+    weekday: 'short', day: '2-digit', month: '2-digit',
+  })
+}
+
+// Groups matches by calendar day (local time), returns sorted [[isoDate, matches]] pairs
+function groupByCalDay(matches) {
+  const byDay = {}
+  for (const m of matches) {
+    const key = matchLocalDateKey(m)
+    if (!byDay[key]) byDay[key] = []
+    byDay[key].push(m)
+  }
+  return Object.entries(byDay).sort(([a], [b]) => a.localeCompare(b))
+}
+
 function renderMarkdown(text) {
   if (!text) return null
   return text.split('\n').map((line, i) => {
-    // bold
     const parts = line.split(/\*\*(.*?)\*\*/g).map((p, j) =>
       j % 2 === 1 ? <strong key={j}>{p}</strong> : p
     )
@@ -278,6 +304,29 @@ function resultColor(tipH, tipA, actH, actA) {
   return tipWinner === actWinner ? '#4d8a4d' : '#8a4d4d'
 }
 
+function MenuButton({ icon, label, loading, danger, disabled, onClick }) {
+  const busy = loading || disabled
+  return (
+    <button
+      onClick={onClick}
+      disabled={busy}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        width: '100%', background: 'none', border: 'none',
+        color: busy ? '#374d66' : danger ? '#8a4d4d' : '#9ab0d0',
+        padding: '10px 16px', fontSize: 12,
+        cursor: busy ? 'not-allowed' : 'pointer',
+        fontFamily: 'inherit', textAlign: 'left',
+        opacity: busy ? 0.6 : 1,
+      }}>
+      <span style={{ width: 14, textAlign: 'center', flexShrink: 0 }}>
+        {loading ? '…' : icon}
+      </span>
+      {label}
+    </button>
+  )
+}
+
 // ── main page ─────────────────────────────────────────────────────────────────
 
 export default function Wmt() {
@@ -294,6 +343,7 @@ export default function Wmt() {
   const [warming, setWarming]           = useState(false)
   const [generatingBonus, setGeneratingBonus] = useState(false)
   const [logs, setLogs]                 = useState([])
+  const [menuOpen, setMenuOpen]         = useState(false)
   const logRef                          = useRef(null)
 
   const addLog = useCallback((text, level = 'info') => {
@@ -377,6 +427,7 @@ export default function Wmt() {
       if (res.updated) {
         const b = await wmt.getBonus()
         setBonus(b)
+        setView('bonus')
       }
     } catch (e) {
       addLog('Fehler bei Bonus-Prognose', 'error')
@@ -404,7 +455,7 @@ export default function Wmt() {
 
   async function handleWarmup() {
     setWarming(true)
-    setView('log')
+    setView('import')
     addLog('Historische ELO-Kalibrierung wird gestartet…')
     try {
       const res = await wmt.warmup()
@@ -440,6 +491,8 @@ export default function Wmt() {
     }
   }
 
+  const anyBusy = refreshing || clearing || warming || generatingBonus
+
   const grouped       = groupMatches(matches)
   const groupKeys     = sortGroupKeys(Object.keys(grouped))
   const currentMatches = selectedKey !== null ? (grouped[selectedKey] ?? []) : []
@@ -456,23 +509,70 @@ export default function Wmt() {
         </div>
         <div className="topbar-right">
           <button
-            onClick={handleRefresh}
-            disabled={refreshing || clearing || warming}
+            onClick={() => setMenuOpen(o => !o)}
             style={{
-              background: 'none', border: 'none', color: '#4d6fa0',
-              fontSize: 14, cursor: 'pointer', marginRight: 10, fontFamily: 'inherit',
-              opacity: refreshing ? 0.5 : 1,
+              background: menuOpen ? '#1a2840' : 'none',
+              border: menuOpen ? '1px solid #2a3d5c' : '1px solid transparent',
+              color: anyBusy ? '#4d6fa0' : '#9ab0d0',
+              fontSize: 14, cursor: 'pointer', marginRight: 10,
+              fontFamily: 'inherit', borderRadius: 4,
+              padding: '2px 6px', lineHeight: 1,
             }}>
-            {refreshing ? '…' : '↻'}
+            {anyBusy ? '…' : '☰'}
           </button>
-          <span className="topbar-version">v1.11</span>
+          <span className="topbar-version">v2.0</span>
         </div>
       </div>
+
+      {/* burger menu overlay */}
+      {menuOpen && (
+        <div
+          onClick={() => setMenuOpen(false)}
+          style={{ position: 'fixed', inset: 0, zIndex: 100 }}>
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              position: 'fixed', top: 32, right: 0,
+              width: 220, background: '#0d1221',
+              border: '1px solid #1a2840',
+              borderRight: 'none', borderTop: 'none',
+              borderRadius: '0 0 0 10px',
+              paddingTop: 4, paddingBottom: 8,
+            }}>
+            <MenuButton
+              icon="↻" label="Spielplan aktualisieren"
+              loading={refreshing} disabled={anyBusy && !refreshing}
+              onClick={() => { setMenuOpen(false); setView('import'); handleRefresh() }}
+            />
+            <MenuButton
+              icon="⊕" label="Historische Kalibrierung"
+              loading={warming} disabled={anyBusy && !warming}
+              onClick={() => { setMenuOpen(false); handleWarmup() }}
+            />
+            <MenuButton
+              icon="▶" label="Bonus-Prognose berechnen"
+              loading={generatingBonus} disabled={anyBusy && !generatingBonus}
+              onClick={() => { setMenuOpen(false); handleGenerateBonus() }}
+            />
+            <div style={{ borderTop: '1px solid #1a2840', margin: '6px 0' }} />
+            <MenuButton
+              icon="✕" label="Daten löschen"
+              danger loading={clearing} disabled={anyBusy && !clearing}
+              onClick={() => { setMenuOpen(false); handleClear() }}
+            />
+          </div>
+        </div>
+      )}
 
       <div className="page">
         {/* view tabs */}
         <div style={{ display: 'flex', gap: 6, marginBottom: 20, flexWrap: 'wrap' }}>
-          {[['spieltage', 'Spieltage'], ['bonus', 'Bonus-Tipps'], ['zusammenfassung', 'Morgenberichte'], ['log', 'Log']].map(([key, label]) => (
+          {[
+            ['import', 'Import'],
+            ['spieltage', 'Spieltage'],
+            ['bonus', 'Bonus-Tipps'],
+            ['zusammenfassung', 'Morgenberichte'],
+          ].map(([key, label]) => (
             <button
               key={key}
               onClick={() => setView(key)}
@@ -483,13 +583,39 @@ export default function Wmt() {
                 borderRadius: 6, padding: '5px 12px', fontSize: 12,
                 cursor: 'pointer', fontFamily: 'inherit',
               }}>
-              {label}{key === 'log' && logs.length > 0 && <span style={{ color: '#374d66', marginLeft: 4 }}>{logs.length}</span>}
+              {label}{key === 'import' && logs.length > 0 && <span style={{ color: '#374d66', marginLeft: 4 }}>{logs.length}</span>}
             </button>
           ))}
         </div>
 
-        {loading && view !== 'log' && (
+        {loading && view !== 'import' && (
           <div style={{ color: '#374d66', fontSize: 12 }}>…</div>
+        )}
+
+        {/* ── Import view ────────────────────────────────────────────────── */}
+        {view === 'import' && (
+          <div
+            ref={logRef}
+            style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 160px)', display: 'flex', flexDirection: 'column' }}
+          >
+            {logs.length === 0 ? (
+              <div style={{ color: '#374d66', fontSize: 12 }}>Noch keine Einträge.</div>
+            ) : (
+              logs.map((e, i) => (
+                <div key={i} style={{
+                  display: 'flex', gap: 10, padding: '2px 0',
+                  fontSize: 11, fontVariantNumeric: 'tabular-nums',
+                }}>
+                  <span style={{ color: '#1a2840', flexShrink: 0 }}>
+                    {new Date(e.ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                  </span>
+                  <span style={{ color: e.level === 'done' ? '#4d8a4d' : e.level === 'error' ? '#8a4d4d' : '#374d66' }}>
+                    {e.text}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
         )}
 
         {/* ── Spieltage view ─────────────────────────────────────────────── */}
@@ -526,7 +652,30 @@ export default function Wmt() {
                 {/* match cards */}
                 {currentMatches.length === 0 ? (
                   <div style={{ color: '#374d66', fontSize: 13 }}>Keine Spiele.</div>
+                ) : selectedKey?.startsWith('md_') ? (
+                  // Group stage matchdays: sub-group by calendar day
+                  groupByCalDay(currentMatches).map(([isoDay, dayMatches]) => (
+                    <div key={isoDay}>
+                      <div style={{
+                        fontSize: 10, color: '#374d66', letterSpacing: '0.1em',
+                        marginBottom: 10, marginTop: 16,
+                        paddingBottom: 6, borderBottom: '1px solid #1a2840',
+                      }}>
+                        {calDayLabel(isoDay).toUpperCase()}
+                      </div>
+                      {dayMatches.map(m => (
+                        <MatchCard
+                          key={m.id}
+                          match={m}
+                          predHistory={predHistory[m.id]}
+                          onTogglePred={handleTogglePred}
+                          isExpanded={expandedId === m.id}
+                        />
+                      ))}
+                    </div>
+                  ))
                 ) : (
+                  // Knockout rounds: flat list
                   currentMatches.map(m => (
                     <MatchCard
                       key={m.id}
@@ -542,67 +691,9 @@ export default function Wmt() {
           </>
         )}
 
-        {/* ── Log view ──────────────────────────────────────────────────── */}
-        {view === 'log' && (
-          <div>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-              <button
-                onClick={handleWarmup}
-                disabled={warming || refreshing || clearing}
-                style={{
-                  background: 'none', border: '1px solid #1a2840',
-                  color: warming ? '#374d66' : '#4d6fa0',
-                  borderRadius: 6, padding: '5px 12px', fontSize: 12,
-                  cursor: warming ? 'not-allowed' : 'pointer',
-                  fontFamily: 'inherit', opacity: warming ? 0.6 : 1,
-                }}>
-                {warming ? '… Kalibrierung läuft' : '⊕ Historische Kalibrierung'}
-              </button>
-              <button
-                onClick={handleClear}
-                disabled={clearing || refreshing || warming}
-                style={{
-                  background: 'none', border: '1px solid #1a2840',
-                  color: clearing ? '#374d66' : '#8a4d4d',
-                  borderRadius: 6, padding: '5px 12px', fontSize: 12,
-                  cursor: clearing ? 'not-allowed' : 'pointer',
-                  fontFamily: 'inherit', opacity: clearing ? 0.5 : 1,
-                }}>
-                {clearing ? '…' : '✕ Daten löschen'}
-              </button>
-            </div>
-            <div
-              ref={logRef}
-              style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 220px)', display: 'flex', flexDirection: 'column' }}
-            >
-              {logs.length === 0 ? (
-                <div style={{ color: '#374d66', fontSize: 12 }}>Noch keine Einträge.</div>
-              ) : (
-                logs.map((e, i) => (
-                  <div key={i} style={{
-                    display: 'flex', gap: 10, padding: '2px 0',
-                    fontSize: 11, fontVariantNumeric: 'tabular-nums',
-                  }}>
-                    <span style={{ color: '#1a2840', flexShrink: 0 }}>
-                      {new Date(e.ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                    </span>
-                    <span style={{ color: e.level === 'done' ? '#4d8a4d' : e.level === 'error' ? '#8a4d4d' : '#374d66' }}>
-                      {e.text}
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        )}
-
         {/* ── Bonus-Tipps view ──────────────────────────────────────────── */}
         {!loading && view === 'bonus' && (
-          <BonusView
-            bonus={bonus}
-            generating={generatingBonus}
-            onGenerate={handleGenerateBonus}
-          />
+          <BonusView bonus={bonus} generating={generatingBonus} />
         )}
 
         {/* ── Morgenberichte view ────────────────────────────────────────── */}
@@ -685,7 +776,7 @@ function GroupModal({ group, teams, onClose }) {
   )
 }
 
-function BonusView({ bonus, generating, onGenerate }) {
+function BonusView({ bonus, generating }) {
   const [modalGroup, setModalGroup] = useState(null)
 
   const cardStyle = {
@@ -708,32 +799,22 @@ function BonusView({ bonus, generating, onGenerate }) {
     </div>
   )
 
-  const generateBtn = (
-    <button
-      onClick={onGenerate}
-      disabled={generating}
-      style={{
-        background: 'none', border: '1px solid #1a2840', color: '#4d6fa0',
-        borderRadius: 6, padding: '6px 14px', fontSize: 12,
-        cursor: generating ? 'not-allowed' : 'pointer',
-        fontFamily: 'inherit', opacity: generating ? 0.5 : 1,
-        marginBottom: 20,
-      }}>
-      {generating ? '… wird berechnet' : bonus ? '↻ Prognose neu berechnen' : '▶ Prognose berechnen'}
-    </button>
-  )
+  if (generating) {
+    return (
+      <div style={{ color: '#9ab0d0', fontSize: 12 }}>
+        … Monte-Carlo-Simulation läuft
+      </div>
+    )
+  }
 
   if (!bonus) {
     return (
-      <div>
-        {generateBtn}
-        <div style={{ ...cardStyle, textAlign: 'center' }}>
-          <div style={{ fontSize: 13, color: '#9ab0d0', marginBottom: 8 }}>
-            Noch keine Bonus-Prognose vorhanden.
-          </div>
-          <div style={{ fontSize: 12, color: '#374d66', lineHeight: 1.6 }}>
-            Bitte zuerst ↻ klicken um den Spielplan zu laden, dann Prognose berechnen.
-          </div>
+      <div style={{ ...cardStyle, textAlign: 'center' }}>
+        <div style={{ fontSize: 13, color: '#9ab0d0', marginBottom: 8 }}>
+          Noch keine Bonus-Prognose vorhanden.
+        </div>
+        <div style={{ fontSize: 12, color: '#374d66', lineHeight: 1.6 }}>
+          Über das Menü (☰) Prognose berechnen.
         </div>
       </div>
     )
@@ -755,8 +836,6 @@ function BonusView({ bonus, generating, onGenerate }) {
           onClose={() => setModalGroup(null)}
         />
       )}
-
-      {generateBtn}
 
       {/* Turniersieger */}
       {bonus.winner && (
@@ -933,7 +1012,7 @@ function NoDataPlaceholder() {
         Noch keine Spieldaten vorhanden.
       </div>
       <div style={{ fontSize: 12, color: '#9ab0d0', lineHeight: 1.6 }}>
-        ↻ drücken um Spielplandaten zu laden.
+        Über das Menü (☰) Spielplandaten laden.
       </div>
     </div>
   )
