@@ -326,12 +326,15 @@ def do_refresh(db: Session) -> tuple[int, str]:
         logger.warning("WMT openligadb %s: leere Antwort (Liga noch nicht verfügbar?)", WM2026_LEAGUE)
         return 0, f"openligadb: Keine Spiele in Liga '{WM2026_LEAGUE}' — Liga möglicherweise noch nicht angelegt"
 
+    total_received = len(matches_data)
     updated = 0
+    skipped_no_id = 0
     newly_finished: list[models.WmtMatch] = []
 
     for m in matches_data:
         openligadb_id = m.get("MatchID")
         if not openligadb_id:
+            skipped_no_id += 1
             continue
 
         t1 = m.get("Team1") or {}
@@ -444,6 +447,15 @@ def do_refresh(db: Session) -> tuple[int, str]:
         ))
 
     db.commit()
+    if updated == 0 and total_received > 0:
+        first = matches_data[0]
+        first_id  = first.get("MatchID")
+        first_keys = list(first.keys())[:6]
+        return 0, (
+            f"openligadb: {total_received} Objekte empfangen, 0 eingefügt "
+            f"(erstes MatchID={first_id!r}, Felder: {first_keys}, "
+            f"MatchIDs fehlend: {skipped_no_id}/{total_received})"
+        )
     return updated, ""
 
 
