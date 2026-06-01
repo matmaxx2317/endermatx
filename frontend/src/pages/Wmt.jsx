@@ -465,7 +465,7 @@ export default function Wmt() {
             }}>
             {refreshing ? '…' : '↻'}
           </button>
-          <span className="topbar-version">v1.9</span>
+          <span className="topbar-version">v1.10</span>
         </div>
       </div>
 
