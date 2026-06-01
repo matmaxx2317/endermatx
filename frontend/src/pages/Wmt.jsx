@@ -443,8 +443,9 @@ export default function Wmt() {
     try {
       const res = await wmt.refresh()
       const elapsed = ((Date.now() - t0) / 1000).toFixed(1)
-      addLog(`${res.message} (${elapsed}s)`, 'done')
-      await loadAll(true)
+      const isErr = !res.updated && !res.message?.startsWith('Aktualisierung')
+      addLog(`${res.message} (${elapsed}s)`, isErr ? 'error' : 'done')
+      if (!isErr) await loadAll(true)
       addLog('Ansicht aktualisiert', 'done')
     } catch (e) {
       addLog('Fehler beim Refresh', 'error')
