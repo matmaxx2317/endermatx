@@ -256,6 +256,7 @@ def build_reasoning(
     home_elo: float, away_elo: float,
     home_win: float = 0.0, draw: float = 0.0, away_win: float = 0.0,
     home_xg: float = 0.0, away_xg: float = 0.0,
+    trigger_note: Optional[str] = None,
 ) -> str:
     diff = home_elo - away_elo
     if abs(diff) < 30:
@@ -267,10 +268,32 @@ def build_reasoning(
         label = "leichter" if abs(diff) < 100 else ("klarer" if abs(diff) < 200 else "deutlicher")
         strength = f"{away_name} ist {label} Favorit ({diff:.0f} ELO)"
 
-    return (
+    result = (
         f"{strength}. "
         f"ELO: {home_tla} {home_elo:.0f} vs. {away_tla} {away_elo:.0f}."
     )
+    if trigger_note:
+        result += f" {trigger_note}."
+    return result
+
+
+def _build_trigger_note(
+    home_id: Optional[int],
+    away_id: Optional[int],
+    newly_finished: list,
+    all_teams: dict,
+) -> Optional[str]:
+    """Build 'nach: ARG 2:1 FRA (MD1)' note for matches that shifted ELO."""
+    relevant = []
+    for m in newly_finished:
+        if m.home_team_id in (home_id, away_id) or m.away_team_id in (home_id, away_id):
+            h = all_teams.get(m.home_team_id) if m.home_team_id else None
+            a = all_teams.get(m.away_team_id) if m.away_team_id else None
+            h_tla = (h.tla or h.short_name or "?") if h else "?"
+            a_tla = (a.tla or a.short_name or "?") if a else "?"
+            stage_note = f"MD{m.matchday}" if m.stage == "GROUP_STAGE" else _stage_de(m.stage)
+            relevant.append(f"{h_tla} {m.score_home}:{m.score_away} {a_tla} ({stage_note})")
+    return ("nach: " + ", ".join(relevant)) if relevant else None
 
 
 # ── openligadb helpers ────────────────────────────────────────────────────────
@@ -414,9 +437,13 @@ def _apply_elo_and_predictions(db: Session, newly_finished: list[models.WmtMatch
                 continue
         home_tla = home.tla or home.short_name or home.name
         away_tla = away.tla or away.short_name or away.name
+        trigger_note = _build_trigger_note(
+            match.home_team_id, match.away_team_id, newly_finished, all_teams
+        )
         reasoning = build_reasoning(
             home.name, away.name, home_tla, away_tla,
             home.elo, away.elo, home_win, draw, away_win, home_xg, away_xg,
+            trigger_note=trigger_note,
         )
         db.add(models.WmtPrediction(
             match_id=match.id,
@@ -1145,20 +1172,15 @@ def do_historical_warmup(db: Session) -> dict:
     }
 
 
-# ── fake MD1 results (dev/test) ───────────────────────────────────────────────
+# ── fake results (dev/test) ───────────────────────────────────────────────────
 
-def do_fake_md1(db: Session) -> tuple[int, str]:
-    """Fake-Ergebnisse für alle ausstehenden Gruppenphase-MD1-Spiele setzen.
-
-    Ablauf: ELO-Prognose → normale Ergebnisse für die meisten Spiele,
-    die 3 Spiele mit dem größten ELO-Abstand werden als Upset umgekehrt
-    (Außenseiter gewinnt), um spätere Prognose-Updates sichtbar zu machen.
-    """
-    md1_matches = (
+def do_fake_group_md(db: Session, matchday: int, n_upsets: int) -> tuple[int, str]:
+    """Fake-Ergebnisse für alle ausstehenden Gruppenphase-Spiele eines Spieltags setzen."""
+    md_matches = (
         db.query(models.WmtMatch)
         .filter(
             models.WmtMatch.stage == "GROUP_STAGE",
-            models.WmtMatch.matchday == 1,
+            models.WmtMatch.matchday == matchday,
             models.WmtMatch.status != "FINISHED",
             models.WmtMatch.home_team_id.isnot(None),
             models.WmtMatch.away_team_id.isnot(None),
@@ -1166,18 +1188,19 @@ def do_fake_md1(db: Session) -> tuple[int, str]:
         .order_by(models.WmtMatch.utc_date)
         .all()
     )
-    if not md1_matches:
-        return 0, "Keine ausstehenden MD1-Spiele mit Teambesetzung gefunden."
+    if not md_matches:
+        return 0, f"Keine ausstehenden MD{matchday}-Spiele mit Teambesetzung gefunden."
 
     def elo_gap(m: models.WmtMatch) -> float:
         h = db.get(models.WmtTeam, m.home_team_id)
         a = db.get(models.WmtTeam, m.away_team_id)
         return abs(h.elo - a.elo) if h and a else 0.0
 
-    upset_ids = {m.id for m in sorted(md1_matches, key=elo_gap, reverse=True)[:3]}
+    n = min(n_upsets, len(md_matches))
+    upset_ids = {m.id for m in sorted(md_matches, key=elo_gap, reverse=True)[:n]}
 
     newly_finished: list[models.WmtMatch] = []
-    for m in md1_matches:
+    for m in md_matches:
         home = db.get(models.WmtTeam, m.home_team_id)
         away = db.get(models.WmtTeam, m.away_team_id)
         if not home or not away:
@@ -1195,11 +1218,173 @@ def do_fake_md1(db: Session) -> tuple[int, str]:
 
         if m.id in upset_ids:
             if tip_h != tip_a:
-                # Swap: normally-losing team now wins
                 score_h, score_a = tip_a, tip_h
             else:
-                # Draw expected → underdog wins 1:0
                 if home.elo <= away.elo:
+                    score_h, score_a = 1, 0
+                else:
+                    score_h, score_a = 0, 1
+        else:
+            score_h, score_a = tip_h, tip_a
+
+        m.score_home = score_h
+        m.score_away = score_a
+        m.status = "FINISHED"
+        newly_finished.append(m)
+
+    db.commit()
+    _apply_elo_and_predictions(db, newly_finished)
+    return len(newly_finished), ""
+
+
+def do_fake_md1(db: Session) -> tuple[int, str]:
+    return do_fake_group_md(db, 1, 3)
+
+
+def _compute_group_standings(db: Session) -> dict[str, list[dict]]:
+    """Gruppenplatzierungen aus abgeschlossenen Spielen berechnen."""
+    group_matches = (
+        db.query(models.WmtMatch)
+        .filter(
+            models.WmtMatch.stage == "GROUP_STAGE",
+            models.WmtMatch.status == "FINISHED",
+            models.WmtMatch.group_name.isnot(None),
+        )
+        .all()
+    )
+
+    pts: dict[str, dict] = defaultdict(lambda: defaultdict(int))
+    gd:  dict[str, dict] = defaultdict(lambda: defaultdict(int))
+    gf:  dict[str, dict] = defaultdict(lambda: defaultdict(int))
+    team_ids_by_group: dict[str, set] = defaultdict(set)
+
+    for m in group_matches:
+        g = m.group_name
+        if not m.home_team_id or not m.away_team_id or m.score_home is None:
+            continue
+        team_ids_by_group[g].add(m.home_team_id)
+        team_ids_by_group[g].add(m.away_team_id)
+        if m.score_home > m.score_away:
+            pts[g][m.home_team_id] += 3
+        elif m.score_home < m.score_away:
+            pts[g][m.away_team_id] += 3
+        else:
+            pts[g][m.home_team_id] += 1
+            pts[g][m.away_team_id] += 1
+        gd[g][m.home_team_id] += m.score_home - m.score_away
+        gd[g][m.away_team_id] += m.score_away - m.score_home
+        gf[g][m.home_team_id] += m.score_home
+        gf[g][m.away_team_id] += m.score_away
+
+    all_teams = {t.id: t for t in db.query(models.WmtTeam).all()}
+
+    standings: dict[str, list[dict]] = {}
+    for group in sorted(team_ids_by_group.keys()):
+        team_ids = list(team_ids_by_group[group])
+        sorted_ids = sorted(
+            team_ids,
+            key=lambda t: (
+                pts[group][t], gd[group][t], gf[group][t],
+                all_teams[t].elo if t in all_teams else DEFAULT_ELO,
+            ),
+            reverse=True,
+        )
+        standings[group] = [
+            {
+                "team_id": t,
+                "pts":   pts[group][t],
+                "gd":    gd[group][t],
+                "gf":    gf[group][t],
+                "elo":   all_teams[t].elo if t in all_teams else DEFAULT_ELO,
+                "group": group,
+            }
+            for t in sorted_ids
+        ]
+    return standings
+
+
+def do_fake_rd32(db: Session) -> tuple[int, str]:
+    """Fake-Ergebnisse für Rd.32 setzen (benötigt abgeschlossene Gruppenphase)."""
+    standings = _compute_group_standings(db)
+    if not standings:
+        return 0, "Keine abgeschlossenen Gruppenspiele gefunden."
+    if len(standings) < 12:
+        return 0, f"Nur {len(standings)} von 12 Gruppen haben Ergebnisse."
+
+    qualifiers: list[dict] = []
+    third_pool: list[dict] = []
+    for group in sorted(standings.keys()):
+        table = standings[group]
+        if len(table) >= 1:
+            qualifiers.append(table[0])
+        if len(table) >= 2:
+            qualifiers.append(table[1])
+        if len(table) >= 3:
+            third_pool.append(table[2])
+
+    third_pool.sort(key=lambda x: (x["pts"], x["gd"], x["gf"]), reverse=True)
+    qualifiers.extend(third_pool[:8])
+
+    if len(qualifiers) < 32:
+        return 0, f"Nur {len(qualifiers)} Qualifikanten gefunden (erwartet: 32)."
+    qualifiers = qualifiers[:32]
+
+    rd32_matches = (
+        db.query(models.WmtMatch)
+        .filter(
+            models.WmtMatch.stage == "LAST_32",
+            models.WmtMatch.status != "FINISHED",
+        )
+        .order_by(models.WmtMatch.utc_date)
+        .all()
+    )
+    if not rd32_matches:
+        return 0, "Keine ausstehenden LAST_32-Spiele gefunden."
+    if len(rd32_matches) != 16:
+        return 0, f"{len(rd32_matches)} LAST_32-Spiele gefunden (erwartet: 16)."
+
+    # Pair strongest vs weakest (rank-1 vs rank-32, rank-2 vs rank-31, …)
+    qualifiers.sort(key=lambda x: x["elo"], reverse=True)
+    pairs = [(qualifiers[i]["team_id"], qualifiers[31 - i]["team_id"]) for i in range(16)]
+
+    # Largest ELO-gap pairs become upsets
+    pairs_with_gap = sorted(
+        range(16),
+        key=lambda i: abs(
+            (qualifiers[i]["elo"] if i < len(qualifiers) else DEFAULT_ELO) -
+            (qualifiers[31 - i]["elo"] if (31 - i) < len(qualifiers) else DEFAULT_ELO)
+        ),
+        reverse=True,
+    )
+    upset_indices = set(pairs_with_gap[:5])
+
+    all_teams = {t.id: t for t in db.query(models.WmtTeam).all()}
+    newly_finished: list[models.WmtMatch] = []
+
+    for slot, (m, (h_id, a_id)) in enumerate(zip(rd32_matches, pairs)):
+        home_team = all_teams.get(h_id)
+        away_team = all_teams.get(a_id)
+        if not home_team or not away_team:
+            continue
+
+        m.home_team_id = h_id
+        m.away_team_id = a_id
+
+        home_win, _, away_win = elo_to_win_prob(home_team.elo, away_team.elo)
+        home_xg, away_xg = elo_to_expected_goals(home_team.elo, away_team.elo)
+        tip_h = max(0, round(home_xg))
+        tip_a = max(0, round(away_xg))
+        if tip_h == tip_a:
+            if home_win > away_win + 0.1:
+                tip_h += 1
+            elif away_win > home_win + 0.1:
+                tip_a += 1
+
+        if slot in upset_indices:
+            if tip_h != tip_a:
+                score_h, score_a = tip_a, tip_h
+            else:
+                if home_team.elo <= away_team.elo:
                     score_h, score_a = 1, 0
                 else:
                     score_h, score_a = 0, 1
@@ -1288,6 +1473,31 @@ def _assemble_match_out(
 
 # ── API endpoints ─────────────────────────────────────────────────────────────
 
+def _md_done(db: Session, matchday: int) -> bool:
+    total = db.query(models.WmtMatch).filter(
+        models.WmtMatch.stage == "GROUP_STAGE",
+        models.WmtMatch.matchday == matchday,
+        models.WmtMatch.home_team_id.isnot(None),
+    ).count()
+    finished = db.query(models.WmtMatch).filter(
+        models.WmtMatch.stage == "GROUP_STAGE",
+        models.WmtMatch.matchday == matchday,
+        models.WmtMatch.status == "FINISHED",
+    ).count()
+    return total > 0 and finished >= total
+
+
+def _rd32_done(db: Session) -> bool:
+    total = db.query(models.WmtMatch).filter(
+        models.WmtMatch.stage == "LAST_32",
+    ).count()
+    finished = db.query(models.WmtMatch).filter(
+        models.WmtMatch.stage == "LAST_32",
+        models.WmtMatch.status == "FINISHED",
+    ).count()
+    return total > 0 and finished >= total
+
+
 def _is_calibrated(db: Session) -> bool:
     """True wenn ELO-Werte merklich von INITIAL_ELO abweichen (Warmup wurde durchgeführt)."""
     teams = db.query(models.WmtTeam).filter(models.WmtTeam.tla.isnot(None)).all()
@@ -1309,6 +1519,10 @@ def get_status(db: Session = Depends(get_db)):
         team_count=db.query(models.WmtTeam).count(),
         prediction_count=db.query(models.WmtPrediction).count(),
         calibrated=_is_calibrated(db),
+        md1_done=_md_done(db, 1),
+        md2_done=_md_done(db, 2),
+        md3_done=_md_done(db, 3),
+        rd32_done=_rd32_done(db),
     )
 
 
@@ -1446,5 +1660,38 @@ def fake_md1_results(db: Session = Depends(get_db)):
         return schemas.WmtRefreshOut(message=err, updated=0)
     return schemas.WmtRefreshOut(
         message=f"Fake-Ergebnisse gesetzt: {n} MD1-Spiel{'e' if n != 1 else ''} abgeschlossen.",
+        updated=n,
+    )
+
+
+@router.post("/debug/fake-md2", response_model=schemas.WmtRefreshOut)
+def fake_md2_results(db: Session = Depends(get_db)):
+    n, err = do_fake_group_md(db, 2, 5)
+    if err:
+        return schemas.WmtRefreshOut(message=err, updated=0)
+    return schemas.WmtRefreshOut(
+        message=f"Fake-Ergebnisse gesetzt: {n} MD2-Spiel{'e' if n != 1 else ''} abgeschlossen.",
+        updated=n,
+    )
+
+
+@router.post("/debug/fake-md3", response_model=schemas.WmtRefreshOut)
+def fake_md3_results(db: Session = Depends(get_db)):
+    n, err = do_fake_group_md(db, 3, 7)
+    if err:
+        return schemas.WmtRefreshOut(message=err, updated=0)
+    return schemas.WmtRefreshOut(
+        message=f"Fake-Ergebnisse gesetzt: {n} MD3-Spiel{'e' if n != 1 else ''} abgeschlossen.",
+        updated=n,
+    )
+
+
+@router.post("/debug/fake-rd32", response_model=schemas.WmtRefreshOut)
+def fake_rd32_results(db: Session = Depends(get_db)):
+    n, err = do_fake_rd32(db)
+    if err:
+        return schemas.WmtRefreshOut(message=err, updated=0)
+    return schemas.WmtRefreshOut(
+        message=f"Fake-Ergebnisse gesetzt: {n} Rd.32-Spiel{'e' if n != 1 else ''} abgeschlossen.",
         updated=n,
     )

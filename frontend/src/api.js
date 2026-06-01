@@ -72,5 +72,8 @@ export const wmt = {
   clearData: ()              => post('/wmt/clear'),
   warmup: ()                 => post('/wmt/warmup'),
   fakeMd1: ()                => post('/wmt/debug/fake-md1'),
+  fakeMd2: ()                => post('/wmt/debug/fake-md2'),
+  fakeMd3: ()                => post('/wmt/debug/fake-md3'),
+  fakeRd32: ()               => post('/wmt/debug/fake-rd32'),
 }
 
