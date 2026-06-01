@@ -304,15 +304,9 @@ def _fetch_openligadb(league: str) -> tuple[list[dict], str]:
 
 
 def _openligadb_final_score(match: dict) -> tuple[Optional[int], Optional[int]]:
-    """Endergebnis aus matchResults extrahieren.
-    Sucht zuerst resultTypeID 2 (Endergebnis modern), dann Fallback auf 1 (ältere Datensätze).
-    """
-    results = match.get("matchResults") or []
-    for res in results:
+    """Endergebnis (resultTypeID 2) aus matchResults extrahieren."""
+    for res in (match.get("matchResults") or []):
         if res.get("resultTypeID") == 2:
-            return res.get("pointsTeam1"), res.get("pointsTeam2")
-    for res in results:
-        if res.get("resultTypeID") == 1:
             return res.get("pointsTeam1"), res.get("pointsTeam2")
     return None, None
 
