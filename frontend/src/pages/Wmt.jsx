@@ -342,6 +342,7 @@ export default function Wmt() {
   const [clearing, setClearing]         = useState(false)
   const [warming, setWarming]           = useState(false)
   const [generatingBonus, setGeneratingBonus] = useState(false)
+  const [fakingMd1, setFakingMd1]       = useState(false)
   const [logs, setLogs]                 = useState([])
   const [menuOpen, setMenuOpen]         = useState(false)
   const logRef                          = useRef(null)
@@ -476,6 +477,23 @@ export default function Wmt() {
     }
   }
 
+  async function handleFakeMd1() {
+    setFakingMd1(true)
+    setView('import')
+    addLog('Fake MD1-Ergebnisse werden gesetzt…')
+    const t0 = Date.now()
+    try {
+      const res = await wmt.fakeMd1()
+      const elapsed = ((Date.now() - t0) / 1000).toFixed(1)
+      addLog(`${res.message} (${elapsed}s)`, res.updated ? 'done' : 'error')
+      if (res.updated) await loadAll(true)
+    } catch (e) {
+      addLog('Fehler beim Setzen der Fake-Ergebnisse', 'error')
+    } finally {
+      setFakingMd1(false)
+    }
+  }
+
   async function handleTogglePred(matchId) {
     if (expandedId === matchId) {
       setExpandedId(null)
@@ -492,7 +510,7 @@ export default function Wmt() {
     }
   }
 
-  const anyBusy = refreshing || clearing || warming || generatingBonus
+  const anyBusy = refreshing || clearing || warming || generatingBonus || fakingMd1
 
   const grouped       = groupMatches(matches)
   const groupKeys     = sortGroupKeys(Object.keys(grouped))
@@ -560,6 +578,12 @@ export default function Wmt() {
               icon="✕" label="Daten löschen"
               danger loading={clearing} disabled={anyBusy && !clearing}
               onClick={() => { setMenuOpen(false); handleClear() }}
+            />
+            <div style={{ borderTop: '1px solid #1a2840', margin: '6px 0' }} />
+            <MenuButton
+              icon="⚗" label="Fake MD1-Ergebnisse"
+              loading={fakingMd1} disabled={anyBusy && !fakingMd1}
+              onClick={() => { setMenuOpen(false); handleFakeMd1() }}
             />
           </div>
         </div>
