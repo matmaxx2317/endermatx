@@ -228,10 +228,11 @@ def _fetch_openligadb(league: str) -> tuple[list[dict], str]:
         with httpx.Client(timeout=30.0, follow_redirects=True) as client:
             r = client.get(url, headers={"Accept": "application/json"})
         if r.status_code != 200:
-            return [], f"HTTP {r.status_code}"
+            snippet = r.text[:120].replace("\n", " ") if r.text else ""
+            return [], f"HTTP {r.status_code} — {snippet}" if snippet else f"HTTP {r.status_code}"
         data = r.json()
         if not isinstance(data, list):
-            return [], "Unerwartetes Antwortformat"
+            return [], f"Unerwartetes Format: {str(data)[:80]}"
         return data, ""
     except Exception as exc:
         return [], str(exc)
@@ -310,17 +311,20 @@ def _upsert_openligadb_team(db: Session, team_data: dict) -> Optional[models.Wmt
 
 # ── core business logic ───────────────────────────────────────────────────────
 
-def do_refresh(db: Session) -> int:
+def do_refresh(db: Session) -> tuple[int, str]:
     """
     WM 2026-Spielplan von openligadb laden, Teams/Spiele upserten,
     ELO für neu abgeschlossene Spiele aktualisieren,
     Prognosen für ausstehende Spiele erstellen.
+    Returns (updated_count, error_message).
     """
     matches_data, err = _fetch_openligadb(WM2026_LEAGUE)
-    if err or not matches_data:
-        if err:
-            logger.warning("WMT openligadb refresh: %s", err)
-        return 0
+    if err:
+        logger.warning("WMT openligadb %s: %s", WM2026_LEAGUE, err)
+        return 0, f"openligadb '{WM2026_LEAGUE}': {err}"
+    if not matches_data:
+        logger.warning("WMT openligadb %s: leere Antwort (Liga noch nicht verfügbar?)", WM2026_LEAGUE)
+        return 0, f"openligadb: Keine Spiele in Liga '{WM2026_LEAGUE}' — Liga möglicherweise noch nicht angelegt"
 
     updated = 0
     newly_finished: list[models.WmtMatch] = []
@@ -440,7 +444,7 @@ def do_refresh(db: Session) -> int:
         ))
 
     db.commit()
-    return updated
+    return updated, ""
 
 
 def do_generate_summary(db: Session, for_date: Optional[date] = None) -> str:
@@ -1079,7 +1083,9 @@ def list_summaries(db: Session = Depends(get_db)):
 
 @router.post("/refresh", response_model=schemas.WmtRefreshOut)
 def manual_refresh(db: Session = Depends(get_db)):
-    n = do_refresh(db)
+    n, err_msg = do_refresh(db)
+    if err_msg:
+        return schemas.WmtRefreshOut(message=err_msg, updated=0)
     return schemas.WmtRefreshOut(
         message=f"Aktualisierung abgeschlossen. {n} Spiel{'e' if n != 1 else ''} neu/aktualisiert.",
         updated=n,
