@@ -387,7 +387,7 @@ export default function Wmt() {
 
   async function handleRefresh() {
     setRefreshing(true)
-    addLog('football-data.org wird abgefragt…')
+    addLog('openligadb.de wird abgefragt…')
     const t0 = Date.now()
     try {
       const res = await wmt.refresh()
@@ -465,7 +465,7 @@ export default function Wmt() {
             }}>
             {refreshing ? '…' : '↻'}
           </button>
-          <span className="topbar-version">v1.8</span>
+          <span className="topbar-version">v1.9</span>
         </div>
       </div>
 
@@ -908,9 +908,8 @@ function BonusView({ bonus, generating, onGenerate }) {
 
           <div style={{ marginBottom: 10 }}>
             <span style={{ color: '#eef2ff' }}>Torschützenkönig</span>
-            {' '}— Die Prognose nutzt Torschützendaten aus WC 2026 (sofern verfügbar), WC 2022 und EC 2024 von football-data.org.
+            {' '}— Die Prognose basiert auf einer kuratierten Liste bekannter Torjäger mit historischer Torrate.
             Aus der Torrate pro Spiel und der erwarteten Turnierlänge (abhängig vom ELO-Rating des Teams) wird eine prognostizierte Gesamttoranzahl berechnet.
-            Für Teams ohne aktuelle Daten wird auf eine kuratierte Rückfallliste bekannter Torjäger zurückgegriffen.
           </div>
 
           <div>
@@ -934,10 +933,7 @@ function NoDataPlaceholder() {
         Noch keine Spieldaten vorhanden.
       </div>
       <div style={{ fontSize: 12, color: '#9ab0d0', lineHeight: 1.6 }}>
-        Bitte <code style={{ color: '#4d6fa0' }}>FOOTBALL_DATA_API_KEY</code> als Railway-Umgebungsvariable setzen
-        (kostenlose Registrierung auf{' '}
-        <span style={{ color: '#4d6fa0' }}>football-data.org</span>), dann{' '}
-        ↻ drücken.
+        ↻ drücken um Spielplandaten von openligadb.de zu laden.
       </div>
     </div>
   )
