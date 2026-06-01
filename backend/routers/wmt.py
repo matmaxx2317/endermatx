@@ -1114,7 +1114,7 @@ def do_historical_warmup(db: Session) -> dict:
 
     db.query(models.WmtPrediction).delete()
     db.commit()
-    log("Alte Prognosen gelöscht — bitte ↻ klicken um neue zu erstellen")
+    log("Alte Prognosen gelöscht — bitte Spielplan aktualisieren (☰) für neue Prognosen")
 
     top_teams = sorted(
         db.query(models.WmtTeam).all(),

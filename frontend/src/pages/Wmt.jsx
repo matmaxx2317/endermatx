@@ -468,7 +468,7 @@ export default function Wmt() {
       setLogs(prev => [...prev, ...serverLogs])
       addLog(`Kalibrierung abgeschlossen (${res.elapsed_seconds?.toFixed(1)}s)`, 'done')
       await loadAll(true)
-      addLog('ELO-Ratings aktualisiert — bitte ↻ für neue Prognosen klicken', 'done')
+      addLog('ELO-Ratings aktualisiert — bitte Spielplan aktualisieren (☰) für neue Prognosen', 'done')
     } catch (e) {
       addLog('Fehler bei der Kalibrierung', 'error')
     } finally {
