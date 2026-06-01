@@ -387,7 +387,7 @@ export default function Wmt() {
 
   async function handleRefresh() {
     setRefreshing(true)
-    addLog('openligadb.de wird abgefragt…')
+    addLog('Spielplandaten werden abgerufen…')
     const t0 = Date.now()
     try {
       const res = await wmt.refresh()
@@ -465,7 +465,7 @@ export default function Wmt() {
             }}>
             {refreshing ? '…' : '↻'}
           </button>
-          <span className="topbar-version">v1.10</span>
+          <span className="topbar-version">v1.11</span>
         </div>
       </div>
 
@@ -933,7 +933,7 @@ function NoDataPlaceholder() {
         Noch keine Spieldaten vorhanden.
       </div>
       <div style={{ fontSize: 12, color: '#9ab0d0', lineHeight: 1.6 }}>
-        ↻ drücken um Spielplandaten von openligadb.de zu laden.
+        ↻ drücken um Spielplandaten zu laden.
       </div>
     </div>
   )

@@ -1,11 +1,14 @@
 """
 WMT – WM 2026 Tipp-Assistent
-Datenquellen: openligadb.de (Spielplandaten + historische Kalibrierung, kein API-Key nötig)
+Spielplan: football-data.org v4 (API-Key nötig, alle 104 Spiele)
+           → Fallback: openligadb.de (kein Key, nur 1. Spieltag)
+Kalibrierung: openligadb.de historische Turniere (kein API-Key)
 Prognosemodell: ELO-basierte Siegwahrscheinlichkeiten + erwartete Tore
 """
 
 import logging
 import math
+import os
 import random
 import time
 from collections import defaultdict
@@ -45,11 +48,73 @@ DEFAULT_ELO = 1700.0
 BASE_ELO    = 1500.0  # Startwert für historisches Warmup
 
 
+# ── football-data.org ────────────────────────────────────────────────────────
+
+FOOTBALL_API_KEY  = os.getenv("FOOTBALL_DATA_API_KEY", "")
+FOOTBALL_API_BASE = "https://api.football-data.org/v4"
+WC2026_COMP_CODE  = "WC"
+
+
+def _api_headers() -> dict:
+    return {"X-Auth-Token": FOOTBALL_API_KEY}
+
+
+def _fetch_fdorg_matches(comp_code: str) -> tuple[list[dict], str]:
+    """Alle Spiele eines Wettbewerbs von football-data.org abrufen."""
+    url = f"{FOOTBALL_API_BASE}/competitions/{comp_code}/matches"
+    try:
+        with httpx.Client(timeout=30.0, follow_redirects=True) as client:
+            r = client.get(url, headers=_api_headers())
+        if r.status_code != 200:
+            snippet = r.text[:120].replace("\n", " ") if r.text else ""
+            return [], f"HTTP {r.status_code}" + (f" — {snippet}" if snippet else "")
+        data = r.json()
+        return data.get("matches") or [], ""
+    except Exception as exc:
+        return [], str(exc)
+
+
+def _upsert_fdorg_team(db: Session, team_data: dict) -> Optional[models.WmtTeam]:
+    """Team per football-data.org TLA anlegen oder aktualisieren."""
+    tla = (team_data.get("tla") or "").strip().upper() or None
+    if not tla:
+        return None
+    team = db.query(models.WmtTeam).filter_by(tla=tla).first()
+    name = team_data.get("name") or "Unknown"
+    short_name = team_data.get("shortName") or name
+    api_id = team_data.get("id")
+    if not team:
+        team = models.WmtTeam(
+            api_id=api_id,
+            name=name,
+            short_name=short_name,
+            tla=tla,
+            elo=INITIAL_ELO.get(tla, DEFAULT_ELO),
+            matches_played=0,
+        )
+        db.add(team)
+        db.flush()
+    else:
+        team.name = name
+        if short_name:
+            team.short_name = short_name
+        if api_id:
+            team.api_id = api_id
+    return team
+
+
 # ── openligadb ────────────────────────────────────────────────────────────────
 
 OPENLIGADB_BASE = "https://api.openligadb.de"
 WM2026_LEAGUE   = "wm2026"
-WARMUP_LEAGUES  = ["wm2014", "em2016", "wm2018", "em2020", "wm2022", "em2024"]
+WARMUP_LEAGUES: list[tuple[str, int]] = [
+    ("wm2014", 2014),
+    ("em2016", 2016),
+    ("wm2018", 2018),
+    ("em2020", 2020),
+    ("wm2022", 2022),
+    ("em2024", 2024),
+]
 
 
 GERMAN_TO_TLA: dict[str, str] = {
@@ -311,19 +376,151 @@ def _upsert_openligadb_team(db: Session, team_data: dict) -> Optional[models.Wmt
 
 # ── core business logic ───────────────────────────────────────────────────────
 
-def do_refresh(db: Session) -> tuple[int, str]:
-    """
-    WM 2026-Spielplan von openligadb laden, Teams/Spiele upserten,
-    ELO für neu abgeschlossene Spiele aktualisieren,
-    Prognosen für ausstehende Spiele erstellen.
-    Returns (updated_count, error_message).
-    """
+def _apply_elo_and_predictions(db: Session, newly_finished: list[models.WmtMatch]) -> None:
+    """ELO für neu abgeschlossene Spiele aktualisieren + Prognosen für ausstehende neu berechnen."""
+    newly_finished.sort(key=lambda x: x.utc_date)
+    for match in newly_finished:
+        home = db.get(models.WmtTeam, match.home_team_id)
+        away = db.get(models.WmtTeam, match.away_team_id)
+        if home and away and match.score_home is not None and match.score_away is not None:
+            new_h, new_a = update_elo_after_match(home.elo, away.elo, match.score_home, match.score_away)
+            home.elo = new_h
+            away.elo = new_a
+            home.matches_played = (home.matches_played or 0) + 1
+            away.matches_played = (away.matches_played or 0) + 1
+    db.commit()
+
+    upcoming = (
+        db.query(models.WmtMatch)
+        .filter(models.WmtMatch.status.in_(["SCHEDULED", "TIMED"]))
+        .all()
+    )
+    for match in upcoming:
+        home = db.get(models.WmtTeam, match.home_team_id) if match.home_team_id else None
+        away = db.get(models.WmtTeam, match.away_team_id) if match.away_team_id else None
+        if not home or not away:
+            continue
+        home_win, draw, away_win = elo_to_win_prob(home.elo, away.elo)
+        home_xg, away_xg = elo_to_expected_goals(home.elo, away.elo)
+        latest = (
+            db.query(models.WmtPrediction)
+            .filter_by(match_id=match.id)
+            .order_by(models.WmtPrediction.created_at.desc())
+            .first()
+        )
+        if latest:
+            if (abs((latest.home_elo or 0) - home.elo) < 5.0 and
+                    abs((latest.away_elo or 0) - away.elo) < 5.0):
+                continue
+        home_tla = home.tla or home.short_name or home.name
+        away_tla = away.tla or away.short_name or away.name
+        reasoning = build_reasoning(
+            home.name, away.name, home_tla, away_tla,
+            home.elo, away.elo, home_win, draw, away_win, home_xg, away_xg,
+        )
+        db.add(models.WmtPrediction(
+            match_id=match.id,
+            home_win_prob=home_win,
+            draw_prob=draw,
+            away_win_prob=away_win,
+            pred_home_goals=home_xg,
+            pred_away_goals=away_xg,
+            home_elo=home.elo,
+            away_elo=away.elo,
+            reasoning=reasoning,
+        ))
+    db.commit()
+
+
+def _do_refresh_fdorg(db: Session) -> tuple[int, str]:
+    """WM 2026-Spielplan von football-data.org laden (alle 104 Spiele)."""
+    matches_data, err = _fetch_fdorg_matches(WC2026_COMP_CODE)
+    if err:
+        logger.warning("WMT football-data.org %s: %s", WC2026_COMP_CODE, err)
+        return 0, f"football-data.org: {err}"
+    if not matches_data:
+        return 0, "football-data.org: Keine Spiele zurückgegeben"
+
+    updated = 0
+    newly_finished: list[models.WmtMatch] = []
+
+    for m in matches_data:
+        match_id = m.get("id")
+        if not match_id:
+            continue
+
+        home_data = m.get("homeTeam") or {}
+        away_data = m.get("awayTeam") or {}
+        home_team = _upsert_fdorg_team(db, home_data)
+        away_team = _upsert_fdorg_team(db, away_data)
+
+        status_raw = m.get("status", "SCHEDULED")
+        is_finished = status_raw == "FINISHED"
+        score = m.get("score") or {}
+        full_time = score.get("fullTime") or {}
+        score_home = full_time.get("home")
+        score_away = full_time.get("away")
+        status = "FINISHED" if is_finished and score_home is not None else (
+            "LIVE" if status_raw in ("IN_PLAY", "PAUSED") else "SCHEDULED"
+        )
+
+        stage = m.get("stage", "GROUP_STAGE")
+        group_raw = m.get("group") or ""
+        group_name = group_raw.replace("GROUP_", "") if group_raw.startswith("GROUP_") else None
+        matchday = m.get("matchday") or 0
+
+        utc_date_str = m.get("utcDate", "")
+        try:
+            utc_date = datetime.fromisoformat(utc_date_str.replace("Z", "+00:00"))
+        except Exception:
+            utc_date = datetime.min
+
+        match = db.query(models.WmtMatch).filter_by(api_id=match_id).first()
+        if not match:
+            match = models.WmtMatch(
+                api_id=match_id,
+                matchday=matchday,
+                stage=stage,
+                group_name=group_name,
+                utc_date=utc_date,
+                home_team_id=home_team.id if home_team else None,
+                away_team_id=away_team.id if away_team else None,
+                status=status,
+                last_fetched=datetime.utcnow(),
+            )
+            db.add(match)
+            db.flush()
+            updated += 1
+        else:
+            was_finished = match.status == "FINISHED"
+            match.status = status
+            match.last_fetched = datetime.utcnow()
+            if home_team:
+                match.home_team_id = home_team.id
+            if away_team:
+                match.away_team_id = away_team.id
+            if status == "FINISHED" and score_home is not None and score_away is not None:
+                if not was_finished:
+                    match.score_home = score_home
+                    match.score_away = score_away
+                    newly_finished.append(match)
+                    updated += 1
+                else:
+                    match.score_home = score_home
+                    match.score_away = score_away
+
+    db.commit()
+    _apply_elo_and_predictions(db, newly_finished)
+    return updated, ""
+
+
+def _do_refresh_openligadb(db: Session) -> tuple[int, str]:
+    """WM 2026-Spielplan von openligadb laden (Fallback, nur 1. Spieltag)."""
     matches_data, err = _fetch_openligadb(WM2026_LEAGUE)
     if err:
         logger.warning("WMT openligadb %s: %s", WM2026_LEAGUE, err)
         return 0, f"openligadb '{WM2026_LEAGUE}': {err}"
     if not matches_data:
-        logger.warning("WMT openligadb %s: leere Antwort (Liga noch nicht verfügbar?)", WM2026_LEAGUE)
         return 0, f"openligadb: Keine Spiele in Liga '{WM2026_LEAGUE}' — Liga möglicherweise noch nicht angelegt"
 
     total_received = len(matches_data)
@@ -349,7 +546,6 @@ def do_refresh(db: Session) -> tuple[int, str]:
         group     = m.get("group") or {}
         group_raw = group.get("groupName", "")
         stage     = _openligadb_stage(group_raw)
-        # Buchstabe aus "Gruppe A" → "A"
         raw_grp   = (t1.get("teamGroupName") or "").replace("Gruppe ", "").strip()
         group_name = raw_grp if len(raw_grp) == 1 else None
 
@@ -388,65 +584,8 @@ def do_refresh(db: Session) -> tuple[int, str]:
                     match.score_away = score_away
 
     db.commit()
+    _apply_elo_and_predictions(db, newly_finished)
 
-    # ELO für neu abgeschlossene Spiele (chronologisch)
-    newly_finished.sort(key=lambda x: x.utc_date)
-    for match in newly_finished:
-        home = db.get(models.WmtTeam, match.home_team_id)
-        away = db.get(models.WmtTeam, match.away_team_id)
-        if home and away and match.score_home is not None and match.score_away is not None:
-            new_h, new_a = update_elo_after_match(home.elo, away.elo, match.score_home, match.score_away)
-            home.elo = new_h
-            away.elo = new_a
-            home.matches_played = (home.matches_played or 0) + 1
-            away.matches_played = (away.matches_played or 0) + 1
-    db.commit()
-
-    # Prognosen für ausstehende Spiele erstellen
-    upcoming = (
-        db.query(models.WmtMatch)
-        .filter(models.WmtMatch.status.in_(["SCHEDULED", "TIMED"]))
-        .all()
-    )
-    for match in upcoming:
-        home = db.get(models.WmtTeam, match.home_team_id) if match.home_team_id else None
-        away = db.get(models.WmtTeam, match.away_team_id) if match.away_team_id else None
-        if not home or not away:
-            continue
-
-        home_win, draw, away_win = elo_to_win_prob(home.elo, away.elo)
-        home_xg, away_xg = elo_to_expected_goals(home.elo, away.elo)
-
-        latest = (
-            db.query(models.WmtPrediction)
-            .filter_by(match_id=match.id)
-            .order_by(models.WmtPrediction.created_at.desc())
-            .first()
-        )
-        if latest:
-            if (abs((latest.home_elo or 0) - home.elo) < 5.0 and
-                    abs((latest.away_elo or 0) - away.elo) < 5.0):
-                continue
-
-        home_tla = home.tla or home.short_name or home.name
-        away_tla = away.tla or away.short_name or away.name
-        reasoning = build_reasoning(
-            home.name, away.name, home_tla, away_tla,
-            home.elo, away.elo, home_win, draw, away_win, home_xg, away_xg,
-        )
-        db.add(models.WmtPrediction(
-            match_id=match.id,
-            home_win_prob=home_win,
-            draw_prob=draw,
-            away_win_prob=away_win,
-            pred_home_goals=home_xg,
-            pred_away_goals=away_xg,
-            home_elo=home.elo,
-            away_elo=away.elo,
-            reasoning=reasoning,
-        ))
-
-    db.commit()
     if updated == 0 and total_received > 0 and skipped_no_id == total_received:
         first_keys = list(matches_data[0].keys())[:6]
         return 0, (
@@ -454,6 +593,17 @@ def do_refresh(db: Session) -> tuple[int, str]:
             f"(alle matchIDs fehlend — Felder: {first_keys})"
         )
     return updated, ""
+
+
+def do_refresh(db: Session) -> tuple[int, str]:
+    """
+    WM 2026-Spielplan laden: football-data.org (alle 104 Spiele) wenn API-Key gesetzt,
+    sonst openligadb (Fallback, nur erster Spieltag).
+    Returns (updated_count, error_message).
+    """
+    if FOOTBALL_API_KEY:
+        return _do_refresh_fdorg(db)
+    return _do_refresh_openligadb(db)
 
 
 def do_generate_summary(db: Session, for_date: Optional[date] = None) -> str:
@@ -823,10 +973,10 @@ def do_historical_warmup(db: Session) -> dict:
     total_hist_matches = 0
     competitions_processed = 0
 
-    for league in WARMUP_LEAGUES:
+    for league, year in WARMUP_LEAGUES:
         log(f"─── {league} — Anfrage läuft…")
         t_req = time.time()
-        matches, err = _fetch_openligadb(league)
+        matches, err = _fetch_openligadb(f"{league}/{year}")
         req_time = time.time() - t_req
 
         if err or not matches:
@@ -971,7 +1121,7 @@ def do_historical_warmup(db: Session) -> dict:
     return {
         "message": (
             f"Kalibrierung abgeschlossen ({total_hist_matches} Spiele aus "
-            f"{competitions_processed} Wettbewerben, openligadb)."
+            f"{competitions_processed} Wettbewerben)."
         ),
         "logs": logs,
         "competitions_processed": competitions_processed,
