@@ -395,19 +395,30 @@ def _apply_elo_and_predictions(db: Session, newly_finished: list[models.WmtMatch
         .filter(models.WmtMatch.status.in_(["SCHEDULED", "TIMED"]))
         .all()
     )
+    if not upcoming:
+        return
+
+    # Bulk-load teams and latest predictions to avoid N+1 (~80 queries → 2)
+    all_teams = {t.id: t for t in db.query(models.WmtTeam).all()}
+    latest_preds: dict[int, models.WmtPrediction] = {}
+    upcoming_ids = [m.id for m in upcoming]
+    for p in (
+        db.query(models.WmtPrediction)
+        .filter(models.WmtPrediction.match_id.in_(upcoming_ids))
+        .order_by(models.WmtPrediction.created_at.desc())
+        .all()
+    ):
+        if p.match_id not in latest_preds:
+            latest_preds[p.match_id] = p
+
     for match in upcoming:
-        home = db.get(models.WmtTeam, match.home_team_id) if match.home_team_id else None
-        away = db.get(models.WmtTeam, match.away_team_id) if match.away_team_id else None
+        home = all_teams.get(match.home_team_id) if match.home_team_id else None
+        away = all_teams.get(match.away_team_id) if match.away_team_id else None
         if not home or not away:
             continue
         home_win, draw, away_win = elo_to_win_prob(home.elo, away.elo)
         home_xg, away_xg = elo_to_expected_goals(home.elo, away.elo)
-        latest = (
-            db.query(models.WmtPrediction)
-            .filter_by(match_id=match.id)
-            .order_by(models.WmtPrediction.created_at.desc())
-            .first()
-        )
+        latest = latest_preds.get(match.id)
         if latest:
             if (abs((latest.home_elo or 0) - home.elo) < 5.0 and
                     abs((latest.away_elo or 0) - away.elo) < 5.0):
