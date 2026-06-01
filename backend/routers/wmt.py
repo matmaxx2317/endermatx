@@ -63,7 +63,7 @@ def _fetch_fdorg_matches(comp_code: str) -> tuple[list[dict], str]:
     """Alle Spiele eines Wettbewerbs von football-data.org abrufen."""
     url = f"{FOOTBALL_API_BASE}/competitions/{comp_code}/matches"
     try:
-        with httpx.Client(timeout=30.0, follow_redirects=True) as client:
+        with httpx.Client(timeout=10.0, follow_redirects=True) as client:
             r = client.get(url, headers=_api_headers())
         if r.status_code != 200:
             snippet = r.text[:120].replace("\n", " ") if r.text else ""
