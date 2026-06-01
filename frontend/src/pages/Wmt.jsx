@@ -410,7 +410,10 @@ export default function Wmt() {
           addLog('Keine Prognosen — Spielplan aktualisieren (☰) um Prognosen zu berechnen')
         }
 
+        addLog('Spieldaten werden geladen…')
+        const t0 = Date.now()
         await loadAll()
+        addLog(`Bereit (${((Date.now() - t0) / 1000).toFixed(1)}s)`, 'done')
         setView('spieltage')
       } catch (e) {
         addLog('Fehler beim Starten', 'error')

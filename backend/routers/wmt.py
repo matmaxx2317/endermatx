@@ -1259,6 +1259,15 @@ def _match_out(match: models.WmtMatch, db: Session) -> schemas.WmtMatchOut:
         .order_by(models.WmtPrediction.created_at.desc())
         .first()
     )
+    return _assemble_match_out(match, home, away, pred)
+
+
+def _assemble_match_out(
+    match: models.WmtMatch,
+    home: Optional[models.WmtTeam],
+    away: Optional[models.WmtTeam],
+    pred: Optional[models.WmtPrediction],
+) -> schemas.WmtMatchOut:
     return schemas.WmtMatchOut(
         id=match.id,
         api_id=match.api_id,
@@ -1308,7 +1317,22 @@ def list_matches(db: Session = Depends(get_db)):
         .order_by(models.WmtMatch.utc_date)
         .all()
     )
-    return [_match_out(m, db) for m in matches]
+    # Bulk-load teams and latest predictions (avoids N+1: 3 queries instead of ~312)
+    teams = {t.id: t for t in db.query(models.WmtTeam).all()}
+    # Latest prediction per match: load all ordered desc, keep first seen per match_id
+    pred_by_match: dict[int, models.WmtPrediction] = {}
+    for p in db.query(models.WmtPrediction).order_by(models.WmtPrediction.created_at.desc()).all():
+        if p.match_id not in pred_by_match:
+            pred_by_match[p.match_id] = p
+    return [
+        _assemble_match_out(
+            m,
+            teams.get(m.home_team_id) if m.home_team_id else None,
+            teams.get(m.away_team_id) if m.away_team_id else None,
+            pred_by_match.get(m.id),
+        )
+        for m in matches
+    ]
 
 
 @router.get("/matches/{mid}/predictions", response_model=list[schemas.WmtPredictionOut])
