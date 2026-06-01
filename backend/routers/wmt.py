@@ -239,15 +239,15 @@ def _fetch_openligadb(league: str) -> tuple[list[dict], str]:
 
 
 def _openligadb_final_score(match: dict) -> tuple[Optional[int], Optional[int]]:
-    """Endergebnis (ResultTypeID 2) aus MatchResults extrahieren."""
-    for res in (match.get("MatchResults") or []):
-        if res.get("ResultTypeID") == 2:
-            return res.get("PointsTeam1"), res.get("PointsTeam2")
+    """Endergebnis (resultTypeID 2) aus matchResults extrahieren."""
+    for res in (match.get("matchResults") or []):
+        if res.get("resultTypeID") == 2:
+            return res.get("pointsTeam1"), res.get("pointsTeam2")
     return None, None
 
 
 def _openligadb_match_dt(match: dict) -> datetime:
-    raw = match.get("MatchDateTime", "")
+    raw = match.get("matchDateTime", "")
     try:
         return datetime.fromisoformat(raw)
     except Exception:
@@ -268,24 +268,24 @@ def _openligadb_stage(group_name: str) -> str:
 
 
 def _tla_from_openligadb_team(team: dict) -> Optional[str]:
-    """TLA aus openligadb-Team-Objekt: zuerst GERMAN_TO_TLA, dann ShortName."""
-    name = team.get("TeamName") or ""
+    """TLA aus openligadb-Team-Objekt: zuerst GERMAN_TO_TLA, dann shortName."""
+    name = team.get("teamName") or ""
     tla = GERMAN_TO_TLA.get(name)
     if tla:
         return tla
-    short = (team.get("ShortName") or "").strip().upper()
+    short = (team.get("shortName") or "").strip().upper()
     if len(short) == 3 and short.isalpha():
         return short
     return None
 
 
 def _upsert_openligadb_team(db: Session, team_data: dict) -> Optional[models.WmtTeam]:
-    """Team per openligadb TeamId anlegen oder aktualisieren."""
-    t_id = team_data.get("TeamId")
+    """Team per openligadb teamId anlegen oder aktualisieren."""
+    t_id = team_data.get("teamId")
     if not t_id:
         return None
-    name       = team_data.get("TeamName") or "Unknown"
-    short_name = team_data.get("ShortName") or name
+    name       = team_data.get("teamName") or "Unknown"
+    short_name = team_data.get("shortName") or name
     tla        = _tla_from_openligadb_team(team_data)
 
     team = db.query(models.WmtTeam).filter_by(api_id=t_id).first()
@@ -332,32 +332,32 @@ def do_refresh(db: Session) -> tuple[int, str]:
     newly_finished: list[models.WmtMatch] = []
 
     for m in matches_data:
-        openligadb_id = m.get("MatchID")
+        openligadb_id = m.get("matchID")
         if not openligadb_id:
             skipped_no_id += 1
             continue
 
-        t1 = m.get("Team1") or {}
-        t2 = m.get("Team2") or {}
+        t1 = m.get("team1") or {}
+        t2 = m.get("team2") or {}
         home_team = _upsert_openligadb_team(db, t1)
         away_team = _upsert_openligadb_team(db, t2)
 
-        is_finished  = bool(m.get("MatchIsFinished"))
+        is_finished  = bool(m.get("matchIsFinished"))
         score_home, score_away = _openligadb_final_score(m)
         status = "FINISHED" if is_finished and score_home is not None else "SCHEDULED"
 
-        group     = m.get("Group") or {}
-        group_raw = group.get("GroupName", "")
+        group     = m.get("group") or {}
+        group_raw = group.get("groupName", "")
         stage     = _openligadb_stage(group_raw)
         # Buchstabe aus "Gruppe A" → "A"
-        raw_grp   = (t1.get("TeamGroupName") or "").replace("Gruppe ", "").strip()
+        raw_grp   = (t1.get("teamGroupName") or "").replace("Gruppe ", "").strip()
         group_name = raw_grp if len(raw_grp) == 1 else None
 
         match = db.query(models.WmtMatch).filter_by(api_id=openligadb_id).first()
         if not match:
             match = models.WmtMatch(
                 api_id=openligadb_id,
-                matchday=group.get("GroupOrderID") or 0,
+                matchday=group.get("groupOrderID") or 0,
                 stage=stage,
                 group_name=group_name,
                 utc_date=_openligadb_match_dt(m),
@@ -447,14 +447,11 @@ def do_refresh(db: Session) -> tuple[int, str]:
         ))
 
     db.commit()
-    if updated == 0 and total_received > 0:
-        first = matches_data[0]
-        first_id  = first.get("MatchID")
-        first_keys = list(first.keys())[:6]
+    if updated == 0 and total_received > 0 and skipped_no_id == total_received:
+        first_keys = list(matches_data[0].keys())[:6]
         return 0, (
             f"openligadb: {total_received} Objekte empfangen, 0 eingefügt "
-            f"(erstes MatchID={first_id!r}, Felder: {first_keys}, "
-            f"MatchIDs fehlend: {skipped_no_id}/{total_received})"
+            f"(alle matchIDs fehlend — Felder: {first_keys})"
         )
     return updated, ""
 
@@ -836,7 +833,7 @@ def do_historical_warmup(db: Session) -> dict:
             log(f"  {err or 'Keine Daten'} ({req_time:.2f}s) — überspringe {league}", "error")
             continue
 
-        finished = [m for m in matches if m.get("MatchIsFinished")]
+        finished = [m for m in matches if m.get("matchIsFinished")]
         if not finished:
             log(f"  Antwort {req_time:.2f}s — Keine abgeschlossenen Spiele")
             continue
@@ -854,8 +851,8 @@ def do_historical_warmup(db: Session) -> dict:
         processed = 0
 
         for m in finished:
-            t1 = m.get("Team1") or {}
-            t2 = m.get("Team2") or {}
+            t1 = m.get("team1") or {}
+            t2 = m.get("team2") or {}
             h_tla = _tla_from_openligadb_team(t1)
             a_tla = _tla_from_openligadb_team(t2)
             if not h_tla or not a_tla:
