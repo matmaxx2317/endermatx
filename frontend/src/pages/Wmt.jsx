@@ -486,7 +486,11 @@ export default function Wmt() {
       const res = await wmt.fakeMd1()
       const elapsed = ((Date.now() - t0) / 1000).toFixed(1)
       addLog(`${res.message} (${elapsed}s)`, res.updated ? 'done' : 'error')
-      if (res.updated) await loadAll(true)
+      if (res.updated) {
+        await loadAll(true)
+        setView('spieltage')
+        setSelectedKey('md_1')
+      }
     } catch (e) {
       addLog('Fehler beim Setzen der Fake-Ergebnisse', 'error')
     } finally {
