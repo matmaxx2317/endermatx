@@ -4,13 +4,14 @@ Data source: football-data.org free tier (env: FOOTBALL_DATA_API_KEY)
 Prediction model: ELO-based win probabilities + expected goals
 """
 
+import csv
+import io
 import logging
 import math
 import os
 import random
-import re
 import time
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta
 from typing import Optional
 
@@ -50,19 +51,18 @@ DEFAULT_ELO = 1700.0
 
 BASE_ELO = 1500.0  # starting ELO for historical warmup
 
-HISTORICAL_COMPETITIONS = [
-    ("WC", "2014"), ("EC", "2016"), ("WC", "2018"),
-    ("EC", "2020"), ("WC", "2022"), ("EC", "2024"),
-]
+HISTORY_START = "2013-01-01"
 
 COUNTRY_TO_TLA: dict[str, str] = {
+    # WC 2026 participants + major nations
     "Argentina": "ARG", "France": "FRA", "Brazil": "BRA", "England": "ENG",
     "Belgium": "BEL", "Portugal": "POR", "Spain": "ESP", "Netherlands": "NED",
     "Germany": "GER", "Italy": "ITA", "Croatia": "CRO", "Morocco": "MAR",
     "Uruguay": "URU", "Switzerland": "SUI", "United States": "USA",
     "Japan": "JPN", "Denmark": "DEN", "Senegal": "SEN", "Colombia": "COL",
     "Mexico": "MEX", "Austria": "AUT", "Poland": "POL", "Ukraine": "UKR",
-    "South Korea": "KOR", "Serbia": "SRB", "Türkiye": "TUR", "Turkey": "TUR",
+    "South Korea": "KOR", "Korea Republic": "KOR",
+    "Serbia": "SRB", "Türkiye": "TUR", "Turkey": "TUR",
     "Ecuador": "ECU", "Canada": "CAN", "Australia": "AUS", "Ghana": "GHA",
     "Cameroon": "CMR", "Saudi Arabia": "SAU", "Egypt": "EGY", "Iran": "IRN",
     "Tunisia": "TUN", "Ivory Coast": "CIV", "Côte d'Ivoire": "CIV",
@@ -74,11 +74,53 @@ COUNTRY_TO_TLA: dict[str, str] = {
     "Qatar": "QAT", "Iraq": "IRQ", "Jordan": "JOR",
     "Uzbekistan": "UZB", "Slovakia": "SVK", "Albania": "ALB",
     "Greece": "GRE", "Honduras": "HON", "New Zealand": "NZL",
-    "South Africa": "RSA", "Russia": "RUS", "Sweden": "SWE",
+    "South Africa": "RSA",
+    # Rest of Europe
+    "Russia": "RUS", "Sweden": "SWE", "Iceland": "ISL",
+    "Ireland": "IRL", "Republic of Ireland": "IRL",
+    "Finland": "FIN", "Norway": "NOR",
+    "North Macedonia": "MKD", "Slovenia": "SVN",
+    "Bosnia-Herzegovina": "BIH", "Bosnia and Herzegovina": "BIH",
+    "Georgia": "GEO", "Kosovo": "XKX", "Armenia": "ARM",
+    "Montenegro": "MNE", "Israel": "ISR", "Azerbaijan": "AZE",
+    "Belarus": "BLR", "Estonia": "EST", "Latvia": "LAT",
+    "Lithuania": "LTU", "Moldova": "MDA", "Malta": "MLT",
+    "Luxembourg": "LUX", "Andorra": "AND", "Faroe Islands": "FRO",
+    "Cyprus": "CYP", "Gibraltar": "GIB", "Liechtenstein": "LIE",
+    "San Marino": "SMR", "Bulgaria": "BUL",
+    # South America
     "Chile": "CHI", "Peru": "PER", "Bolivia": "BOL",
-    "Bosnia-Herzegovina": "BIH", "Slovenia": "SVN",
-    "Iceland": "ISL", "Ireland": "IRL", "Finland": "FIN",
-    "Norway": "NOR", "North Macedonia": "MKD",
+    # Africa
+    "DR Congo": "COD", "Burkina Faso": "BFA", "Mali": "MLI",
+    "Guinea": "GUI", "Zambia": "ZAM", "Cape Verde": "CPV",
+    "Tanzania": "TAN", "Ethiopia": "ETH", "Zimbabwe": "ZIM",
+    "Angola": "ANG", "Uganda": "UGA", "Kenya": "KEN",
+    "Gabon": "GAB", "Equatorial Guinea": "EQG", "Gambia": "GAM",
+    "Congo": "CGO", "Guinea-Bissau": "GNB", "Benin": "BEN",
+    "Comoros": "COM", "Mozambique": "MOZ", "Rwanda": "RWA",
+    "Mauritania": "MTN", "Namibia": "NAM", "Malawi": "MWI",
+    "Sudan": "SDN", "Libya": "LBA", "Togo": "TOG",
+    "Madagascar": "MAD", "Niger": "NIG", "Liberia": "LBR",
+    "Sierra Leone": "SLE",
+    # Asia
+    "China PR": "CHN", "China": "CHN",
+    "Thailand": "THA", "Vietnam": "VIE", "Oman": "OMA",
+    "Bahrain": "BHR", "Kuwait": "KUW", "Palestine": "PLE",
+    "Syria": "SYR", "India": "IND", "Indonesia": "IDN",
+    "United Arab Emirates": "UAE", "Lebanon": "LBN",
+    "Kyrgyzstan": "KGZ", "Tajikistan": "TJK", "Philippines": "PHI",
+    "Myanmar": "MYA", "Malaysia": "MAS", "Afghanistan": "AFG",
+    "Singapore": "SGP", "Yemen": "YEM", "Pakistan": "PAK",
+    "North Korea": "PRK", "Mongolia": "MGL",
+    # CONCACAF
+    "El Salvador": "SLV", "Guatemala": "GUA", "Cuba": "CUB",
+    "Haiti": "HAI", "Trinidad and Tobago": "TRI",
+    "Curaçao": "CUW", "Nicaragua": "NCA", "Belize": "BLZ",
+    "Grenada": "GRN", "Guyana": "GUY", "Suriname": "SUR",
+    "Dominican Republic": "DOM", "Puerto Rico": "PUR",
+    # Oceania
+    "Fiji": "FIJ", "Papua New Guinea": "PNG",
+    "Solomon Islands": "SOL", "Vanuatu": "VAN", "Tahiti": "TAH",
 }
 
 
@@ -238,27 +280,6 @@ def _fetch_wc_matches() -> Optional[dict]:
     return None
 
 
-def _fetch_historical_matches(competition: str, season: str) -> tuple[Optional[dict], Optional[int]]:
-    """Fetch all matches for a historical competition/season. Returns (data, http_status)."""
-    if not FOOTBALL_API_KEY:
-        return None, None
-    try:
-        with httpx.Client(timeout=25.0) as client:
-            r = client.get(
-                f"{FOOTBALL_API_BASE}/competitions/{competition}/matches",
-                headers=_api_headers(),
-                params={"season": season},
-            )
-            _log_rate_limit(r)
-            if r.status_code == 200:
-                return r.json(), 200
-            logger.warning("%s/%s matches → %d: %s", competition, season, r.status_code, r.text[:200])
-            return None, r.status_code
-    except Exception as exc:
-        logger.error("%s/%s fetch error: %s", competition, season, exc)
-        return None, None
-
-
 def _fetch_elo_ratings_net() -> dict[str, float]:
     """Fetch current national team ELO ratings from eloratings.net World.tsv."""
     result: dict[str, float] = {}
@@ -288,6 +309,53 @@ def _fetch_elo_ratings_net() -> dict[str, float]:
         except Exception as exc:
             logger.debug("eloratings.net %s: %s", url, exc)
     return result
+
+
+def _fetch_martj42_results() -> tuple[list[dict], str]:
+    """Fetch competitive international results from martj42's GitHub dataset."""
+    url = "https://raw.githubusercontent.com/martj42/international-football-results/master/results.csv"
+    try:
+        with httpx.Client(timeout=20.0, follow_redirects=True) as client:
+            r = client.get(url, headers={"User-Agent": "Mozilla/5.0"})
+        if r.status_code != 200:
+            return [], f"HTTP {r.status_code}"
+        rows = []
+        reader = csv.DictReader(io.StringIO(r.text))
+        for row in reader:
+            if row.get("date", "") < HISTORY_START:
+                continue
+            tournament = row.get("tournament", "")
+            if "friendly" in tournament.lower():
+                continue
+            try:
+                h_g = int(float(row["home_score"]))
+                a_g = int(float(row["away_score"]))
+            except (ValueError, TypeError, KeyError):
+                continue
+            rows.append({
+                "date": row["date"],
+                "home": row.get("home_team", ""),
+                "away": row.get("away_team", ""),
+                "home_score": h_g,
+                "away_score": a_g,
+                "tournament": tournament,
+            })
+        return sorted(rows, key=lambda x: x["date"]), ""
+    except Exception as exc:
+        return [], str(exc)
+
+
+def _tournament_category(tournament: str) -> str:
+    t = tournament.lower()
+    if "world cup" in t and "qualif" not in t:    return "WC"
+    if "euro" in t and "qualif" not in t:          return "EC"
+    if "copa" in t and "qualif" not in t:          return "Copa"
+    if "africa cup" in t and "qualif" not in t:    return "AFCON"
+    if "asian cup" in t and "qualif" not in t:     return "AFC"
+    if "gold cup" in t and "qualif" not in t:      return "CONCACAF"
+    if "nations league" in t:                       return "NL"
+    if "qualif" in t or "qualifying" in t:          return "Quali"
+    return "Sonstige"
 
 
 # ── core business logic (sync, runs from scheduler or API endpoint) ──────────
@@ -910,16 +978,6 @@ def do_historical_warmup(db: Session) -> dict:
         logs.append({"ts": datetime.utcnow().isoformat() + "Z", "text": text, "level": level})
         logger.info("WMT warmup: %s", text)
 
-    def _match_dt(m: dict) -> datetime:
-        raw = m.get("utcDate", "")
-        try:
-            return datetime.fromisoformat(raw.replace("Z", "+00:00")).replace(tzinfo=None)
-        except Exception:
-            return datetime.min
-
-    def _lbl(aid: int) -> str:
-        return tla_w.get(aid) or name_w.get(aid, str(aid))
-
     # ── Step 1: Reset DB teams ─────────────────────────────────────────────
     all_db_teams = db.query(models.WmtTeam).all()
     for t in all_db_teams:
@@ -968,153 +1026,107 @@ def do_historical_warmup(db: Session) -> dict:
             "info",
         )
 
-    # ── Step 3: In-memory ELO working set ─────────────────────────────────
-    elo_w: dict[int, float] = {}
-    tla_w: dict[int, str]   = {}
-    name_w: dict[int, str]  = {}
-
+    # ── Step 3: TLA-keyed in-memory ELO working set ───────────────────────
+    elo_tla: dict[str, float] = {}
     for t in all_db_teams:
-        if t.api_id:
-            elo_w[t.api_id] = t.elo
-            if t.tla:
-                tla_w[t.api_id] = t.tla
-            name_w[t.api_id] = t.short_name or t.name
+        if t.tla:
+            elo_tla[t.tla] = t.elo
 
-    # ── Step 4: Historical competitions ───────────────────────────────────
+    # ── Step 4: martj42 historical dataset ────────────────────────────────
+    log("GitHub-Datensatz wird geladen (martj42/international-football-results)…")
+    t_csv = time.time()
+    csv_rows, csv_err = _fetch_martj42_results()
+    csv_time = time.time() - t_csv
+
     total_hist_matches = 0
     competitions_processed = 0
-    ordinals = ["①", "②", "③", "④", "⑤", "⑥"]
 
-    for ci, (comp_code, season) in enumerate(HISTORICAL_COMPETITIONS):
-        ordinal = ordinals[ci] if ci < len(ordinals) else f"({ci+1})"
-        log(f"─── {comp_code}/{season} ({ordinal}) — Anfrage läuft…")
+    if csv_err or not csv_rows:
+        log(
+            f"  Datensatz nicht verfügbar ({csv_time:.2f}s)"
+            + (f": {csv_err}" if csv_err else ""),
+            "error",
+        )
+    else:
+        tourn_counts = Counter(_tournament_category(r["tournament"]) for r in csv_rows)
+        tourn_str = " | ".join(
+            f"{cat} {n}" for cat, n in sorted(tourn_counts.items(), key=lambda x: -x[1])[:6]
+        )
+        first_date = csv_rows[0]["date"]
+        last_date  = csv_rows[-1]["date"]
+        teams_in_csv = len({r["home"] for r in csv_rows} | {r["away"] for r in csv_rows})
+        log(
+            f"  Antwort {csv_time:.2f}s | {len(csv_rows):,} Spiele | "
+            f"{first_date} – {last_date} | {teams_in_csv} Teams",
+            "done",
+        )
+        log(f"  Turniere: {tourn_str}")
+        log(f"Verarbeite {len(csv_rows):,} Spiele chronologisch (K-Faktor: 0.55x–1.00x)…")
 
-        t_req = time.time()
-        raw, http_status = _fetch_historical_matches(comp_code, season)
-        req_time = time.time() - t_req
-
-        if raw is None:
-            if not FOOTBALL_API_KEY:
-                reason = "Kein API-Key konfiguriert"
-            elif http_status == 403:
-                reason = f"HTTP 403 — historische Daten erfordern kostenpflichtige API-Stufe"
-            elif http_status == 404:
-                reason = f"HTTP 404 — {comp_code}/{season} nicht gefunden"
-            elif http_status == 429:
-                reason = f"HTTP 429 — Rate-Limit erreicht"
-            elif http_status is not None:
-                reason = f"HTTP {http_status} ({req_time:.2f}s)"
-            else:
-                reason = f"Netzwerkfehler ({req_time:.2f}s)"
-            log(f"  {reason} — überspringe {comp_code}/{season}", "error")
-            if ci < len(HISTORICAL_COMPETITIONS) - 1:
-                time.sleep(6.0)
-            continue
-
-        finished = [m for m in raw.get("matches", []) if m.get("status") == "FINISHED"]
-
-        if not finished:
-            log(f"  Antwort {req_time:.2f}s — Keine abgeschlossenen Spiele")
-            if ci < len(HISTORICAL_COMPETITIONS) - 1:
-                time.sleep(6.0)
-            continue
-
-        # Register all teams seen in this competition
-        for m in finished:
-            for tk in ("homeTeam", "awayTeam"):
-                td = m.get(tk) or {}
-                aid = td.get("id")
-                if aid and aid not in elo_w:
-                    elo_w[aid] = BASE_ELO
-                    tla = (td.get("tla") or "").upper().strip()
-                    nm  = td.get("shortName") or td.get("name", "")
-                    if tla:
-                        tla_w[aid] = tla
-                    if nm:
-                        name_w[aid] = nm
-
-        finished.sort(key=_match_dt)
-        first_dt = _match_dt(finished[0])
-        last_dt  = _match_dt(finished[-1])
-
+        elo_before = dict(elo_tla)
         total_goals = 0
-        k_sum       = 0.0
-        elo_before  = {aid: elo_w[aid] for aid in elo_w}
+        k_sum = 0.0
+        processed = 0
+        skipped = 0
         highlight: Optional[str] = None
         highlight_margin = 0
-        teams_seen: set = set()
 
-        for m in finished:
-            ht  = m.get("homeTeam") or {}
-            at  = m.get("awayTeam") or {}
-            h_id = ht.get("id")
-            a_id = at.get("id")
-            ft   = (m.get("score") or {}).get("fullTime") or {}
-            h_g  = ft.get("home")
-            a_g  = ft.get("away")
-
-            if h_id is None or a_id is None or h_g is None or a_g is None:
+        for row in csv_rows:
+            h_tla = COUNTRY_TO_TLA.get(row["home"])
+            a_tla = COUNTRY_TO_TLA.get(row["away"])
+            if not h_tla or not a_tla:
+                skipped += 1
                 continue
-            if h_id not in elo_w: elo_w[h_id] = BASE_ELO
-            if a_id not in elo_w: elo_w[a_id] = BASE_ELO
-            teams_seen.update([h_id, a_id])
+            if h_tla not in elo_tla: elo_tla[h_tla] = BASE_ELO
+            if a_tla not in elo_tla: elo_tla[a_tla] = BASE_ELO
 
-            years_ago = (now_dt - _match_dt(m)).days / 365.25
-            k_mult = _form_decay_factor(years_ago)
-            k_eff  = ELO_K * k_mult
+            match_date = datetime.strptime(row["date"], "%Y-%m-%d")
+            years_ago  = (now_dt - match_date).days / 365.25
+            k_mult     = _form_decay_factor(years_ago)
+            k_eff      = ELO_K * k_mult
             k_sum += k_mult
 
-            new_h, new_a = update_elo_after_match(
-                elo_w[h_id], elo_w[a_id], h_g, a_g, k_override=k_eff
-            )
-            elo_w[h_id] = new_h
-            elo_w[a_id] = new_a
-
+            h_g = row["home_score"]
+            a_g = row["away_score"]
+            new_h, new_a = update_elo_after_match(elo_tla[h_tla], elo_tla[a_tla], h_g, a_g, k_override=k_eff)
+            elo_tla[h_tla] = new_h
+            elo_tla[a_tla] = new_a
             total_goals += h_g + a_g
+            processed += 1
             margin = abs(h_g - a_g)
             if margin > highlight_margin:
                 highlight_margin = margin
-                h_tla = (tla_w.get(h_id) or name_w.get(h_id, str(h_id)))[:3]
-                a_tla = (tla_w.get(a_id) or name_w.get(a_id, str(a_id)))[:3]
                 highlight = f"{h_tla} {h_g}:{a_g} {a_tla}"
 
-        n = len(finished)
-        avg_goals = total_goals / n if n else 0
-        avg_k = k_sum / n if n else 1.0
-        date_range = f"{first_dt.strftime('%d.%m.%Y')} – {last_dt.strftime('%d.%m.%Y')}"
-        hl_str = f" | Highlight: {highlight}" if highlight else ""
-
+        avg_k     = k_sum / processed if processed else 1.0
+        avg_goals = total_goals / processed if processed else 0
         log(
-            f"  Antwort {req_time:.2f}s | {len(teams_seen)} Teams | {n} Spiele "
-            f"({date_range}) | {total_goals} Tore (Ø {avg_goals:.2f}/Spiel) | "
-            f"K-Faktor Ø {avg_k:.2f}x{hl_str}",
+            f"  {processed:,} Spiele verarbeitet | {skipped} übersprungen | "
+            f"{total_goals:,} Tore (Ø {avg_goals:.2f}/Spiel) | K-Faktor Ø {avg_k:.2f}x"
+            + (f" | Highlight: {highlight}" if highlight else ""),
             "done",
         )
 
-        deltas = {aid: elo_w[aid] - elo_before.get(aid, BASE_ELO) for aid in elo_w}
-        gainers = sorted([(a, d) for a, d in deltas.items() if d > 0.5], key=lambda x: -x[1])[:3]
-        losers  = sorted([(a, d) for a, d in deltas.items() if d < -0.5], key=lambda x: x[1])[:3]
-
+        wc26_tlas = {t.tla for t in all_db_teams if t.tla}
+        deltas  = {tla: elo_tla[tla] - elo_before.get(tla, BASE_ELO) for tla in wc26_tlas if tla in elo_tla}
+        gainers = sorted([(t, d) for t, d in deltas.items() if d > 0.5], key=lambda x: -x[1])[:5]
+        losers  = sorted([(t, d) for t, d in deltas.items() if d < -0.5], key=lambda x: x[1])[:5]
         if gainers:
-            log("  ▲ ELO-Gewinner: " + " | ".join(f"{_lbl(a)} +{d:.0f}" for a, d in gainers), "done")
+            log("  ▲ ELO-Gewinner: " + " | ".join(f"{t} +{d:.0f}" for t, d in gainers), "done")
         if losers:
-            log("  ▼ ELO-Verlierer: " + " | ".join(f"{_lbl(a)} {d:.0f}" for a, d in losers))
+            log("  ▼ ELO-Verlierer: " + " | ".join(f"{t} {d:.0f}" for t, d in losers))
 
-        total_hist_matches += n
-        competitions_processed += 1
-
-        if ci < len(HISTORICAL_COMPETITIONS) - 1:
-            log("  (Pause 6s — Rate-Limit)")
-            time.sleep(6.0)
+        total_hist_matches = processed
+        competitions_processed = len(tourn_counts)
 
     # ── Step 5: Re-apply WC 2026 FINISHED matches ─────────────────────────
+    played_count: dict[int, int] = defaultdict(int)
     wc26_finished = (
         db.query(models.WmtMatch)
         .filter(models.WmtMatch.status == "FINISHED")
         .order_by(models.WmtMatch.utc_date)
         .all()
     )
-    played_count: dict[int, int] = defaultdict(int)
     if wc26_finished:
         log(f"WC 2026: {len(wc26_finished)} gespielte Spiele werden eingerechnet…")
         for m in wc26_finished:
@@ -1122,17 +1134,15 @@ def do_historical_warmup(db: Session) -> dict:
             away = db.get(models.WmtTeam, m.away_team_id)
             if not home or not away:
                 continue
-            if m.score_home is None or m.score_away is None:
+            h_tla = home.tla
+            a_tla = away.tla
+            if not h_tla or not a_tla or m.score_home is None or m.score_away is None:
                 continue
-            h_id = home.api_id
-            a_id = away.api_id
-            if not h_id or not a_id:
-                continue
-            if h_id not in elo_w: elo_w[h_id] = BASE_ELO
-            if a_id not in elo_w: elo_w[a_id] = BASE_ELO
-            new_h, new_a = update_elo_after_match(elo_w[h_id], elo_w[a_id], m.score_home, m.score_away)
-            elo_w[h_id] = new_h
-            elo_w[a_id] = new_a
+            if h_tla not in elo_tla: elo_tla[h_tla] = BASE_ELO
+            if a_tla not in elo_tla: elo_tla[a_tla] = BASE_ELO
+            new_h, new_a = update_elo_after_match(elo_tla[h_tla], elo_tla[a_tla], m.score_home, m.score_away)
+            elo_tla[h_tla] = new_h
+            elo_tla[a_tla] = new_a
             played_count[m.home_team_id] += 1
             played_count[m.away_team_id] += 1
         log(f"  {len(wc26_finished)} WC-2026-Spiele eingerechnet", "done")
@@ -1141,8 +1151,8 @@ def do_historical_warmup(db: Session) -> dict:
     teams_updated = 0
     db.expire_all()
     for t in db.query(models.WmtTeam).all():
-        if t.api_id and t.api_id in elo_w:
-            t.elo = round(elo_w[t.api_id], 1)
+        if t.tla and t.tla in elo_tla:
+            t.elo = round(elo_tla[t.tla], 1)
             t.matches_played = played_count.get(t.id, 0)
             teams_updated += 1
     db.commit()
@@ -1175,15 +1185,18 @@ def do_historical_warmup(db: Session) -> dict:
     elapsed = time.time() - wall_start
     log("━━━ Kalibrierung abgeschlossen ━━━", "done")
     log(
-        f"Laufzeit: {elapsed:.1f}s | Wettbewerbe: {competitions_processed} | "
-        f"Spiele: {total_hist_matches} | Teams aktualisiert: {teams_updated}",
+        f"Laufzeit: {elapsed:.1f}s | Turniertypen: {competitions_processed} | "
+        f"Spiele: {total_hist_matches:,} | Teams aktualisiert: {teams_updated}",
         "done",
     )
     if top_str:
         log(f"Stärkste Teams: {top_str}", "done")
 
     return {
-        "message": f"Kalibrierung abgeschlossen ({competitions_processed} Wettbewerbe, {total_hist_matches} Spiele).",
+        "message": (
+            f"Kalibrierung abgeschlossen ({total_hist_matches:,} Spiele aus "
+            f"{competitions_processed} Turniertypen, martj42-Datensatz)."
+        ),
         "logs": logs,
         "competitions_processed": competitions_processed,
         "matches_processed": total_hist_matches,
@@ -1352,19 +1365,6 @@ def generate_bonus(db: Session = Depends(get_db)):
 
 @router.post("/warmup", response_model=schemas.WmtWarmupOut)
 def historical_warmup(db: Session = Depends(get_db)):
-    if not FOOTBALL_API_KEY:
-        return schemas.WmtWarmupOut(
-            message="Kein API-Schlüssel konfiguriert.",
-            logs=[{
-                "ts": datetime.utcnow().isoformat() + "Z",
-                "text": "Kein FOOTBALL_DATA_API_KEY — historische Turnierdaten nicht abrufbar.",
-                "level": "error",
-            }],
-            competitions_processed=0,
-            matches_processed=0,
-            teams_updated=0,
-            elapsed_seconds=0.0,
-        )
     result = do_historical_warmup(db)
     return schemas.WmtWarmupOut(**result)
 
