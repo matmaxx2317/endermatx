@@ -208,6 +208,7 @@ class WmtMatchOut(BaseModel):
     home_team: Optional[WmtTeamOut]
     away_team: Optional[WmtTeamOut]
     prediction: Optional[WmtPredictionOut]
+    predictions: list[WmtPredictionOut] = []
 
 
 class WmtSummaryOut(BaseModel):
