@@ -1145,6 +1145,77 @@ def do_historical_warmup(db: Session) -> dict:
     }
 
 
+# ── fake MD1 results (dev/test) ───────────────────────────────────────────────
+
+def do_fake_md1(db: Session) -> tuple[int, str]:
+    """Fake-Ergebnisse für alle ausstehenden Gruppenphase-MD1-Spiele setzen.
+
+    Ablauf: ELO-Prognose → normale Ergebnisse für die meisten Spiele,
+    die 3 Spiele mit dem größten ELO-Abstand werden als Upset umgekehrt
+    (Außenseiter gewinnt), um spätere Prognose-Updates sichtbar zu machen.
+    """
+    md1_matches = (
+        db.query(models.WmtMatch)
+        .filter(
+            models.WmtMatch.stage == "GROUP_STAGE",
+            models.WmtMatch.matchday == 1,
+            models.WmtMatch.status != "FINISHED",
+            models.WmtMatch.home_team_id.isnot(None),
+            models.WmtMatch.away_team_id.isnot(None),
+        )
+        .order_by(models.WmtMatch.utc_date)
+        .all()
+    )
+    if not md1_matches:
+        return 0, "Keine ausstehenden MD1-Spiele mit Teambesetzung gefunden."
+
+    def elo_gap(m: models.WmtMatch) -> float:
+        h = db.get(models.WmtTeam, m.home_team_id)
+        a = db.get(models.WmtTeam, m.away_team_id)
+        return abs(h.elo - a.elo) if h and a else 0.0
+
+    upset_ids = {m.id for m in sorted(md1_matches, key=elo_gap, reverse=True)[:3]}
+
+    newly_finished: list[models.WmtMatch] = []
+    for m in md1_matches:
+        home = db.get(models.WmtTeam, m.home_team_id)
+        away = db.get(models.WmtTeam, m.away_team_id)
+        if not home or not away:
+            continue
+
+        home_win, _, away_win = elo_to_win_prob(home.elo, away.elo)
+        home_xg, away_xg = elo_to_expected_goals(home.elo, away.elo)
+        tip_h = max(0, round(home_xg))
+        tip_a = max(0, round(away_xg))
+        if tip_h == tip_a:
+            if home_win > away_win + 0.1:
+                tip_h += 1
+            elif away_win > home_win + 0.1:
+                tip_a += 1
+
+        if m.id in upset_ids:
+            if tip_h != tip_a:
+                # Swap: normally-losing team now wins
+                score_h, score_a = tip_a, tip_h
+            else:
+                # Draw expected → underdog wins 1:0
+                if home.elo <= away.elo:
+                    score_h, score_a = 1, 0
+                else:
+                    score_h, score_a = 0, 1
+        else:
+            score_h, score_a = tip_h, tip_a
+
+        m.score_home = score_h
+        m.score_away = score_a
+        m.status = "FINISHED"
+        newly_finished.append(m)
+
+    db.commit()
+    _apply_elo_and_predictions(db, newly_finished)
+    return len(newly_finished), ""
+
+
 # ── helpers for API response assembly ────────────────────────────────────────
 
 def _team_out(team: Optional[models.WmtTeam]) -> Optional[schemas.WmtTeamOut]:
@@ -1316,3 +1387,15 @@ def clear_data(db: Session = Depends(get_db)):
     db.query(models.WmtTeam).delete()
     db.commit()
     return schemas.WmtRefreshOut(message="Alle WMT-Daten gelöscht.", updated=0)
+
+
+@router.post("/debug/fake-md1", response_model=schemas.WmtRefreshOut)
+def fake_md1_results(db: Session = Depends(get_db)):
+    """Fake-Ergebnisse für alle ausstehenden MD1-Spiele setzen (nur für Tests)."""
+    n, err = do_fake_md1(db)
+    if err:
+        return schemas.WmtRefreshOut(message=err, updated=0)
+    return schemas.WmtRefreshOut(
+        message=f"Fake-Ergebnisse gesetzt: {n} MD1-Spiel{'e' if n != 1 else ''} abgeschlossen.",
+        updated=n,
+    )

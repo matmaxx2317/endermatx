@@ -70,5 +70,6 @@ export const wmt = {
   generateBonus: ()          => post('/wmt/bonus/generate'),
   clearData: ()              => post('/wmt/clear'),
   warmup: ()                 => post('/wmt/warmup'),
+  fakeMd1: ()                => post('/wmt/debug/fake-md1'),
 }
 
