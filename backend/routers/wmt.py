@@ -111,7 +111,7 @@ WARMUP_LEAGUES: list[tuple[str, int]] = [
     ("wm2014", 2014),
     ("em2016", 2016),
     ("wm2018", 2018),
-    ("em2020", 2020),
+    ("em2021", 2021),   # EURO 2020 (gespielt 2021 wegen COVID)
     ("wm2022", 2022),
     ("em2024", 2024),
 ]
@@ -304,9 +304,15 @@ def _fetch_openligadb(league: str) -> tuple[list[dict], str]:
 
 
 def _openligadb_final_score(match: dict) -> tuple[Optional[int], Optional[int]]:
-    """Endergebnis (resultTypeID 2) aus matchResults extrahieren."""
-    for res in (match.get("matchResults") or []):
+    """Endergebnis aus matchResults extrahieren.
+    Sucht zuerst resultTypeID 2 (Endergebnis modern), dann Fallback auf 1 (ältere Datensätze).
+    """
+    results = match.get("matchResults") or []
+    for res in results:
         if res.get("resultTypeID") == 2:
+            return res.get("pointsTeam1"), res.get("pointsTeam2")
+    for res in results:
+        if res.get("resultTypeID") == 1:
             return res.get("pointsTeam1"), res.get("pointsTeam2")
     return None, None
 
@@ -1000,15 +1006,23 @@ def do_historical_warmup(db: Session) -> dict:
         teams_seen: set = set()
         processed = 0
 
+        no_tla_teams: set[str] = set()
+        no_score_count = 0
+
         for m in finished:
             t1 = m.get("team1") or {}
             t2 = m.get("team2") or {}
             h_tla = _tla_from_openligadb_team(t1)
             a_tla = _tla_from_openligadb_team(t2)
+            if not h_tla:
+                no_tla_teams.add(t1.get("teamName") or t1.get("shortName") or "?")
+            if not a_tla:
+                no_tla_teams.add(t2.get("teamName") or t2.get("shortName") or "?")
             if not h_tla or not a_tla:
                 continue
             h_g, a_g = _openligadb_final_score(m)
             if h_g is None or a_g is None:
+                no_score_count += 1
                 continue
 
             if h_tla not in elo_tla: elo_tla[h_tla] = BASE_ELO
@@ -1033,7 +1047,13 @@ def do_historical_warmup(db: Session) -> dict:
                 highlight = f"{h_tla} {h_g}:{a_g} {a_tla}"
 
         if not processed:
-            log(f"  Antwort {req_time:.2f}s — Keine verwertbaren Spiele")
+            parts = [f"Antwort {req_time:.2f}s — Keine verwertbaren Spiele ({len(finished)} abgeschlossen)"]
+            if no_tla_teams:
+                sample = sorted(no_tla_teams)[:5]
+                parts.append(f"Kein TLA für: {', '.join(sample)}")
+            if no_score_count:
+                parts.append(f"{no_score_count} Spiele ohne Ergebnis")
+            log("  " + " | ".join(parts), "error")
             continue
 
         avg_goals = total_goals / processed
