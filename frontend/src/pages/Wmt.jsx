@@ -774,6 +774,48 @@ export default function Wmt() {
 
   const teamStatuses = useMemo(() => computeTeamStatuses(matches), [matches])
 
+  const isBonusFrozen = useMemo(() => {
+    if (!matches.length) return false
+    const firstMs = Math.min(...matches.map(m => new Date(m.utc_date).getTime()))
+    const freeze = new Date(firstMs)
+    freeze.setUTCDate(freeze.getUTCDate() - 1)
+    freeze.setUTCHours(0, 0, 0, 0)
+    const today = new Date()
+    today.setUTCHours(0, 0, 0, 0)
+    return today >= freeze
+  }, [matches])
+
+  const actualResults = useMemo(() => {
+    if (!finalDone) return null
+    const finalMatch = matches.find(m => m.stage === 'FINAL' && m.status === 'FINISHED')
+    if (!finalMatch) return null
+    const winner = finalMatch.score_home > finalMatch.score_away ? finalMatch.home_team : finalMatch.away_team
+    const finalists = [finalMatch.home_team, finalMatch.away_team].filter(Boolean)
+    const sfMatches = matches.filter(m => m.stage === 'SEMI_FINALS' && m.status === 'FINISHED')
+    const semifinalists = sfMatches.flatMap(m => [m.home_team, m.away_team]).filter(Boolean)
+    const standings = {}
+    for (const m of matches) {
+      if (m.stage !== 'GROUP_STAGE' || !m.group_name || !m.home_team || !m.away_team) continue
+      const g = m.group_name
+      if (!standings[g]) standings[g] = {}
+      for (const [t, gs, gc] of [[m.home_team, m.score_home, m.score_away], [m.away_team, m.score_away, m.score_home]]) {
+        if (!standings[g][t.id]) standings[g][t.id] = { team: t, pts: 0, gd: 0, gf: 0 }
+        if (m.status === 'FINISHED' && gs != null) {
+          if (gs > gc) standings[g][t.id].pts += 3
+          else if (gs === gc) standings[g][t.id].pts += 1
+          standings[g][t.id].gd += gs - gc
+          standings[g][t.id].gf += gs
+        }
+      }
+    }
+    const groupWinners = {}
+    for (const [g, teams] of Object.entries(standings)) {
+      const sorted = Object.values(teams).sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf)
+      if (sorted[0]) groupWinners[g] = sorted[0].team
+    }
+    return { winner, finalists, semifinalists, groupWinners }
+  }, [matches, finalDone])
+
   const grouped       = groupMatches(matches)
   const groupKeys     = sortGroupKeys(Object.keys(grouped))
   const currentMatches = selectedKey !== null ? (grouped[selectedKey] ?? []) : []
@@ -801,7 +843,7 @@ export default function Wmt() {
             }}>
             {anyBusy ? '…' : '☰'}
           </button>
-          <span className="topbar-version">v2.4</span>
+          <span className="topbar-version">v2.5</span>
         </div>
       </div>
 
@@ -831,8 +873,8 @@ export default function Wmt() {
               onClick={() => { setMenuOpen(false); handleWarmup() }}
             />
             <MenuButton
-              icon="▶" label="Bonus-Prognose berechnen"
-              loading={generatingBonus} disabled={anyBusy && !generatingBonus}
+              icon="▶" label={isBonusFrozen ? 'Bonus-Prognose gesperrt' : 'Bonus-Prognose berechnen'}
+              loading={generatingBonus} disabled={(anyBusy && !generatingBonus) || isBonusFrozen}
               onClick={() => { setMenuOpen(false); handleGenerateBonus() }}
             />
             <div style={{ borderTop: '1px solid #1a2840', margin: '6px 0' }} />
@@ -1008,7 +1050,7 @@ export default function Wmt() {
 
         {/* ── Bonus-Tipps view ──────────────────────────────────────────── */}
         {!loading && view === 'bonus' && (
-          <BonusView bonus={bonus} generating={generatingBonus} />
+          <BonusView bonus={bonus} generating={generatingBonus} actualResults={actualResults} />
         )}
 
         {/* ── Morgenberichte view ────────────────────────────────────────── */}
@@ -1091,7 +1133,7 @@ function GroupModal({ group, teams, onClose }) {
   )
 }
 
-function BonusView({ bonus, generating }) {
+function BonusView({ bonus, generating, actualResults }) {
   const [modalGroup, setModalGroup] = useState(null)
 
   const cardStyle = {
@@ -1150,6 +1192,117 @@ function BonusView({ bonus, generating }) {
           teams={groupTeams(bonus.group_winners[modalGroup])}
           onClose={() => setModalGroup(null)}
         />
+      )}
+
+      {/* Prognose vs. Realität – appears once the Final is finished */}
+      {actualResults && (
+        <div style={{ ...cardStyle, borderColor: '#2a3d5c', marginBottom: 20 }}>
+          <div style={{ fontSize: 10, color: '#374d66', letterSpacing: '0.1em', marginBottom: 16 }}>
+            PROGNOSE vs. REALITÄT
+          </div>
+
+          {/* Turniersieger */}
+          {bonus.winner && actualResults.winner && (() => {
+            const hit = bonus.winner.tla === actualResults.winner.tla
+            return (
+              <div style={{ marginBottom: 14, paddingBottom: 14, borderBottom: '1px solid #1a2840' }}>
+                <div style={{ fontSize: 10, color: '#374d66', letterSpacing: '0.08em', marginBottom: 8 }}>TURNIERSIEGER</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: '#eef2ff' }}>{bonus.winner.tla}</span>
+                  <span style={{ fontSize: 11, color: '#4d6fa0' }}>{(bonus.winner.prob * 100).toFixed(0)}%</span>
+                  <span style={{ fontSize: 13, color: hit ? '#4d8a4d' : '#8a4d4d' }}>
+                    {hit ? '✓' : `✗ → ${actualResults.winner.tla}`}
+                  </span>
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* Finalisten */}
+          {bonus.finalists?.length > 0 && (() => {
+            const actualTlas = new Set(actualResults.finalists.map(t => t?.tla))
+            const hits = bonus.finalists.filter(f => actualTlas.has(f.tla)).length
+            return (
+              <div style={{ marginBottom: 14, paddingBottom: 14, borderBottom: '1px solid #1a2840' }}>
+                <div style={{ fontSize: 10, color: '#374d66', letterSpacing: '0.08em', marginBottom: 8 }}>
+                  FINALISTEN — {hits} von {bonus.finalists.length}
+                </div>
+                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                  {bonus.finalists.map((f, i) => {
+                    const hit = actualTlas.has(f.tla)
+                    return (
+                      <span key={i} style={{ fontSize: 12, color: hit ? '#4d8a4d' : '#8a4d4d' }}>
+                        {f.tla} {hit ? '✓' : '✗'}
+                      </span>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* Halbfinalisten */}
+          {bonus.semifinalists?.length > 0 && (() => {
+            const actualTlas = new Set(actualResults.semifinalists.map(t => t?.tla))
+            const hits = bonus.semifinalists.filter(f => actualTlas.has(f.tla)).length
+            return (
+              <div style={{ marginBottom: 14, paddingBottom: 14, borderBottom: '1px solid #1a2840' }}>
+                <div style={{ fontSize: 10, color: '#374d66', letterSpacing: '0.08em', marginBottom: 8 }}>
+                  HALBFINALISTEN — {hits} von {bonus.semifinalists.length}
+                </div>
+                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                  {bonus.semifinalists.map((f, i) => {
+                    const hit = actualTlas.has(f.tla)
+                    return (
+                      <span key={i} style={{ fontSize: 12, color: hit ? '#4d8a4d' : '#8a4d4d' }}>
+                        {f.tla} {hit ? '✓' : '✗'}
+                      </span>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* Gruppensieger */}
+          {(() => {
+            const compGroups = Object.entries(bonus.group_winners || {}).sort(([a], [b]) => a.localeCompare(b))
+            if (!compGroups.length) return null
+            const hits = compGroups.filter(([g, data]) => {
+              const predicted = groupTeams(data)[0]
+              return predicted && actualResults.groupWinners[g]?.tla === predicted.tla
+            }).length
+            return (
+              <div>
+                <div style={{ fontSize: 10, color: '#374d66', letterSpacing: '0.08em', marginBottom: 8 }}>
+                  GRUPPENSIEGER — {hits} von {compGroups.length}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
+                  {compGroups.map(([g, data]) => {
+                    const predicted = groupTeams(data)[0]
+                    const actual = actualResults.groupWinners[g]
+                    const hit = predicted && actual && predicted.tla === actual.tla
+                    return (
+                      <div key={g} style={{
+                        background: '#07091a',
+                        border: `1px solid ${hit ? '#1a3d1a' : '#3d1a1a'}`,
+                        borderRadius: 6, padding: '6px 8px',
+                      }}>
+                        <div style={{ fontSize: 9, color: '#374d66', marginBottom: 4 }}>GR. {g}</div>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: hit ? '#4d8a4d' : '#8a4d4d' }}>
+                          {predicted?.tla ?? '?'} {hit ? '✓' : '✗'}
+                        </div>
+                        {!hit && actual && (
+                          <div style={{ fontSize: 10, color: '#9ab0d0', marginTop: 2 }}>→ {actual.tla}</div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })()}
+        </div>
       )}
 
       {/* Turniersieger */}
