@@ -251,4 +251,8 @@ class WmtStatusOut(BaseModel):
     team_count: int
     prediction_count: int
     calibrated: bool
+    md1_done: bool = False
+    md2_done: bool = False
+    md3_done: bool = False
+    rd32_done: bool = False
 

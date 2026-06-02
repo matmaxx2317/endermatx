@@ -267,6 +267,11 @@ function MatchCard({ match }) {
                         {(ph.away_win_prob * 100).toFixed(0)}%)
                       </span>
                       {i === 0 && <span style={{ color: '#4d6fa0', marginLeft: 6 }}>aktuell</span>}
+                      {i > 0 && ph.reasoning && (
+                        <div style={{ color: '#374d66', marginTop: 2, fontSize: 10, lineHeight: 1.5 }}>
+                          {ph.reasoning}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -328,6 +333,9 @@ export default function Wmt() {
   const [warming, setWarming]           = useState(false)
   const [generatingBonus, setGeneratingBonus] = useState(false)
   const [fakingMd1, setFakingMd1]       = useState(false)
+  const [fakingMd2, setFakingMd2]       = useState(false)
+  const [fakingMd3, setFakingMd3]       = useState(false)
+  const [fakingRd32, setFakingRd32]     = useState(false)
   const [logs, setLogs]                 = useState([])
   const [menuOpen, setMenuOpen]         = useState(false)
   const logRef                          = useRef(null)
@@ -509,7 +517,79 @@ export default function Wmt() {
     }
   }
 
-  const anyBusy = refreshing || clearing || warming || generatingBonus || fakingMd1
+  async function handleFakeMd2() {
+    setFakingMd2(true)
+    setView('import')
+    addLog('Fake MD2-Ergebnisse werden gesetzt…')
+    const t0 = Date.now()
+    try {
+      const res = await wmt.fakeMd2()
+      const elapsed = ((Date.now() - t0) / 1000).toFixed(1)
+      addLog(`${res.message} (${elapsed}s)`, res.updated ? 'done' : 'error')
+      if (res.updated) {
+        await loadAll()
+        setView('spieltage')
+        setSelectedKey('md_2')
+      }
+    } catch (e) {
+      addLog('Fehler beim Setzen der Fake-Ergebnisse', 'error')
+    } finally {
+      setFakingMd2(false)
+    }
+  }
+
+  async function handleFakeMd3() {
+    setFakingMd3(true)
+    setView('import')
+    addLog('Fake MD3-Ergebnisse werden gesetzt…')
+    const t0 = Date.now()
+    try {
+      const res = await wmt.fakeMd3()
+      const elapsed = ((Date.now() - t0) / 1000).toFixed(1)
+      addLog(`${res.message} (${elapsed}s)`, res.updated ? 'done' : 'error')
+      if (res.updated) {
+        await loadAll()
+        setView('spieltage')
+        setSelectedKey('md_3')
+      }
+    } catch (e) {
+      addLog('Fehler beim Setzen der Fake-Ergebnisse', 'error')
+    } finally {
+      setFakingMd3(false)
+    }
+  }
+
+  async function handleFakeRd32() {
+    setFakingRd32(true)
+    setView('import')
+    addLog('Fake Rd.32-Ergebnisse werden gesetzt…')
+    const t0 = Date.now()
+    try {
+      const res = await wmt.fakeRd32()
+      const elapsed = ((Date.now() - t0) / 1000).toFixed(1)
+      addLog(`${res.message} (${elapsed}s)`, res.updated ? 'done' : 'error')
+      if (res.updated) {
+        await loadAll()
+        setView('spieltage')
+        setSelectedKey('stage_LAST_32')
+      }
+    } catch (e) {
+      addLog('Fehler beim Setzen der Fake-Ergebnisse', 'error')
+    } finally {
+      setFakingRd32(false)
+    }
+  }
+
+  const anyBusy = refreshing || clearing || warming || generatingBonus || fakingMd1 || fakingMd2 || fakingMd3 || fakingRd32
+
+  const md1Done = matches.some(m => m.stage === 'GROUP_STAGE' && m.matchday === 1) &&
+    matches.filter(m => m.stage === 'GROUP_STAGE' && m.matchday === 1).every(m => m.status === 'FINISHED')
+  const md2Done = matches.some(m => m.stage === 'GROUP_STAGE' && m.matchday === 2) &&
+    matches.filter(m => m.stage === 'GROUP_STAGE' && m.matchday === 2).every(m => m.status === 'FINISHED')
+  const md3Done = matches.some(m => m.stage === 'GROUP_STAGE' && m.matchday === 3) &&
+    matches.filter(m => m.stage === 'GROUP_STAGE' && m.matchday === 3).every(m => m.status === 'FINISHED')
+  const rd32Done = matches.some(m => m.stage === 'LAST_32' && m.status === 'FINISHED') &&
+    matches.filter(m => m.stage === 'LAST_32').every(m => m.status === 'FINISHED')
 
   const grouped       = groupMatches(matches)
   const groupKeys     = sortGroupKeys(Object.keys(grouped))
@@ -538,7 +618,7 @@ export default function Wmt() {
             }}>
             {anyBusy ? '…' : '☰'}
           </button>
-          <span className="topbar-version">v2.2</span>
+          <span className="topbar-version">v2.3</span>
         </div>
       </div>
 
@@ -581,8 +661,23 @@ export default function Wmt() {
             <div style={{ borderTop: '1px solid #1a2840', margin: '6px 0' }} />
             <MenuButton
               icon="⚗" label="Fake MD1-Ergebnisse"
-              loading={fakingMd1} disabled={anyBusy && !fakingMd1}
+              loading={fakingMd1} disabled={(anyBusy && !fakingMd1) || md1Done}
               onClick={() => { setMenuOpen(false); handleFakeMd1() }}
+            />
+            <MenuButton
+              icon="⚗" label="Fake MD2-Ergebnisse"
+              loading={fakingMd2} disabled={(anyBusy && !fakingMd2) || !md1Done || md2Done}
+              onClick={() => { setMenuOpen(false); handleFakeMd2() }}
+            />
+            <MenuButton
+              icon="⚗" label="Fake MD3-Ergebnisse"
+              loading={fakingMd3} disabled={(anyBusy && !fakingMd3) || !md2Done || md3Done}
+              onClick={() => { setMenuOpen(false); handleFakeMd3() }}
+            />
+            <MenuButton
+              icon="⚗" label="Fake Rd.32-Ergebnisse"
+              loading={fakingRd32} disabled={(anyBusy && !fakingRd32) || !md3Done || rd32Done}
+              onClick={() => { setMenuOpen(false); handleFakeRd32() }}
             />
           </div>
         </div>
