@@ -75,5 +75,10 @@ export const wmt = {
   fakeMd2: ()                => post('/wmt/debug/fake-md2'),
   fakeMd3: ()                => post('/wmt/debug/fake-md3'),
   fakeRd32: ()               => post('/wmt/debug/fake-rd32'),
+  fakeLast16: ()             => post('/wmt/debug/fake-last16'),
+  fakeQf: ()                 => post('/wmt/debug/fake-qf'),
+  fakeSf: ()                 => post('/wmt/debug/fake-sf'),
+  fakeTp: ()                 => post('/wmt/debug/fake-tp'),
+  fakeFinal: ()              => post('/wmt/debug/fake-final'),
 }
 
