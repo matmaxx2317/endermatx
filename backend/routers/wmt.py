@@ -388,7 +388,11 @@ def _upsert_openligadb_team(db: Session, team_data: dict) -> Optional[models.Wmt
 
 # ── core business logic ───────────────────────────────────────────────────────
 
-def _apply_elo_and_predictions(db: Session, newly_finished: list[models.WmtMatch]) -> None:
+def _apply_elo_and_predictions(
+    db: Session,
+    newly_finished: list[models.WmtMatch],
+    generate_predictions: bool = True,
+) -> None:
     """ELO für neu abgeschlossene Spiele aktualisieren + Prognosen für ausstehende neu berechnen."""
     newly_finished.sort(key=lambda x: x.utc_date)
     for match in newly_finished:
@@ -401,6 +405,9 @@ def _apply_elo_and_predictions(db: Session, newly_finished: list[models.WmtMatch
             home.matches_played = (home.matches_played or 0) + 1
             away.matches_played = (away.matches_played or 0) + 1
     db.commit()
+
+    if not generate_predictions:
+        return
 
     upcoming = (
         db.query(models.WmtMatch)
@@ -1174,7 +1181,9 @@ def do_historical_warmup(db: Session) -> dict:
 
 # ── fake results (dev/test) ───────────────────────────────────────────────────
 
-def do_fake_group_md(db: Session, matchday: int, n_upsets: int) -> tuple[int, str]:
+def do_fake_group_md(
+    db: Session, matchday: int, n_upsets: int, generate_predictions: bool = True,
+) -> tuple[int, str]:
     """Fake-Ergebnisse für alle ausstehenden Gruppenphase-Spiele eines Spieltags setzen."""
     md_matches = (
         db.query(models.WmtMatch)
@@ -1191,9 +1200,11 @@ def do_fake_group_md(db: Session, matchday: int, n_upsets: int) -> tuple[int, st
     if not md_matches:
         return 0, f"Keine ausstehenden MD{matchday}-Spiele mit Teambesetzung gefunden."
 
+    all_teams = {t.id: t for t in db.query(models.WmtTeam).all()}
+
     def elo_gap(m: models.WmtMatch) -> float:
-        h = db.get(models.WmtTeam, m.home_team_id)
-        a = db.get(models.WmtTeam, m.away_team_id)
+        h = all_teams.get(m.home_team_id)
+        a = all_teams.get(m.away_team_id)
         return abs(h.elo - a.elo) if h and a else 0.0
 
     n = min(n_upsets, len(md_matches))
@@ -1201,8 +1212,8 @@ def do_fake_group_md(db: Session, matchday: int, n_upsets: int) -> tuple[int, st
 
     newly_finished: list[models.WmtMatch] = []
     for m in md_matches:
-        home = db.get(models.WmtTeam, m.home_team_id)
-        away = db.get(models.WmtTeam, m.away_team_id)
+        home = all_teams.get(m.home_team_id)
+        away = all_teams.get(m.away_team_id)
         if not home or not away:
             continue
 
@@ -1233,7 +1244,7 @@ def do_fake_group_md(db: Session, matchday: int, n_upsets: int) -> tuple[int, st
         newly_finished.append(m)
 
     db.commit()
-    _apply_elo_and_predictions(db, newly_finished)
+    _apply_elo_and_predictions(db, newly_finished, generate_predictions)
     return len(newly_finished), ""
 
 
@@ -1303,7 +1314,7 @@ def _compute_group_standings(db: Session) -> dict[str, list[dict]]:
     return standings
 
 
-def do_fake_rd32(db: Session) -> tuple[int, str]:
+def do_fake_rd32(db: Session, generate_predictions: bool = True) -> tuple[int, str]:
     """Fake-Ergebnisse für Rd.32 setzen (benötigt abgeschlossene Gruppenphase)."""
     standings = _compute_group_standings(db)
     if not standings:
@@ -1397,7 +1408,7 @@ def do_fake_rd32(db: Session) -> tuple[int, str]:
         newly_finished.append(m)
 
     db.commit()
-    _apply_elo_and_predictions(db, newly_finished)
+    _apply_elo_and_predictions(db, newly_finished, generate_predictions)
     return len(newly_finished), ""
 
 
@@ -1435,6 +1446,7 @@ def _get_round_losers(db: Session, stage: str) -> list[int]:
 
 def do_fake_knockout_round(
     db: Session, stage: str, n_upsets: int, prev_stage: str = "",
+    generate_predictions: bool = True,
 ) -> tuple[int, str]:
     """
     Fake results for a knockout stage round.
@@ -1536,8 +1548,31 @@ def do_fake_knockout_round(
                 tp.away_team_id = losers[1]
                 db.commit()
 
-    _apply_elo_and_predictions(db, newly_finished)
+    _apply_elo_and_predictions(db, newly_finished, generate_predictions)
     return len(newly_finished), ""
+
+
+def do_fake_all(db: Session) -> tuple[int, str]:
+    """Alle Turnierphasen MD1–Finale in einem Schritt faken.
+    ELO-Updates laufen zwischen den Phasen; Prognosen werden nur einmal am Ende
+    generiert (no-op, da keine SCHEDULED-Spiele mehr übrig bleiben).
+    """
+    total = 0
+    pipeline = [
+        (do_fake_group_md,      (db, 1, 3)),
+        (do_fake_group_md,      (db, 2, 5)),
+        (do_fake_group_md,      (db, 3, 7)),
+        (do_fake_rd32,          (db,)),
+        (do_fake_knockout_round, (db, "LAST_16",        3, "LAST_32")),
+        (do_fake_knockout_round, (db, "QUARTER_FINALS", 2, "LAST_16")),
+        (do_fake_knockout_round, (db, "SEMI_FINALS",    1, "QUARTER_FINALS")),
+        (do_fake_knockout_round, (db, "THIRD_PLACE",    0, "SEMI_FINALS")),
+        (do_fake_knockout_round, (db, "FINAL",          0, "SEMI_FINALS")),
+    ]
+    for fn, args in pipeline:
+        n, _ = fn(*args, generate_predictions=False)
+        total += n
+    return total, f"Alle {total} Spiele gefakt (Gesamtturnier)."
 
 
 # ── helpers for API response assembly ────────────────────────────────────────
@@ -1889,3 +1924,10 @@ def fake_final_results(db: Session = Depends(get_db)):
         message=f"Fake-Ergebnisse gesetzt: Finale abgeschlossen.",
         updated=n,
     )
+
+
+@router.post("/debug/fake-all", response_model=schemas.WmtRefreshOut)
+def fake_all_results(db: Session = Depends(get_db)):
+    """Alle Phasen MD1–Finale in einem Schritt faken (nur für Tests)."""
+    n, msg = do_fake_all(db)
+    return schemas.WmtRefreshOut(message=msg, updated=n)

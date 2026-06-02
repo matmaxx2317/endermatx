@@ -447,6 +447,7 @@ export default function Wmt() {
   const [fakingSf, setFakingSf]           = useState(false)
   const [fakingTp, setFakingTp]           = useState(false)
   const [fakingFinal, setFakingFinal]     = useState(false)
+  const [fakingAll, setFakingAll]         = useState(false)
   const [logs, setLogs]                   = useState([])
   const [menuOpen, setMenuOpen]         = useState(false)
   const logRef                          = useRef(null)
@@ -751,9 +752,21 @@ export default function Wmt() {
     finally { setFakingFinal(false) }
   }
 
+  async function handleFakeAll() {
+    setFakingAll(true); setView('import')
+    addLog('Alle Turnierphasen (MD1–Finale) werden gefakt…')
+    const t0 = Date.now()
+    try {
+      const res = await wmt.fakeAll()
+      addLog(`${res.message} (${((Date.now()-t0)/1000).toFixed(1)}s)`, res.updated ? 'done' : 'error')
+      if (res.updated) { await loadAll(); setView('spieltage'); setSelectedKey('stage_FINAL') }
+    } catch { addLog('Fehler beim Setzen der Fake-Ergebnisse', 'error') }
+    finally { setFakingAll(false) }
+  }
+
   const anyBusy = refreshing || clearing || warming || generatingBonus ||
     fakingMd1 || fakingMd2 || fakingMd3 || fakingRd32 ||
-    fakingLast16 || fakingQf || fakingSf || fakingTp || fakingFinal
+    fakingLast16 || fakingQf || fakingSf || fakingTp || fakingFinal || fakingAll
 
   const md1Done = matches.some(m => m.stage === 'GROUP_STAGE' && m.matchday === 1) &&
     matches.filter(m => m.stage === 'GROUP_STAGE' && m.matchday === 1).every(m => m.status === 'FINISHED')
@@ -843,7 +856,7 @@ export default function Wmt() {
             }}>
             {anyBusy ? '…' : '☰'}
           </button>
-          <span className="topbar-version">v2.5</span>
+          <span className="topbar-version">v2.6</span>
         </div>
       </div>
 
@@ -882,6 +895,12 @@ export default function Wmt() {
               icon="✕" label="Daten löschen"
               danger loading={clearing} disabled={anyBusy && !clearing}
               onClick={() => { setMenuOpen(false); handleClear() }}
+            />
+            <div style={{ borderTop: '1px solid #1a2840', margin: '6px 0' }} />
+            <MenuButton
+              icon="⚗" label="Fake alles (MD1–Finale)"
+              loading={fakingAll} disabled={(anyBusy && !fakingAll) || finalDone}
+              onClick={() => { setMenuOpen(false); handleFakeAll() }}
             />
             <div style={{ borderTop: '1px solid #1a2840', margin: '6px 0' }} />
             <MenuButton
