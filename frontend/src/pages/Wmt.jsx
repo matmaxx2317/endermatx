@@ -234,7 +234,7 @@ function MatchCard({ match }) {
           />
 
           <div style={{ marginTop: 10, borderTop: '1px solid #1a2840', paddingTop: 10 }}>
-              <div style={{ fontSize: 12, color: '#9ab0d0', lineHeight: 1.65, marginBottom: p.home_elo ? 10 : 0 }}>
+              <div style={{ fontSize: 12, color: '#9ab0d0', lineHeight: 1.65, marginBottom: p.home_elo ? 10 : 0, whiteSpace: 'pre-line' }}>
                 {p.reasoning}
               </div>
               {p.home_elo && (
@@ -268,7 +268,7 @@ function MatchCard({ match }) {
                       </span>
                       {i === 0 && <span style={{ color: '#4d6fa0', marginLeft: 6 }}>aktuell</span>}
                       {i > 0 && ph.reasoning && (
-                        <div style={{ color: '#374d66', marginTop: 2, fontSize: 10, lineHeight: 1.5 }}>
+                        <div style={{ color: '#374d66', marginTop: 2, fontSize: 10, lineHeight: 1.5, whiteSpace: 'pre-line' }}>
                           {ph.reasoning}
                         </div>
                       )}
