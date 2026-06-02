@@ -338,12 +338,14 @@ function MatchCard({ match, teamStatuses = {} }) {
                       const trigger = nachMatch ? nachMatch[1].trim() : null
 
                       let note = `Tipp: ${prevTipH}:${prevTipA} → ${tipH}:${tipA}`
-                      if (trigger) note += ` — Auslöser: ${trigger}`
-                      note += '.'
+                      const triggerItems = trigger ? trigger.split(', ') : []
+                      if (triggerItems.length > 0) {
+                        note += `\nAuslöser:\n${triggerItems.join('\n')}`
+                      }
                       const eloParts = []
                       if (dHome != null) eloParts.push(`${homeTla} ${dHome > 0 ? '+' : ''}${dHome}`)
                       if (dAway != null) eloParts.push(`${awayTla} ${dAway > 0 ? '+' : ''}${dAway}`)
-                      if (eloParts.length) note += ` ELO: ${eloParts.join(' · ')}.`
+                      if (eloParts.length) note += `\nELO: ${eloParts.join(' · ')}.`
                       changeNote = note
                     }
 
@@ -366,7 +368,7 @@ function MatchCard({ match, teamStatuses = {} }) {
                         </span>
                         {i === 0 && <span style={{ color: '#4d6fa0', marginLeft: 6 }}>aktuell</span>}
                         {changeNote && (
-                          <div style={{ color: '#c8a84d', marginTop: 3, fontSize: 10, lineHeight: 1.5 }}>
+                          <div style={{ color: '#c8a84d', marginTop: 3, fontSize: 10, lineHeight: 1.5, whiteSpace: 'pre-line' }}>
                             {changeNote}
                           </div>
                         )}
