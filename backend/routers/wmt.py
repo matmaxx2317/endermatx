@@ -1401,6 +1401,145 @@ def do_fake_rd32(db: Session) -> tuple[int, str]:
     return len(newly_finished), ""
 
 
+# ── fake knockout rounds (dev/test) ──────────────────────────────────────────
+
+def _get_round_winners(db: Session, stage: str) -> list[int]:
+    """Team IDs of winners from all finished matches of a stage."""
+    winners = []
+    for m in (db.query(models.WmtMatch)
+              .filter(models.WmtMatch.stage == stage, models.WmtMatch.status == "FINISHED")
+              .all()):
+        if m.score_home is None or m.score_away is None:
+            continue
+        if m.score_home > m.score_away and m.home_team_id:
+            winners.append(m.home_team_id)
+        elif m.score_away > m.score_home and m.away_team_id:
+            winners.append(m.away_team_id)
+    return winners
+
+
+def _get_round_losers(db: Session, stage: str) -> list[int]:
+    """Team IDs of losers from all finished matches of a stage."""
+    losers = []
+    for m in (db.query(models.WmtMatch)
+              .filter(models.WmtMatch.stage == stage, models.WmtMatch.status == "FINISHED")
+              .all()):
+        if m.score_home is None or m.score_away is None:
+            continue
+        if m.score_home > m.score_away and m.away_team_id:
+            losers.append(m.away_team_id)
+        elif m.score_away > m.score_home and m.home_team_id:
+            losers.append(m.home_team_id)
+    return losers
+
+
+def do_fake_knockout_round(
+    db: Session, stage: str, n_upsets: int, prev_stage: str = "",
+) -> tuple[int, str]:
+    """
+    Fake results for a knockout stage round.
+    Teams are taken from prev_stage winners (or losers for THIRD_PLACE) if slots are empty.
+    Draws are never produced (knockout must have a winner).
+    After SEMI_FINALS, auto-assigns losers to the THIRD_PLACE match.
+    """
+    round_matches = (
+        db.query(models.WmtMatch)
+        .filter(models.WmtMatch.stage == stage, models.WmtMatch.status != "FINISHED")
+        .order_by(models.WmtMatch.utc_date)
+        .all()
+    )
+    if not round_matches:
+        return 0, f"Keine ausstehenden {stage}-Spiele gefunden."
+
+    needs_assignment = any(not m.home_team_id or not m.away_team_id for m in round_matches)
+    if needs_assignment and prev_stage:
+        if stage == "THIRD_PLACE":
+            candidates = _get_round_losers(db, prev_stage)
+        else:
+            candidates = _get_round_winners(db, prev_stage)
+
+        if len(candidates) < len(round_matches) * 2:
+            return 0, (
+                f"Nicht genug Qualifikanten ({len(candidates)}) für "
+                f"{len(round_matches)} Spiele (Vorrunde: {prev_stage})."
+            )
+
+        all_t = {t.id: t for t in db.query(models.WmtTeam).all()}
+        candidates.sort(key=lambda tid: -(all_t[tid].elo if all_t.get(tid) else DEFAULT_ELO))
+        n = len(round_matches)
+        pairs = [(candidates[i], candidates[2 * n - 1 - i]) for i in range(n)]
+        for m, (h_id, a_id) in zip(round_matches, pairs):
+            m.home_team_id = h_id
+            m.away_team_id = a_id
+        db.commit()
+
+    all_teams = {t.id: t for t in db.query(models.WmtTeam).all()}
+
+    def elo_gap(m: models.WmtMatch) -> float:
+        h = all_teams.get(m.home_team_id)
+        a = all_teams.get(m.away_team_id)
+        return abs(h.elo - a.elo) if h and a else 0.0
+
+    upset_ids = {m.id for m in sorted(round_matches, key=elo_gap, reverse=True)[:n_upsets]}
+
+    newly_finished: list[models.WmtMatch] = []
+    for m in round_matches:
+        home = all_teams.get(m.home_team_id)
+        away = all_teams.get(m.away_team_id)
+        if not home or not away:
+            continue
+        home_win, _, away_win = elo_to_win_prob(home.elo, away.elo)
+        home_xg, away_xg = elo_to_expected_goals(home.elo, away.elo)
+        tip_h = max(0, round(home_xg))
+        tip_a = max(0, round(away_xg))
+        if tip_h == tip_a:
+            if home_win > away_win + 0.1:
+                tip_h += 1
+            elif away_win > home_win + 0.1:
+                tip_a += 1
+
+        if m.id in upset_ids:
+            if tip_h != tip_a:
+                score_h, score_a = tip_a, tip_h
+            else:
+                score_h, score_a = (1, 0) if home.elo <= away.elo else (0, 1)
+        else:
+            score_h, score_a = tip_h, tip_a
+
+        # Knockout rounds must have a winner — break draws
+        if score_h == score_a:
+            home_stronger = home.elo >= away.elo
+            is_upset = m.id in upset_ids
+            if home_stronger != is_upset:
+                score_h += 1
+            else:
+                score_a += 1
+
+        m.score_home = score_h
+        m.score_away = score_a
+        m.status = "FINISHED"
+        newly_finished.append(m)
+
+    db.commit()
+
+    # After SEMI_FINALS: assign losers to THIRD_PLACE slots
+    if stage == "SEMI_FINALS" and newly_finished:
+        tp = db.query(models.WmtMatch).filter(models.WmtMatch.stage == "THIRD_PLACE").first()
+        if tp and (not tp.home_team_id or not tp.away_team_id):
+            losers = [
+                (m.away_team_id if (m.score_home or 0) > (m.score_away or 0) else m.home_team_id)
+                for m in newly_finished
+                if m.score_home is not None and m.score_home != m.score_away
+            ]
+            if len(losers) >= 2:
+                tp.home_team_id = losers[0]
+                tp.away_team_id = losers[1]
+                db.commit()
+
+    _apply_elo_and_predictions(db, newly_finished)
+    return len(newly_finished), ""
+
+
 # ── helpers for API response assembly ────────────────────────────────────────
 
 def _team_out(team: Optional[models.WmtTeam]) -> Optional[schemas.WmtTeamOut]:
@@ -1693,5 +1832,60 @@ def fake_rd32_results(db: Session = Depends(get_db)):
         return schemas.WmtRefreshOut(message=err, updated=0)
     return schemas.WmtRefreshOut(
         message=f"Fake-Ergebnisse gesetzt: {n} Rd.32-Spiel{'e' if n != 1 else ''} abgeschlossen.",
+        updated=n,
+    )
+
+
+@router.post("/debug/fake-last16", response_model=schemas.WmtRefreshOut)
+def fake_last16_results(db: Session = Depends(get_db)):
+    n, err = do_fake_knockout_round(db, "LAST_16", 3, "LAST_32")
+    if err:
+        return schemas.WmtRefreshOut(message=err, updated=0)
+    return schemas.WmtRefreshOut(
+        message=f"Fake-Ergebnisse gesetzt: {n} Achtelfinale-Spiel{'e' if n != 1 else ''} abgeschlossen.",
+        updated=n,
+    )
+
+
+@router.post("/debug/fake-qf", response_model=schemas.WmtRefreshOut)
+def fake_qf_results(db: Session = Depends(get_db)):
+    n, err = do_fake_knockout_round(db, "QUARTER_FINALS", 2, "LAST_16")
+    if err:
+        return schemas.WmtRefreshOut(message=err, updated=0)
+    return schemas.WmtRefreshOut(
+        message=f"Fake-Ergebnisse gesetzt: {n} Viertelfinale-Spiel{'e' if n != 1 else ''} abgeschlossen.",
+        updated=n,
+    )
+
+
+@router.post("/debug/fake-sf", response_model=schemas.WmtRefreshOut)
+def fake_sf_results(db: Session = Depends(get_db)):
+    n, err = do_fake_knockout_round(db, "SEMI_FINALS", 1, "QUARTER_FINALS")
+    if err:
+        return schemas.WmtRefreshOut(message=err, updated=0)
+    return schemas.WmtRefreshOut(
+        message=f"Fake-Ergebnisse gesetzt: {n} Halbfinale-Spiel{'e' if n != 1 else ''} abgeschlossen.",
+        updated=n,
+    )
+
+
+@router.post("/debug/fake-tp", response_model=schemas.WmtRefreshOut)
+def fake_tp_results(db: Session = Depends(get_db)):
+    n, err = do_fake_knockout_round(db, "THIRD_PLACE", 0, "SEMI_FINALS")
+    if err:
+        return schemas.WmtRefreshOut(message=err, updated=0)
+    return schemas.WmtRefreshOut(
+        message=f"Fake-Ergebnisse gesetzt: Spiel um Platz 3 abgeschlossen.",
+        updated=n,
+    )
+
+
+@router.post("/debug/fake-final", response_model=schemas.WmtRefreshOut)
+def fake_final_results(db: Session = Depends(get_db)):
+    n, err = do_fake_knockout_round(db, "FINAL", 0, "SEMI_FINALS")
+    if err:
+        return schemas.WmtRefreshOut(message=err, updated=0)
+    return schemas.WmtRefreshOut(
+        message=f"Fake-Ergebnisse gesetzt: Finale abgeschlossen.",
         updated=n,
     )

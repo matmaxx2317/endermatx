@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { wmt } from '../api'
 
@@ -128,6 +128,68 @@ function renderMarkdown(text) {
   })
 }
 
+// ── team qualification status ─────────────────────────────────────────────────
+
+function computeTeamStatuses(matches) {
+  const statuses = {} // teamId → 'qualified' | 'eliminated'
+
+  // Knockout: FINISHED → winner qualified, loser eliminated
+  // Exception: SEMI_FINALS losers still play THIRD_PLACE — don't colour them yet
+  for (const m of matches) {
+    if (m.stage === 'GROUP_STAGE' || m.status !== 'FINISHED') continue
+    if (!m.home_team || !m.away_team || m.score_home == null) continue
+    const homeWon = m.score_home > m.score_away
+    const winner = homeWon ? m.home_team.id : m.away_team.id
+    const loser  = homeWon ? m.away_team.id : m.home_team.id
+    statuses[winner] = 'qualified'
+    if (m.stage !== 'SEMI_FINALS') statuses[loser] = 'eliminated'
+  }
+  // SEMI_FINALS losers: colour once THIRD_PLACE is settled
+  const tp = matches.find(m => m.stage === 'THIRD_PLACE' && m.status === 'FINISHED')
+  if (tp?.home_team && tp?.away_team && tp.score_home != null) {
+    const tpWon = tp.score_home > tp.score_away
+    statuses[tpWon ? tp.home_team.id : tp.away_team.id] = 'qualified'
+    statuses[tpWon ? tp.away_team.id : tp.home_team.id] = 'eliminated'
+  }
+
+  // Group stage: compute per-group standings, derive sure-qualified / sure-out
+  const groups = {}
+  for (const m of matches) {
+    if (m.stage !== 'GROUP_STAGE' || !m.group_name) continue
+    const g = m.group_name
+    if (!groups[g]) groups[g] = { pts: {}, rem: {} }
+    const h = m.home_team?.id, a = m.away_team?.id
+    if (!h || !a) continue
+    for (const id of [h, a]) {
+      if (!(id in groups[g].pts)) { groups[g].pts[id] = 0; groups[g].rem[id] = 0 }
+    }
+    if (m.status === 'FINISHED' && m.score_home != null) {
+      if (m.score_home > m.score_away)      groups[g].pts[h] += 3
+      else if (m.score_away > m.score_home) groups[g].pts[a] += 3
+      else { groups[g].pts[h]++; groups[g].pts[a]++ }
+    } else {
+      groups[g].rem[h]++; groups[g].rem[a]++
+    }
+  }
+
+  for (const { pts, rem } of Object.values(groups)) {
+    const ids = Object.keys(pts).map(Number)
+    for (const id of ids) {
+      if (statuses[id]) continue  // knockout result already set
+      const myMin = pts[id]
+      const myMax = pts[id] + 3 * (rem[id] || 0)
+      // Sure top-2: at most 1 other team can possibly outscore my minimum
+      const canBeat = ids.filter(o => o !== id && pts[o] + 3 * (rem[o] || 0) > myMin).length
+      if (canBeat < 2) { statuses[id] = 'qualified'; continue }
+      // Sure out: 2+ teams already have more points than my absolute best
+      const ahead = ids.filter(o => o !== id && pts[o] > myMax).length
+      if (ahead >= 2) statuses[id] = 'eliminated'
+    }
+  }
+
+  return statuses
+}
+
 // ── sub-components ────────────────────────────────────────────────────────────
 
 function ProbBar({ home, draw, away, homeTla, awayTla }) {
@@ -150,7 +212,13 @@ function ProbBar({ home, draw, away, homeTla, awayTla }) {
   )
 }
 
-function MatchCard({ match }) {
+function teamStatusColor(status) {
+  if (status === 'qualified')  return '#4d8a4d'
+  if (status === 'eliminated') return '#8a4d4d'
+  return '#eef2ff'
+}
+
+function MatchCard({ match, teamStatuses = {} }) {
   const p = match.prediction
   const isFinished = match.status === 'FINISHED'
   const isLive = match.status === 'IN_PLAY' || match.status === 'PAUSED'
@@ -158,6 +226,8 @@ function MatchCard({ match }) {
   const awayName = match.away_team?.name ?? 'TBD'
   const homeTla  = match.home_team?.tla ?? '?'
   const awayTla  = match.away_team?.tla ?? '?'
+  const homeStatus = match.home_team ? teamStatuses[match.home_team.id] ?? null : null
+  const awayStatus = match.away_team ? teamStatuses[match.away_team.id] ?? null : null
   const tipHome  = p ? Math.max(0, Math.round(p.pred_home_goals)) : null
   const tipAway  = p ? Math.max(0, Math.round(p.pred_away_goals)) : null
 
@@ -188,7 +258,7 @@ function MatchCard({ match }) {
       {/* teams + score row */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
         <div style={{ flex: 1, textAlign: 'right' }}>
-          <div style={{ fontSize: 15, fontWeight: 600, color: '#eef2ff' }}>{homeName}</div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: teamStatusColor(homeStatus) }}>{homeName}</div>
           <div style={{ fontSize: 10, color: '#9ab0d0', marginTop: 2 }}>{homeTla}</div>
         </div>
 
@@ -203,7 +273,7 @@ function MatchCard({ match }) {
         </div>
 
         <div style={{ flex: 1, textAlign: 'left' }}>
-          <div style={{ fontSize: 15, fontWeight: 600, color: '#eef2ff' }}>{awayName}</div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: teamStatusColor(awayStatus) }}>{awayName}</div>
           <div style={{ fontSize: 10, color: '#9ab0d0', marginTop: 2 }}>{awayTla}</div>
         </div>
       </div>
@@ -366,11 +436,16 @@ export default function Wmt() {
   const [clearing, setClearing]         = useState(false)
   const [warming, setWarming]           = useState(false)
   const [generatingBonus, setGeneratingBonus] = useState(false)
-  const [fakingMd1, setFakingMd1]       = useState(false)
-  const [fakingMd2, setFakingMd2]       = useState(false)
-  const [fakingMd3, setFakingMd3]       = useState(false)
-  const [fakingRd32, setFakingRd32]     = useState(false)
-  const [logs, setLogs]                 = useState([])
+  const [fakingMd1, setFakingMd1]         = useState(false)
+  const [fakingMd2, setFakingMd2]         = useState(false)
+  const [fakingMd3, setFakingMd3]         = useState(false)
+  const [fakingRd32, setFakingRd32]       = useState(false)
+  const [fakingLast16, setFakingLast16]   = useState(false)
+  const [fakingQf, setFakingQf]           = useState(false)
+  const [fakingSf, setFakingSf]           = useState(false)
+  const [fakingTp, setFakingTp]           = useState(false)
+  const [fakingFinal, setFakingFinal]     = useState(false)
+  const [logs, setLogs]                   = useState([])
   const [menuOpen, setMenuOpen]         = useState(false)
   const logRef                          = useRef(null)
 
@@ -614,7 +689,69 @@ export default function Wmt() {
     }
   }
 
-  const anyBusy = refreshing || clearing || warming || generatingBonus || fakingMd1 || fakingMd2 || fakingMd3 || fakingRd32
+  async function handleFakeLast16() {
+    setFakingLast16(true); setView('import')
+    addLog('Fake Achtelfinale-Ergebnisse werden gesetzt…')
+    const t0 = Date.now()
+    try {
+      const res = await wmt.fakeLast16()
+      addLog(`${res.message} (${((Date.now()-t0)/1000).toFixed(1)}s)`, res.updated ? 'done' : 'error')
+      if (res.updated) { await loadAll(); setView('spieltage'); setSelectedKey('stage_LAST_16') }
+    } catch { addLog('Fehler beim Setzen der Fake-Ergebnisse', 'error') }
+    finally { setFakingLast16(false) }
+  }
+
+  async function handleFakeQf() {
+    setFakingQf(true); setView('import')
+    addLog('Fake Viertelfinale-Ergebnisse werden gesetzt…')
+    const t0 = Date.now()
+    try {
+      const res = await wmt.fakeQf()
+      addLog(`${res.message} (${((Date.now()-t0)/1000).toFixed(1)}s)`, res.updated ? 'done' : 'error')
+      if (res.updated) { await loadAll(); setView('spieltage'); setSelectedKey('stage_QUARTER_FINALS') }
+    } catch { addLog('Fehler beim Setzen der Fake-Ergebnisse', 'error') }
+    finally { setFakingQf(false) }
+  }
+
+  async function handleFakeSf() {
+    setFakingSf(true); setView('import')
+    addLog('Fake Halbfinale-Ergebnisse werden gesetzt…')
+    const t0 = Date.now()
+    try {
+      const res = await wmt.fakeSf()
+      addLog(`${res.message} (${((Date.now()-t0)/1000).toFixed(1)}s)`, res.updated ? 'done' : 'error')
+      if (res.updated) { await loadAll(); setView('spieltage'); setSelectedKey('stage_SEMI_FINALS') }
+    } catch { addLog('Fehler beim Setzen der Fake-Ergebnisse', 'error') }
+    finally { setFakingSf(false) }
+  }
+
+  async function handleFakeTp() {
+    setFakingTp(true); setView('import')
+    addLog('Fake Spiel-um-Platz-3-Ergebnis wird gesetzt…')
+    const t0 = Date.now()
+    try {
+      const res = await wmt.fakeTp()
+      addLog(`${res.message} (${((Date.now()-t0)/1000).toFixed(1)}s)`, res.updated ? 'done' : 'error')
+      if (res.updated) { await loadAll(); setView('spieltage'); setSelectedKey('stage_THIRD_PLACE') }
+    } catch { addLog('Fehler beim Setzen der Fake-Ergebnisse', 'error') }
+    finally { setFakingTp(false) }
+  }
+
+  async function handleFakeFinal() {
+    setFakingFinal(true); setView('import')
+    addLog('Fake Finale-Ergebnis wird gesetzt…')
+    const t0 = Date.now()
+    try {
+      const res = await wmt.fakeFinal()
+      addLog(`${res.message} (${((Date.now()-t0)/1000).toFixed(1)}s)`, res.updated ? 'done' : 'error')
+      if (res.updated) { await loadAll(); setView('spieltage'); setSelectedKey('stage_FINAL') }
+    } catch { addLog('Fehler beim Setzen der Fake-Ergebnisse', 'error') }
+    finally { setFakingFinal(false) }
+  }
+
+  const anyBusy = refreshing || clearing || warming || generatingBonus ||
+    fakingMd1 || fakingMd2 || fakingMd3 || fakingRd32 ||
+    fakingLast16 || fakingQf || fakingSf || fakingTp || fakingFinal
 
   const md1Done = matches.some(m => m.stage === 'GROUP_STAGE' && m.matchday === 1) &&
     matches.filter(m => m.stage === 'GROUP_STAGE' && m.matchday === 1).every(m => m.status === 'FINISHED')
@@ -624,6 +761,16 @@ export default function Wmt() {
     matches.filter(m => m.stage === 'GROUP_STAGE' && m.matchday === 3).every(m => m.status === 'FINISHED')
   const rd32Done = matches.some(m => m.stage === 'LAST_32' && m.status === 'FINISHED') &&
     matches.filter(m => m.stage === 'LAST_32').every(m => m.status === 'FINISHED')
+  const last16Done = matches.some(m => m.stage === 'LAST_16') &&
+    matches.filter(m => m.stage === 'LAST_16').every(m => m.status === 'FINISHED')
+  const qfDone = matches.some(m => m.stage === 'QUARTER_FINALS') &&
+    matches.filter(m => m.stage === 'QUARTER_FINALS').every(m => m.status === 'FINISHED')
+  const sfDone = matches.some(m => m.stage === 'SEMI_FINALS') &&
+    matches.filter(m => m.stage === 'SEMI_FINALS').every(m => m.status === 'FINISHED')
+  const tpDone = matches.some(m => m.stage === 'THIRD_PLACE' && m.status === 'FINISHED')
+  const finalDone = matches.some(m => m.stage === 'FINAL' && m.status === 'FINISHED')
+
+  const teamStatuses = useMemo(() => computeTeamStatuses(matches), [matches])
 
   const grouped       = groupMatches(matches)
   const groupKeys     = sortGroupKeys(Object.keys(grouped))
@@ -652,7 +799,7 @@ export default function Wmt() {
             }}>
             {anyBusy ? '…' : '☰'}
           </button>
-          <span className="topbar-version">v2.3</span>
+          <span className="topbar-version">v2.4</span>
         </div>
       </div>
 
@@ -712,6 +859,31 @@ export default function Wmt() {
               icon="⚗" label="Fake Rd.32-Ergebnisse"
               loading={fakingRd32} disabled={(anyBusy && !fakingRd32) || !md3Done || rd32Done}
               onClick={() => { setMenuOpen(false); handleFakeRd32() }}
+            />
+            <MenuButton
+              icon="⚗" label="Fake Achtelfinale"
+              loading={fakingLast16} disabled={(anyBusy && !fakingLast16) || !rd32Done || last16Done}
+              onClick={() => { setMenuOpen(false); handleFakeLast16() }}
+            />
+            <MenuButton
+              icon="⚗" label="Fake Viertelfinale"
+              loading={fakingQf} disabled={(anyBusy && !fakingQf) || !last16Done || qfDone}
+              onClick={() => { setMenuOpen(false); handleFakeQf() }}
+            />
+            <MenuButton
+              icon="⚗" label="Fake Halbfinale"
+              loading={fakingSf} disabled={(anyBusy && !fakingSf) || !qfDone || sfDone}
+              onClick={() => { setMenuOpen(false); handleFakeSf() }}
+            />
+            <MenuButton
+              icon="⚗" label="Fake Spiel um Platz 3"
+              loading={fakingTp} disabled={(anyBusy && !fakingTp) || !sfDone || tpDone}
+              onClick={() => { setMenuOpen(false); handleFakeTp() }}
+            />
+            <MenuButton
+              icon="⚗" label="Fake Finale"
+              loading={fakingFinal} disabled={(anyBusy && !fakingFinal) || !sfDone || finalDone}
+              onClick={() => { setMenuOpen(false); handleFakeFinal() }}
             />
           </div>
         </div>
@@ -817,14 +989,14 @@ export default function Wmt() {
                         {calDayLabel(isoDay).toUpperCase()}
                       </div>
                       {dayMatches.map(m => (
-                        <MatchCard key={m.id} match={m} />
+                        <MatchCard key={m.id} match={m} teamStatuses={teamStatuses} />
                       ))}
                     </div>
                   ))
                 ) : (
                   // Knockout rounds: flat list
                   currentMatches.map(m => (
-                    <MatchCard key={m.id} match={m} />
+                    <MatchCard key={m.id} match={m} teamStatuses={teamStatuses} />
                   ))
                 )}
               </>
