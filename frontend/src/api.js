@@ -80,5 +80,6 @@ export const wmt = {
   fakeSf: ()                 => post('/wmt/debug/fake-sf'),
   fakeTp: ()                 => post('/wmt/debug/fake-tp'),
   fakeFinal: ()              => post('/wmt/debug/fake-final'),
+  fakeAll: ()                => post('/wmt/debug/fake-all'),
 }
 
