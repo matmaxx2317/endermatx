@@ -269,7 +269,7 @@ def build_reasoning(
         strength = f"{away_name} ist {label} Favorit ({diff:.0f} ELO)"
 
     result = (
-        f"{strength}. "
+        f"{strength}.\n"
         f"ELO: {home_tla} {home_elo:.0f} vs. {away_tla} {away_elo:.0f}."
     )
     if trigger_note:
