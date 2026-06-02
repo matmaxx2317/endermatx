@@ -864,7 +864,7 @@ export default function Wmt() {
             }}>
             {anyBusy ? '…' : '☰'}
           </button>
-          <span className="topbar-version">v2.7</span>
+          <span className="topbar-version">v2.8</span>
         </div>
       </div>
 
@@ -966,6 +966,7 @@ export default function Wmt() {
           {[
             ['import', 'Import'],
             ['spieltage', 'Spieltage'],
+            ['gruppen', 'Gruppen-Tabellen'],
             ['bonus', 'Bonus-Tipps'],
             ['zusammenfassung', 'Morgenberichte'],
           ].map(([key, label]) => (
@@ -1073,6 +1074,11 @@ export default function Wmt() {
               </>
             )}
           </>
+        )}
+
+        {/* ── Gruppen-Tabellen view ─────────────────────────────────────── */}
+        {!loading && view === 'gruppen' && (
+          <GruppenTabellen matches={matches} />
         )}
 
         {/* ── Bonus-Tipps view ──────────────────────────────────────────── */}
@@ -1493,6 +1499,91 @@ function BonusView({ bonus, generating, actualResults }) {
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+function GruppenTabellen({ matches }) {
+  const groups = {}
+
+  for (const m of matches) {
+    if (m.stage !== 'GROUP_STAGE' || !m.group_name) continue
+    const g = m.group_name
+    if (!groups[g]) groups[g] = {}
+    for (const [team, gs, gc] of [
+      [m.home_team, m.score_home, m.score_away],
+      [m.away_team, m.score_away, m.score_home],
+    ]) {
+      if (!team) continue
+      if (!groups[g][team.id]) groups[g][team.id] = { team, gp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0 }
+      const row = groups[g][team.id]
+      if (m.status === 'FINISHED' && gs != null && gc != null) {
+        row.gp++; row.gf += gs; row.ga += gc
+        if (gs > gc) row.w++; else if (gs === gc) row.d++; else row.l++
+      }
+    }
+  }
+
+  const sortedGroups = Object.entries(groups).sort(([a], [b]) => a.localeCompare(b))
+
+  if (sortedGroups.length === 0) {
+    return (
+      <div style={{ background: '#0d1221', border: '1px solid #1a2840', borderRadius: 10, padding: 24, textAlign: 'center' }}>
+        <div style={{ fontSize: 13, color: '#9ab0d0' }}>Noch keine Gruppenspiele vorhanden.</div>
+      </div>
+    )
+  }
+
+  const th = { fontSize: 10, color: '#374d66', fontWeight: 400, letterSpacing: '0.06em', textAlign: 'right', paddingBottom: 6 }
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      {sortedGroups.map(([group, teamMap]) => {
+        const rows = Object.values(teamMap)
+          .map(r => ({ ...r, pts: r.w * 3 + r.d, gd: r.gf - r.ga }))
+          .sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf || (b.team.elo ?? 0) - (a.team.elo ?? 0))
+
+        return (
+          <div key={group} style={{ background: '#0d1221', border: '1px solid #1a2840', borderRadius: 10, padding: '12px 14px' }}>
+            <div style={{ fontSize: 10, color: '#374d66', letterSpacing: '0.1em', marginBottom: 8 }}>GRUPPE {group}</div>
+
+            <div style={{ display: 'flex', gap: 4, paddingBottom: 5, borderBottom: '1px solid #1a2840' }}>
+              <div style={{ width: 14, ...th }}>#</div>
+              <div style={{ flex: 1, textAlign: 'left', ...th }}>TEAM</div>
+              <div style={{ width: 20, ...th }}>Sp</div>
+              <div style={{ width: 16, ...th }}>W</div>
+              <div style={{ width: 16, ...th }}>U</div>
+              <div style={{ width: 16, ...th }}>N</div>
+              <div style={{ width: 38, ...th }}>Tore</div>
+              <div style={{ width: 26, ...th }}>TD</div>
+              <div style={{ width: 22, ...th, color: '#9ab0d0' }}>Pkt</div>
+            </div>
+
+            {rows.map((r, i) => (
+              <div key={r.team.id} style={{
+                display: 'flex', gap: 4, alignItems: 'center',
+                padding: '5px 0', borderTop: i > 0 ? '1px solid #1a2840' : 'none',
+              }}>
+                <div style={{ width: 14, fontSize: 10, color: '#374d66', textAlign: 'right', flexShrink: 0 }}>{i + 1}</div>
+                <div style={{ flex: 1, overflow: 'hidden' }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: '#eef2ff' }}>
+                    {r.team.tla ?? r.team.short_name}
+                  </span>
+                </div>
+                <div style={{ width: 20, fontSize: 11, color: '#9ab0d0', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.gp}</div>
+                <div style={{ width: 16, fontSize: 11, color: '#9ab0d0', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.w}</div>
+                <div style={{ width: 16, fontSize: 11, color: '#9ab0d0', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.d}</div>
+                <div style={{ width: 16, fontSize: 11, color: '#9ab0d0', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.l}</div>
+                <div style={{ width: 38, fontSize: 11, color: '#9ab0d0', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.gf}:{r.ga}</div>
+                <div style={{ width: 26, fontSize: 11, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: r.gd > 0 ? '#4d8a4d' : r.gd < 0 ? '#8a4d4d' : '#9ab0d0' }}>
+                  {r.gd > 0 ? '+' : ''}{r.gd}
+                </div>
+                <div style={{ width: 22, fontSize: 13, fontWeight: 600, color: '#eef2ff', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.pts}</div>
+              </div>
+            ))}
+          </div>
+        )
+      })}
     </div>
   )
 }
