@@ -409,6 +409,9 @@ def _apply_elo_and_predictions(
     if not generate_predictions:
         return
 
+    # Auto-assign the next round's slots when a stage just completed
+    _auto_assign_next_round(db)
+
     upcoming = (
         db.query(models.WmtMatch)
         .filter(models.WmtMatch.status.in_(["SCHEDULED", "TIMED"]))
@@ -1442,6 +1445,91 @@ def _get_round_losers(db: Session, stage: str) -> list[int]:
         elif m.score_away > m.score_home and m.home_team_id:
             losers.append(m.home_team_id)
     return losers
+
+
+def _auto_assign_next_round(db: Session) -> None:
+    """When a round is fully complete, assign qualified teams to the next round's empty slots.
+    Called from _apply_elo_and_predictions so predictions are generated for newly-assigned matches.
+    """
+    all_teams = {t.id: t for t in db.query(models.WmtTeam).all()}
+
+    def _stage_fully_done(stage: str) -> bool:
+        total = db.query(models.WmtMatch).filter(
+            models.WmtMatch.stage == stage,
+            models.WmtMatch.home_team_id.isnot(None),
+        ).count()
+        finished = db.query(models.WmtMatch).filter(
+            models.WmtMatch.stage == stage,
+            models.WmtMatch.status == "FINISHED",
+        ).count()
+        return total > 0 and finished >= total
+
+    def _has_empty_slots(stage: str) -> bool:
+        return db.query(models.WmtMatch).filter(
+            models.WmtMatch.stage == stage,
+            models.WmtMatch.home_team_id.is_(None),
+        ).count() > 0
+
+    def _fill_slots(stage: str, team_ids: list[int]) -> None:
+        slots = (
+            db.query(models.WmtMatch)
+            .filter(models.WmtMatch.stage == stage, models.WmtMatch.home_team_id.is_(None))
+            .order_by(models.WmtMatch.utc_date)
+            .all()
+        )
+        if not slots or len(team_ids) < len(slots) * 2:
+            return
+        # Pair strongest vs weakest by ELO (same logic as do_fake_rd32 / do_fake_knockout_round)
+        sorted_ids = sorted(
+            team_ids, key=lambda t: -(all_teams[t].elo if all_teams.get(t) else DEFAULT_ELO)
+        )
+        n = len(slots)
+        for i, m in enumerate(slots):
+            m.home_team_id = sorted_ids[i]
+            m.away_team_id = sorted_ids[2 * n - 1 - i]
+        db.commit()
+
+    # ── Rd.32: assign from completed group stage ──────────────────────────────
+    if _has_empty_slots("LAST_32"):
+        total_grp = db.query(models.WmtMatch).filter(
+            models.WmtMatch.stage == "GROUP_STAGE",
+            models.WmtMatch.home_team_id.isnot(None),
+        ).count()
+        done_grp = db.query(models.WmtMatch).filter(
+            models.WmtMatch.stage == "GROUP_STAGE",
+            models.WmtMatch.status == "FINISHED",
+        ).count()
+        if total_grp > 0 and done_grp >= total_grp:
+            standings = _compute_group_standings(db)
+            if len(standings) >= 12:
+                qualifiers, third_pool = [], []
+                for group in sorted(standings.keys()):
+                    table = standings[group]
+                    if len(table) >= 1: qualifiers.append(table[0]["team_id"])
+                    if len(table) >= 2: qualifiers.append(table[1]["team_id"])
+                    if len(table) >= 3:
+                        t = table[2]
+                        third_pool.append((t["pts"], t["gd"], t["gf"], t["team_id"]))
+                third_pool.sort(key=lambda x: (x[0], x[1], x[2]), reverse=True)
+                qualifiers.extend(t[3] for t in third_pool[:8])
+                if len(qualifiers) >= 32:
+                    _fill_slots("LAST_32", qualifiers[:32])
+
+    # ── Subsequent KO rounds from previous round winners / losers ─────────────
+    ko_chain = [
+        ("LAST_32",        "LAST_16",        False),
+        ("LAST_16",        "QUARTER_FINALS", False),
+        ("QUARTER_FINALS", "SEMI_FINALS",    False),
+        ("SEMI_FINALS",    "FINAL",          False),
+        ("SEMI_FINALS",    "THIRD_PLACE",    True),
+    ]
+    for prev_stage, next_stage, use_losers in ko_chain:
+        if not _has_empty_slots(next_stage):
+            continue
+        if not _stage_fully_done(prev_stage):
+            continue
+        team_ids = _get_round_losers(db, prev_stage) if use_losers else _get_round_winners(db, prev_stage)
+        _fill_slots(next_stage, team_ids)
 
 
 def do_fake_knockout_round(
