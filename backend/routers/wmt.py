@@ -1879,6 +1879,18 @@ def generate_summary_now(db: Session = Depends(get_db)):
     return schemas.WmtRefreshOut(message="Keine abgeschlossenen Spiele für gestern gefunden.", updated=0)
 
 
+@router.post("/summary/generate/{target_date}", response_model=schemas.WmtRefreshOut)
+def generate_summary_for_date(target_date: str, db: Session = Depends(get_db)):
+    try:
+        parsed = date.fromisoformat(target_date)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Ungültiges Datumsformat: {target_date}")
+    content = do_generate_summary(db, parsed)
+    if content:
+        return schemas.WmtRefreshOut(message=f"Morgenbericht für {target_date} erstellt.", updated=1)
+    return schemas.WmtRefreshOut(message=f"Keine abgeschlossenen Spiele am {target_date} gefunden.", updated=0)
+
+
 @router.get("/bonus", response_model=schemas.WmtBonusPredictionOut)
 def get_bonus(db: Session = Depends(get_db)):
     record = (

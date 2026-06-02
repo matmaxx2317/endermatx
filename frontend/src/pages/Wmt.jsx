@@ -456,6 +456,8 @@ export default function Wmt() {
   const [fakingTp, setFakingTp]           = useState(false)
   const [fakingFinal, setFakingFinal]     = useState(false)
   const [fakingAll, setFakingAll]         = useState(false)
+  const [summaryCalOpen, setSummaryCalOpen]           = useState(false)
+  const [generatingSummaryFor, setGeneratingSummaryFor] = useState(null)
   const [logs, setLogs]                   = useState([])
   const [menuOpen, setMenuOpen]         = useState(false)
   const logRef                          = useRef(null)
@@ -760,6 +762,25 @@ export default function Wmt() {
     finally { setFakingFinal(false) }
   }
 
+  async function handleGenerateSummaryFor(dateStr) {
+    setGeneratingSummaryFor(dateStr)
+    addLog(`Morgenbericht für ${dateStr} wird erstellt…`)
+    try {
+      const res = await wmt.generateSummaryFor(dateStr)
+      addLog(res.message, res.updated ? 'done' : 'error')
+      if (res.updated) {
+        const ss = await wmt.getSummaries()
+        setSummaries(ss)
+        setSummaryCalOpen(false)
+        setView('zusammenfassung')
+      }
+    } catch {
+      addLog('Fehler beim Erstellen des Morgenberichts', 'error')
+    } finally {
+      setGeneratingSummaryFor(null)
+    }
+  }
+
   async function handleFakeAll() {
     setFakingAll(true); setView('import')
     addLog('Alle Turnierphasen (MD1–Finale) werden gefakt…')
@@ -864,7 +885,7 @@ export default function Wmt() {
             }}>
             {anyBusy ? '…' : '☰'}
           </button>
-          <span className="topbar-version">v2.8</span>
+          <span className="topbar-version">v2.9</span>
         </div>
       </div>
 
@@ -897,6 +918,11 @@ export default function Wmt() {
               icon="▶" label={isBonusFrozen ? 'Bonus-Prognose gesperrt' : 'Bonus-Prognose berechnen'}
               loading={generatingBonus} disabled={(anyBusy && !generatingBonus) || isBonusFrozen}
               onClick={() => { setMenuOpen(false); handleGenerateBonus() }}
+            />
+            <MenuButton
+              icon="📋" label="Morgenbericht erstellen"
+              loading={!!generatingSummaryFor} disabled={anyBusy && !generatingSummaryFor}
+              onClick={() => { setMenuOpen(false); setSummaryCalOpen(true) }}
             />
             <div style={{ borderTop: '1px solid #1a2840', margin: '6px 0' }} />
             <MenuButton
@@ -958,6 +984,16 @@ export default function Wmt() {
             />
           </div>
         </div>
+      )}
+
+      {summaryCalOpen && (
+        <SummaryCalModal
+          matches={matches}
+          summaries={summaries}
+          generating={generatingSummaryFor}
+          onClose={() => setSummaryCalOpen(false)}
+          onGenerate={handleGenerateSummaryFor}
+        />
       )}
 
       <div className="page">
@@ -1497,6 +1533,111 @@ function BonusView({ bonus, generating, actualResults }) {
             {' '}— Die Simulation spiegelt den Wissensstand zum Zeitpunkt der letzten Datenaktualisierung wider.
             Nach jedem Spieltag ELO-Ratings neu berechnen (↻) und anschließend die Bonus-Prognose neu generieren, um aktuelle Ergebnisse einzubeziehen.
           </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function SummaryCalModal({ matches, summaries, generating, onClose, onGenerate }) {
+  const matchDates = new Set(matches.map(m => matchLocalDateKey(m)))
+  const summaryDates = new Set(summaries.map(s => (s.date || '').slice(0, 10)))
+
+  // Derive months to show from match date range
+  const sortedDates = [...matchDates].sort()
+  const months = []
+  if (sortedDates.length > 0) {
+    const first = new Date(sortedDates[0] + 'T12:00:00')
+    const last  = new Date(sortedDates[sortedDates.length - 1] + 'T12:00:00')
+    let cur = new Date(first.getFullYear(), first.getMonth(), 1)
+    while (cur <= last) {
+      months.push({ year: cur.getFullYear(), month: cur.getMonth() })
+      cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1)
+    }
+  } else {
+    months.push({ year: 2026, month: 5 })
+    months.push({ year: 2026, month: 6 })
+  }
+
+  const MONTH_NAMES = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember']
+  const DAY_NAMES   = ['Mo','Di','Mi','Do','Fr','Sa','So']
+
+  function renderMonth({ year, month }) {
+    const firstDow = new Date(year, month, 1).getDay() // 0=Sun
+    const offset   = firstDow === 0 ? 6 : firstDow - 1 // Mon=0
+    const daysInMonth = new Date(year, month + 1, 0).getDate()
+
+    const cells = Array(offset).fill(null)
+    for (let d = 1; d <= daysInMonth; d++) cells.push(d)
+
+    return (
+      <div key={`${year}-${month}`}>
+        <div style={{ fontSize: 11, color: '#9ab0d0', textAlign: 'center', marginBottom: 8, fontWeight: 600 }}>
+          {MONTH_NAMES[month]} {year}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3, marginBottom: 4 }}>
+          {DAY_NAMES.map(d => (
+            <div key={d} style={{ fontSize: 9, color: '#374d66', textAlign: 'center' }}>{d}</div>
+          ))}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3 }}>
+          {cells.map((d, i) => {
+            if (!d) return <div key={`e${i}`} />
+            const iso       = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+            const hasMatch  = matchDates.has(iso)
+            const hasSummary = summaryDates.has(iso)
+            const busy      = generating === iso
+            return (
+              <button
+                key={iso}
+                onClick={() => hasMatch && !generating && onGenerate(iso)}
+                disabled={!hasMatch || !!generating}
+                style={{
+                  position: 'relative',
+                  background: hasMatch ? '#1a2840' : 'none',
+                  border: `1px solid ${hasMatch ? '#2a3d5c' : 'transparent'}`,
+                  borderRadius: 4, padding: '6px 2px 8px',
+                  fontSize: 11, textAlign: 'center',
+                  color: hasMatch ? '#eef2ff' : '#1a2840',
+                  cursor: hasMatch && !generating ? 'pointer' : 'default',
+                  fontFamily: 'inherit',
+                  opacity: !!generating && !busy ? 0.5 : 1,
+                }}>
+                {busy ? '…' : d}
+                {hasSummary && !busy && (
+                  <div style={{
+                    position: 'absolute', bottom: 2, left: '50%', transform: 'translateX(-50%)',
+                    width: 3, height: 3, borderRadius: '50%', background: '#4d6fa0',
+                  }} />
+                )}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div
+      onClick={onClose}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(7,9,26,0.88)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }}>
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: '#0d1221', border: '1px solid #2a3d5c',
+          borderRadius: 12, padding: '20px 24px',
+          width: 320, maxHeight: '80vh', overflowY: 'auto',
+        }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <span style={{ fontSize: 11, color: '#374d66', letterSpacing: '0.1em' }}>MORGENBERICHT ERSTELLEN</span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#9ab0d0', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: 0 }}>✕</button>
+        </div>
+        <div style={{ fontSize: 11, color: '#374d66', marginBottom: 16, lineHeight: 1.5 }}>
+          Spieltag auswählen · blauer Punkt = Bericht vorhanden
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {months.map(m => renderMonth(m))}
         </div>
       </div>
     </div>
