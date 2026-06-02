@@ -228,8 +228,12 @@ function MatchCard({ match, teamStatuses = {} }) {
   const awayTla  = match.away_team?.tla ?? '?'
   const homeStatus = match.home_team ? teamStatuses[match.home_team.id] ?? null : null
   const awayStatus = match.away_team ? teamStatuses[match.away_team.id] ?? null : null
-  const tipHome  = p ? Math.max(0, Math.round(p.pred_home_goals)) : null
-  const tipAway  = p ? Math.max(0, Math.round(p.pred_away_goals)) : null
+  let tipHome  = p ? Math.max(0, Math.round(p.pred_home_goals)) : null
+  let tipAway  = p ? Math.max(0, Math.round(p.pred_away_goals)) : null
+  if (match.stage !== 'GROUP_STAGE' && tipHome !== null && tipHome === tipAway) {
+    if ((p.home_win_prob ?? 0) >= (p.away_win_prob ?? 0)) tipHome += 1
+    else tipAway += 1
+  }
 
   const tipBgColor = isFinished ? '#0d1221' : 'rgba(77,111,160,0.06)'
 
@@ -321,8 +325,12 @@ function MatchCard({ match, teamStatuses = {} }) {
                   </div>
                   {match.predictions.map((ph, i) => {
                     const prev = match.predictions[i + 1]
-                    const tipH = Math.max(0, Math.round(ph.pred_home_goals))
-                    const tipA = Math.max(0, Math.round(ph.pred_away_goals))
+                    let tipH = Math.max(0, Math.round(ph.pred_home_goals))
+                    let tipA = Math.max(0, Math.round(ph.pred_away_goals))
+                    if (match.stage !== 'GROUP_STAGE' && tipH === tipA) {
+                      if ((ph.home_win_prob ?? 0) >= (ph.away_win_prob ?? 0)) tipH += 1
+                      else tipA += 1
+                    }
                     const tipChanged = prev && (
                       tipH !== Math.max(0, Math.round(prev.pred_home_goals)) ||
                       tipA !== Math.max(0, Math.round(prev.pred_away_goals))
@@ -856,7 +864,7 @@ export default function Wmt() {
             }}>
             {anyBusy ? '…' : '☰'}
           </button>
-          <span className="topbar-version">v2.6</span>
+          <span className="topbar-version">v2.7</span>
         </div>
       </div>
 
@@ -1052,14 +1060,14 @@ export default function Wmt() {
                         {calDayLabel(isoDay).toUpperCase()}
                       </div>
                       {dayMatches.map(m => (
-                        <MatchCard key={m.id} match={m} teamStatuses={teamStatuses} />
+                        <MatchCard key={m.id} match={m} teamStatuses={selectedKey === 'md_3' ? teamStatuses : {}} />
                       ))}
                     </div>
                   ))
                 ) : (
                   // Knockout rounds: flat list
                   currentMatches.map(m => (
-                    <MatchCard key={m.id} match={m} teamStatuses={teamStatuses} />
+                    <MatchCard key={m.id} match={m} />
                   ))
                 )}
               </>

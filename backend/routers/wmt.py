@@ -1405,6 +1405,15 @@ def do_fake_rd32(db: Session, generate_predictions: bool = True) -> tuple[int, s
         else:
             score_h, score_a = tip_h, tip_a
 
+        # Knockout rounds must have a winner — break draws
+        if score_h == score_a:
+            home_stronger = home_team.elo >= away_team.elo
+            is_upset = slot in upset_indices
+            if home_stronger != is_upset:
+                score_h += 1
+            else:
+                score_a += 1
+
         m.score_home = score_h
         m.score_away = score_a
         m.status = "FINISHED"
