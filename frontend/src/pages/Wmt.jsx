@@ -244,10 +244,10 @@ function MatchCard({ match }) {
                 </div>
               )}
 
-              {match.predictions?.length > 1 && (
+              {match.predictions?.length >= 1 && (
                 <div style={{ marginTop: 12 }}>
                   <div style={{ fontSize: 10, color: '#374d66', letterSpacing: '0.1em', marginBottom: 6 }}>
-                    VERLAUF ({match.predictions.length} VERSIONEN)
+                    VERLAUF ({match.predictions.length} {match.predictions.length === 1 ? 'VERSION' : 'VERSIONEN'})
                   </div>
                   {match.predictions.map((ph, i) => {
                     const prev = match.predictions[i + 1]
@@ -296,7 +296,7 @@ function MatchCard({ match }) {
                         </span>
                         {i === 0 && <span style={{ color: '#4d6fa0', marginLeft: 6 }}>aktuell</span>}
                         {changeNote && (
-                          <div style={{ color: '#9ab0d0', marginTop: 3, fontSize: 10, lineHeight: 1.5 }}>
+                          <div style={{ color: '#c8a84d', marginTop: 3, fontSize: 10, lineHeight: 1.5 }}>
                             {changeNote}
                           </div>
                         )}
