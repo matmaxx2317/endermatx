@@ -249,31 +249,65 @@ function MatchCard({ match }) {
                   <div style={{ fontSize: 10, color: '#374d66', letterSpacing: '0.1em', marginBottom: 6 }}>
                     VERLAUF ({match.predictions.length} VERSIONEN)
                   </div>
-                  {match.predictions.map((ph, i) => (
-                    <div key={ph.id} style={{
-                      padding: '6px 0',
-                      borderTop: '1px solid #1a2840',
-                      fontSize: 11,
-                      color: i === 0 ? '#9ab0d0' : '#374d66',
-                    }}>
-                      <span style={{ marginRight: 8 }}>{formatDateLong(ph.created_at)}</span>
-                      <span style={{ fontVariantNumeric: 'tabular-nums' }}>
-                        {Math.round(ph.pred_home_goals)}:{Math.round(ph.pred_away_goals)}
-                        {' '}<span style={{ color: '#374d66' }}>
-                          (xG {ph.pred_home_goals.toFixed(1)}:{ph.pred_away_goals.toFixed(1)})
+                  {match.predictions.map((ph, i) => {
+                    const prev = match.predictions[i + 1]
+                    const tipH = Math.max(0, Math.round(ph.pred_home_goals))
+                    const tipA = Math.max(0, Math.round(ph.pred_away_goals))
+                    const tipChanged = prev && (
+                      tipH !== Math.max(0, Math.round(prev.pred_home_goals)) ||
+                      tipA !== Math.max(0, Math.round(prev.pred_away_goals))
+                    )
+
+                    let changeNote = null
+                    if (tipChanged) {
+                      const prevTipH = Math.max(0, Math.round(prev.pred_home_goals))
+                      const prevTipA = Math.max(0, Math.round(prev.pred_away_goals))
+                      const dHome = (ph.home_elo != null && prev.home_elo != null) ? Math.round(ph.home_elo - prev.home_elo) : null
+                      const dAway = (ph.away_elo != null && prev.away_elo != null) ? Math.round(ph.away_elo - prev.away_elo) : null
+                      const nachMatch = ph.reasoning?.match(/nach: ([^.]+)/)
+                      const trigger = nachMatch ? nachMatch[1].trim() : null
+
+                      let note = `Tipp: ${prevTipH}:${prevTipA} → ${tipH}:${tipA}`
+                      if (trigger) note += ` — Auslöser: ${trigger}`
+                      note += '.'
+                      const eloParts = []
+                      if (dHome != null) eloParts.push(`${homeTla} ${dHome > 0 ? '+' : ''}${dHome}`)
+                      if (dAway != null) eloParts.push(`${awayTla} ${dAway > 0 ? '+' : ''}${dAway}`)
+                      if (eloParts.length) note += ` ELO: ${eloParts.join(' · ')}.`
+                      changeNote = note
+                    }
+
+                    return (
+                      <div key={ph.id} style={{
+                        padding: '6px 0',
+                        borderTop: '1px solid #1a2840',
+                        fontSize: 11,
+                        color: i === 0 ? '#9ab0d0' : '#374d66',
+                      }}>
+                        <span style={{ marginRight: 8 }}>{formatDateLong(ph.created_at)}</span>
+                        <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+                          {tipH}:{tipA}
+                          {' '}<span style={{ color: '#374d66' }}>
+                            (xG {ph.pred_home_goals.toFixed(1)}:{ph.pred_away_goals.toFixed(1)})
+                          </span>
+                          {' '}({(ph.home_win_prob * 100).toFixed(0)}%/
+                          {(ph.draw_prob * 100).toFixed(0)}%/
+                          {(ph.away_win_prob * 100).toFixed(0)}%)
                         </span>
-                        {' '}({(ph.home_win_prob * 100).toFixed(0)}%/
-                        {(ph.draw_prob * 100).toFixed(0)}%/
-                        {(ph.away_win_prob * 100).toFixed(0)}%)
-                      </span>
-                      {i === 0 && <span style={{ color: '#4d6fa0', marginLeft: 6 }}>aktuell</span>}
-                      {i > 0 && ph.reasoning && (
-                        <div style={{ color: '#374d66', marginTop: 2, fontSize: 10, lineHeight: 1.5, whiteSpace: 'pre-line' }}>
-                          {ph.reasoning}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                        {i === 0 && <span style={{ color: '#4d6fa0', marginLeft: 6 }}>aktuell</span>}
+                        {changeNote && (
+                          <div style={{ color: '#9ab0d0', marginTop: 3, fontSize: 10, lineHeight: 1.5 }}>
+                            {changeNote}
+                          </div>
+                        )}
+                        {!changeNote && i > 0 && ph.reasoning && (
+                          <div style={{ color: '#374d66', marginTop: 2, fontSize: 10, lineHeight: 1.5, whiteSpace: 'pre-line' }}>
+                            {ph.reasoning}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </div>
