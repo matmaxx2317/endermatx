@@ -171,7 +171,7 @@ function ProjectModal({ project, onSave, onClose }) {
               style={{
                 width: 22, height: 22, background: c, border: 'none', borderRadius: '50%',
                 cursor: 'pointer',
-                outline: color === c ? '2px solid #fff' : '2px solid transparent',
+                outline: color === c ? '2px solid var(--text-primary)' : '2px solid transparent',
                 outlineOffset: 2,
               }}
             />
@@ -192,7 +192,7 @@ function TodayLog({ entries, projects, onDelete }) {
   const now = Date.now()
 
   function getProject(pid) {
-    return projects.find(p => p.id === pid) || { name: '?', color: '#666' }
+    return projects.find(p => p.id === pid) || { name: '?', color: 'var(--text-faintest)' }
   }
 
   const todayAll  = entries.filter(e => isToday(e.start_time))
@@ -203,7 +203,7 @@ function TodayLog({ entries, projects, onDelete }) {
 
   if (!active && completed.length === 0) {
     return (
-      <div style={{ color: '#444', fontSize: 12, padding: '20px 0', textAlign: 'center', letterSpacing: '0.08em' }}>
+      <div style={{ color: 'var(--text-faintest)', fontSize: 12, padding: '20px 0', textAlign: 'center', letterSpacing: '0.08em' }}>
         no entries today yet
       </div>
     )
@@ -902,7 +902,7 @@ export default function TimeTracker() {
 
       <div className="page">
         {error && (
-          <div style={{ background: '#2a0000', border: '1px solid #f44336', color: '#f44336', fontSize: 12, padding: '8px 12px', marginBottom: 16 }}>
+          <div style={{ background: 'var(--error-bg)', border: '1px solid #f44336', color: '#f44336', fontSize: 12, padding: '8px 12px', marginBottom: 16 }}>
             {error}
             <button style={{ float: 'right', background: 'none', border: 'none', color: '#f44336', cursor: 'pointer' }} onClick={() => setError(null)}>×</button>
           </div>
@@ -925,7 +925,7 @@ export default function TimeTracker() {
         {tab === 'log' && (
           <>
             <div className="tts-global">
-              <div className="tts-timer" style={{ color: globalStart ? '#f0f0f0' : '#2a2a2a' }}>
+              <div className="tts-timer" style={{ color: globalStart ? 'var(--text-primary)' : 'var(--timer-inactive)' }}>
                 {fmtMs(globalElapsed)}
               </div>
               <button
@@ -958,14 +958,14 @@ export default function TimeTracker() {
                       onClick={() => handleCardClick(p.id)}
                     >
                       <div className="tts-card-stripe" style={{ background: p.color }} />
-                      <div className="tts-card-name" style={{ color: isActive ? p.color : '#f0f0f0' }}>
+                      <div className="tts-card-name" style={{ color: isActive ? p.color : 'var(--text-primary)' }}>
                         {p.name}
                         {isActive && <span className="tts-now-badge" style={{ color: p.color }}>ACTIVE</span>}
                       </div>
                       <div className="tts-card-rows">
                         <div className="tts-card-row">
                           <span className="tts-row-lbl">session</span>
-                          <span className="tts-row-val" style={{ color: isActive ? p.color : '#666' }}>
+                          <span className="tts-row-val" style={{ color: isActive ? p.color : 'var(--text-faintest)' }}>
                             {fmtMsStat(sessionMs)}
                           </span>
                         </div>
@@ -983,7 +983,7 @@ export default function TimeTracker() {
                 })}
               </div>
             ) : (
-              <div style={{ color: '#888', fontSize: 12, padding: '20px 0', textAlign: 'center', letterSpacing: '0.08em' }}>
+              <div style={{ color: 'var(--text-faint)', fontSize: 12, padding: '20px 0', textAlign: 'center', letterSpacing: '0.08em' }}>
                 no projects yet — add one in the org tab
               </div>
             )}
@@ -1024,12 +1024,12 @@ export default function TimeTracker() {
 
             {archivedProjects.length > 0 && (
               <>
-                <div className="section-header mt24" style={{ color: '#2a2a2a' }}>archived</div>
+                <div className="section-header mt24" style={{ color: 'var(--timer-inactive)' }}>archived</div>
                 <div className="tts-mgmt-list">
                   {archivedProjects.map(p => (
                     <div key={p.id} className="tts-mgmt-row" style={{ opacity: 0.4 }}>
                       <span className="color-dot" style={{ background: p.color }} />
-                      <span className="tts-mgmt-name" style={{ color: '#666', cursor: 'default' }}>
+                      <span className="tts-mgmt-name" style={{ color: 'var(--text-faintest)', cursor: 'default' }}>
                         {p.name}
                       </span>
                       <button className="btn btn-sm" onClick={() => reactivate(p.id)} title="reactivate">

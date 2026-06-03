@@ -222,7 +222,7 @@ function Stats({ ideas }) {
   const killedCount = ideas.filter(i => i.status === 'killed').length
 
   if (total === 0) return (
-    <div style={{ color: '#444', fontSize: 13, padding: '32px 0', textAlign: 'center', letterSpacing: '0.1em' }}>no data yet</div>
+    <div style={{ color: 'var(--text-faintest)', fontSize: 13, padding: '32px 0', textAlign: 'center', letterSpacing: '0.1em' }}>no data yet</div>
   )
 
   const resolved   = doneCount + killedCount
@@ -273,7 +273,7 @@ function Stats({ ideas }) {
   return (
     <div>
       <div className="stat-topline">
-        <div className="stat-box"><div className="stat-box-val" style={{ color: '#aaa' }}>{total}</div><div className="stat-box-label">TOTAL</div></div>
+        <div className="stat-box"><div className="stat-box-val" style={{ color: 'var(--text-subtle)' }}>{total}</div><div className="stat-box-label">TOTAL</div></div>
         <div className="stat-box"><div className="stat-box-val" style={{ color: '#8855ff' }}>{doCount}</div><div className="stat-box-label">DO</div></div>
         <div className="stat-box"><div className="stat-box-val" style={{ color: '#44cc88' }}>{doneCount}</div><div className="stat-box-label">DONE</div></div>
         <div className="stat-box"><div className="stat-box-val" style={{ color: '#ff5555' }}>{killedCount}</div><div className="stat-box-label">KILLED</div></div>
@@ -467,7 +467,7 @@ export default function IdeaInbox() {
           {TABS.map(t => (
             <button key={t.key} className={`tab${tab === t.key ? ' active' : ''}`} onClick={() => setTab(t.key)}>
               {t.label}
-              {t.status && <span style={{ fontSize: 11, color: '#555', marginLeft: 4 }}>{counts[t.key]}</span>}
+              {t.status && <span style={{ fontSize: 11, color: 'var(--text-faintest)', marginLeft: 4 }}>{counts[t.key]}</span>}
             </button>
           ))}
         </div>
@@ -477,7 +477,7 @@ export default function IdeaInbox() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {visible.length === 0 && (
-              <div style={{ color: '#444', fontSize: 13, padding: '20px 0', textAlign: 'center', letterSpacing: '0.05em' }}>empty</div>
+              <div style={{ color: 'var(--text-faintest)', fontSize: 13, padding: '20px 0', textAlign: 'center', letterSpacing: '0.05em' }}>empty</div>
             )}
             {visible.map(idea => (
               tab === 'done' ? (
