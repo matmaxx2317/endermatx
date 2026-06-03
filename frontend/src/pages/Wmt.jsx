@@ -30,9 +30,9 @@ const STATUS_LABELS = {
 
 const STATUS_COLORS = {
   IN_PLAY: '#4d8a4d',
-  PAUSED:  '#9ab0d0',
-  FINISHED:'#374d66',
-  default: '#9ab0d0',
+  PAUSED:  'var(--text-secondary)',
+  FINISHED:'var(--text-dim)',
+  default: 'var(--text-secondary)',
 }
 
 function statusColor(s) { return STATUS_COLORS[s] ?? STATUS_COLORS.default }
@@ -119,7 +119,7 @@ function renderMarkdown(text) {
       j % 2 === 1 ? <strong key={j}>{p}</strong> : p
     )
     if (line.startsWith('## '))
-      return <div key={i} style={{ fontSize: 13, fontWeight: 600, color: '#eef2ff', marginBottom: 6 }}>{line.slice(3)}</div>
+      return <div key={i} style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 }}>{line.slice(3)}</div>
     if (line.startsWith('- '))
       return <div key={i} style={{ paddingLeft: 12, marginBottom: 3 }}>• {parts.slice(1)}</div>
     if (line === '')
@@ -200,10 +200,10 @@ function ProbBar({ home, draw, away, homeTla, awayTla }) {
     <div>
       <div style={{ display: 'flex', height: 6, borderRadius: 3, overflow: 'hidden', gap: 2 }}>
         <div style={{ width: `${hw}%`, background: '#4d6fa0', transition: 'width 0.4s' }} />
-        <div style={{ width: `${dw}%`, background: '#2a3d5c', transition: 'width 0.4s' }} />
-        <div style={{ width: `${aw}%`, background: '#1a2840', transition: 'width 0.4s' }} />
+        <div style={{ width: `${dw}%`, background: 'var(--border-hover)', transition: 'width 0.4s' }} />
+        <div style={{ width: `${aw}%`, background: 'var(--border)', transition: 'width 0.4s' }} />
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#9ab0d0', marginTop: 4 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--text-secondary)', marginTop: 4 }}>
         <span>{homeTla} {hw}%</span>
         <span>Rem {dw}%</span>
         <span>{aw}% {awayTla}</span>
@@ -215,7 +215,7 @@ function ProbBar({ home, draw, away, homeTla, awayTla }) {
 function teamStatusColor(status) {
   if (status === 'qualified')  return '#4d8a4d'
   if (status === 'eliminated') return '#8a4d4d'
-  return '#eef2ff'
+  return 'var(--text-primary)'
 }
 
 function MatchCard({ match, teamStatuses = {} }) {
@@ -235,12 +235,12 @@ function MatchCard({ match, teamStatuses = {} }) {
     else tipAway += 1
   }
 
-  const tipBgColor = isFinished ? '#0d1221' : 'rgba(77,111,160,0.06)'
+  const tipBgColor = isFinished ? 'var(--surface)' : 'rgba(77,111,160,0.06)'
 
   return (
     <div style={{
-      background: '#0d1221',
-      border: '1px solid #1a2840',
+      background: 'var(--surface)',
+      border: '1px solid var(--border)',
       borderRadius: 10,
       padding: '14px 16px',
       marginBottom: 10,
@@ -248,7 +248,7 @@ function MatchCard({ match, teamStatuses = {} }) {
       {/* header row */}
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        fontSize: 10, color: '#374d66', marginBottom: 12, letterSpacing: '0.05em',
+        fontSize: 10, color: 'var(--text-dim)', marginBottom: 12, letterSpacing: '0.05em',
       }}>
         <span>
           {match.group_name ? `GR. ${match.group_name}` : stageLabel(match.stage)}
@@ -263,22 +263,22 @@ function MatchCard({ match, teamStatuses = {} }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
         <div style={{ flex: 1, textAlign: 'right' }}>
           <div style={{ fontSize: 15, fontWeight: 600, color: teamStatusColor(homeStatus) }}>{homeName}</div>
-          <div style={{ fontSize: 10, color: '#9ab0d0', marginTop: 2 }}>{homeTla}</div>
+          <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 2 }}>{homeTla}</div>
         </div>
 
         <div style={{ minWidth: 56, textAlign: 'center' }}>
           {isFinished || isLive ? (
-            <div style={{ fontSize: 22, fontWeight: 600, color: '#eef2ff', fontVariantNumeric: 'tabular-nums' }}>
+            <div style={{ fontSize: 22, fontWeight: 600, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>
               {match.score_home ?? 0}&nbsp;:&nbsp;{match.score_away ?? 0}
             </div>
           ) : (
-            <div style={{ fontSize: 13, color: '#374d66' }}>vs</div>
+            <div style={{ fontSize: 13, color: 'var(--text-dim)' }}>vs</div>
           )}
         </div>
 
         <div style={{ flex: 1, textAlign: 'left' }}>
           <div style={{ fontSize: 15, fontWeight: 600, color: teamStatusColor(awayStatus) }}>{awayName}</div>
-          <div style={{ fontSize: 10, color: '#9ab0d0', marginTop: 2 }}>{awayTla}</div>
+          <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 2 }}>{awayTla}</div>
         </div>
       </div>
 
@@ -286,14 +286,14 @@ function MatchCard({ match, teamStatuses = {} }) {
       {p ? (
         <div style={{
           background: tipBgColor,
-          border: '1px solid #1a2840',
+          border: '1px solid var(--border)',
           borderRadius: 6,
           padding: '10px 12px',
         }}>
-          <div style={{ fontSize: 11, color: '#9ab0d0', marginBottom: 8 }}>
+          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 8 }}>
             {isFinished ? 'Prognose war' : 'Tipp-Empfehlung'}:{' '}
-            <span style={{ fontWeight: 600, color: '#eef2ff' }}>{tipHome}:{tipAway}</span>
-            <span style={{ color: '#374d66', marginLeft: 6 }}>
+            <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{tipHome}:{tipAway}</span>
+            <span style={{ color: 'var(--text-dim)', marginLeft: 6 }}>
               (xG {p.pred_home_goals.toFixed(1)} : {p.pred_away_goals.toFixed(1)})
             </span>
             {isFinished && match.score_home !== null && (
@@ -307,12 +307,12 @@ function MatchCard({ match, teamStatuses = {} }) {
             homeTla={homeTla} awayTla={awayTla}
           />
 
-          <div style={{ marginTop: 10, borderTop: '1px solid #1a2840', paddingTop: 10 }}>
-              <div style={{ fontSize: 12, color: '#9ab0d0', lineHeight: 1.65, marginBottom: p.home_elo ? 10 : 0, whiteSpace: 'pre-line' }}>
+          <div style={{ marginTop: 10, borderTop: '1px solid var(--border)', paddingTop: 10 }}>
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.65, marginBottom: p.home_elo ? 10 : 0, whiteSpace: 'pre-line' }}>
                 {p.reasoning}
               </div>
               {p.home_elo && (
-                <div style={{ fontSize: 11, color: '#374d66', marginTop: 6 }}>
+                <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 6 }}>
                   ELO: {homeTla} {p.home_elo.toFixed(0)} · {awayTla} {p.away_elo?.toFixed(0)}
                   {match.home_team && ` · Spiele: ${match.home_team.matches_played}`}
                 </div>
@@ -320,7 +320,7 @@ function MatchCard({ match, teamStatuses = {} }) {
 
               {match.predictions?.length >= 1 && (
                 <div style={{ marginTop: 12 }}>
-                  <div style={{ fontSize: 10, color: '#374d66', letterSpacing: '0.1em', marginBottom: 6 }}>
+                  <div style={{ fontSize: 10, color: 'var(--text-dim)', letterSpacing: '0.1em', marginBottom: 6 }}>
                     VERLAUF ({match.predictions.length} {match.predictions.length === 1 ? 'VERSION' : 'VERSIONEN'})
                   </div>
                   {match.predictions.map((ph, i) => {
@@ -360,14 +360,14 @@ function MatchCard({ match, teamStatuses = {} }) {
                     return (
                       <div key={ph.id} style={{
                         padding: '6px 0',
-                        borderTop: '1px solid #1a2840',
+                        borderTop: '1px solid var(--border)',
                         fontSize: 11,
-                        color: i === 0 ? '#9ab0d0' : '#374d66',
+                        color: i === 0 ? 'var(--text-secondary)' : 'var(--text-dim)',
                       }}>
                         <span style={{ marginRight: 8 }}>{formatDateLong(ph.created_at)}</span>
                         <span style={{ fontVariantNumeric: 'tabular-nums' }}>
                           {tipH}:{tipA}
-                          {' '}<span style={{ color: '#374d66' }}>
+                          {' '}<span style={{ color: 'var(--text-dim)' }}>
                             (xG {ph.pred_home_goals.toFixed(1)}:{ph.pred_away_goals.toFixed(1)})
                           </span>
                           {' '}({(ph.home_win_prob * 100).toFixed(0)}%/
@@ -381,7 +381,7 @@ function MatchCard({ match, teamStatuses = {} }) {
                           </div>
                         )}
                         {!changeNote && i > 0 && ph.reasoning && (
-                          <div style={{ color: '#374d66', marginTop: 2, fontSize: 10, lineHeight: 1.5, whiteSpace: 'pre-line' }}>
+                          <div style={{ color: 'var(--text-dim)', marginTop: 2, fontSize: 10, lineHeight: 1.5, whiteSpace: 'pre-line' }}>
                             {ph.reasoning}
                           </div>
                         )}
@@ -393,7 +393,7 @@ function MatchCard({ match, teamStatuses = {} }) {
             </div>
         </div>
       ) : (
-        <div style={{ fontSize: 11, color: '#374d66' }}>Noch keine Prognose verfügbar.</div>
+        <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>Noch keine Prognose verfügbar.</div>
       )}
     </div>
   )
@@ -419,7 +419,7 @@ function MenuButton({ icon, label, loading, danger, disabled, onClick }) {
       style={{
         display: 'flex', alignItems: 'center', gap: 10,
         width: '100%', background: 'none', border: 'none',
-        color: busy ? '#374d66' : danger ? '#8a4d4d' : '#9ab0d0',
+        color: busy ? 'var(--text-dim)' : danger ? '#8a4d4d' : 'var(--text-secondary)',
         padding: '10px 16px', fontSize: 12,
         cursor: busy ? 'not-allowed' : 'pointer',
         fontFamily: 'inherit', textAlign: 'left',
@@ -876,9 +876,9 @@ export default function Wmt() {
           <button
             onClick={() => setMenuOpen(o => !o)}
             style={{
-              background: menuOpen ? '#1a2840' : 'none',
-              border: menuOpen ? '1px solid #2a3d5c' : '1px solid transparent',
-              color: anyBusy ? '#4d6fa0' : '#9ab0d0',
+              background: menuOpen ? 'var(--border)' : 'none',
+              border: menuOpen ? '1px solid var(--border-hover)' : '1px solid transparent',
+              color: anyBusy ? '#4d6fa0' : 'var(--text-secondary)',
               fontSize: 14, cursor: 'pointer', marginRight: 10,
               fontFamily: 'inherit', borderRadius: 4,
               padding: '2px 6px', lineHeight: 1,
@@ -898,8 +898,8 @@ export default function Wmt() {
             onClick={e => e.stopPropagation()}
             style={{
               position: 'fixed', top: 32, right: 0,
-              width: 220, background: '#0d1221',
-              border: '1px solid #1a2840',
+              width: 220, background: 'var(--surface)',
+              border: '1px solid var(--border)',
               borderRight: 'none', borderTop: 'none',
               borderRadius: '0 0 0 10px',
               paddingTop: 4, paddingBottom: 8,
@@ -924,19 +924,19 @@ export default function Wmt() {
               loading={!!generatingSummaryFor} disabled={anyBusy && !generatingSummaryFor}
               onClick={() => { setMenuOpen(false); setSummaryCalOpen(true) }}
             />
-            <div style={{ borderTop: '1px solid #1a2840', margin: '6px 0' }} />
+            <div style={{ borderTop: '1px solid var(--border)', margin: '6px 0' }} />
             <MenuButton
               icon="✕" label="Daten löschen"
               danger loading={clearing} disabled={anyBusy && !clearing}
               onClick={() => { setMenuOpen(false); handleClear() }}
             />
-            <div style={{ borderTop: '1px solid #1a2840', margin: '6px 0' }} />
+            <div style={{ borderTop: '1px solid var(--border)', margin: '6px 0' }} />
             <MenuButton
               icon="⚗" label="Fake alles (MD1–Finale)"
               loading={fakingAll} disabled={(anyBusy && !fakingAll) || finalDone}
               onClick={() => { setMenuOpen(false); handleFakeAll() }}
             />
-            <div style={{ borderTop: '1px solid #1a2840', margin: '6px 0' }} />
+            <div style={{ borderTop: '1px solid var(--border)', margin: '6px 0' }} />
             <MenuButton
               icon="⚗" label="Fake MD1-Ergebnisse"
               loading={fakingMd1} disabled={(anyBusy && !fakingMd1) || md1Done}
@@ -1010,19 +1010,19 @@ export default function Wmt() {
               key={key}
               onClick={() => setView(key)}
               style={{
-                background: view === key ? '#1a2840' : 'none',
-                border: `1px solid ${view === key ? '#2a3d5c' : '#1a2840'}`,
-                color: view === key ? '#eef2ff' : '#374d66',
+                background: view === key ? 'var(--border)' : 'none',
+                border: `1px solid ${view === key ? 'var(--border-hover)' : 'var(--border)'}`,
+                color: view === key ? 'var(--text-primary)' : 'var(--text-dim)',
                 borderRadius: 6, padding: '5px 12px', fontSize: 12,
                 cursor: 'pointer', fontFamily: 'inherit',
               }}>
-              {label}{key === 'import' && logs.length > 0 && <span style={{ color: '#374d66', marginLeft: 4 }}>{logs.length}</span>}
+              {label}{key === 'import' && logs.length > 0 && <span style={{ color: 'var(--text-dim)', marginLeft: 4 }}>{logs.length}</span>}
             </button>
           ))}
         </div>
 
         {loading && view !== 'import' && (
-          <div style={{ color: '#374d66', fontSize: 12 }}>…</div>
+          <div style={{ color: 'var(--text-dim)', fontSize: 12 }}>…</div>
         )}
 
         {/* ── Import view ────────────────────────────────────────────────── */}
@@ -1032,17 +1032,17 @@ export default function Wmt() {
             style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 160px)', display: 'flex', flexDirection: 'column' }}
           >
             {logs.length === 0 ? (
-              <div style={{ color: '#374d66', fontSize: 12 }}>Noch keine Einträge.</div>
+              <div style={{ color: 'var(--text-dim)', fontSize: 12 }}>Noch keine Einträge.</div>
             ) : (
               logs.map((e, i) => (
                 <div key={i} style={{
                   display: 'flex', gap: 10, padding: '2px 0',
                   fontSize: 11, fontVariantNumeric: 'tabular-nums',
                 }}>
-                  <span style={{ color: '#1a2840', flexShrink: 0 }}>
+                  <span style={{ color: 'var(--border)', flexShrink: 0 }}>
                     {new Date(e.ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                   </span>
-                  <span style={{ color: e.level === 'done' ? '#4d8a4d' : e.level === 'error' ? '#8a4d4d' : '#374d66' }}>
+                  <span style={{ color: e.level === 'done' ? '#4d8a4d' : e.level === 'error' ? '#8a4d4d' : 'var(--text-dim)' }}>
                     {e.text}
                   </span>
                 </div>
@@ -1070,9 +1070,9 @@ export default function Wmt() {
                         key={k}
                         onClick={() => setSelectedKey(k)}
                         style={{
-                          background: isSelected ? '#1a2840' : 'none',
-                          border: `1px solid ${hasLive ? '#4d8a4d' : isSelected ? '#2a3d5c' : '#1a2840'}`,
-                          color: isSelected ? '#eef2ff' : allDone ? '#374d66' : '#9ab0d0',
+                          background: isSelected ? 'var(--border)' : 'none',
+                          border: `1px solid ${hasLive ? '#4d8a4d' : isSelected ? 'var(--border-hover)' : 'var(--border)'}`,
+                          color: isSelected ? 'var(--text-primary)' : allDone ? 'var(--text-dim)' : 'var(--text-secondary)',
                           borderRadius: 6, padding: '4px 10px', fontSize: 11,
                           cursor: 'pointer', fontFamily: 'inherit',
                         }}>
@@ -1084,15 +1084,15 @@ export default function Wmt() {
 
                 {/* match cards */}
                 {currentMatches.length === 0 ? (
-                  <div style={{ color: '#374d66', fontSize: 13 }}>Keine Spiele.</div>
+                  <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Keine Spiele.</div>
                 ) : selectedKey?.startsWith('md_') ? (
                   // Group stage matchdays: sub-group by calendar day
                   groupByCalDay(currentMatches).map(([isoDay, dayMatches]) => (
                     <div key={isoDay}>
                       <div style={{
-                        fontSize: 10, color: '#374d66', letterSpacing: '0.1em',
+                        fontSize: 10, color: 'var(--text-dim)', letterSpacing: '0.1em',
                         marginBottom: 10, marginTop: 16,
-                        paddingBottom: 6, borderBottom: '1px solid #1a2840',
+                        paddingBottom: 6, borderBottom: '1px solid var(--border)',
                       }}>
                         {calDayLabel(isoDay).toUpperCase()}
                       </div>
@@ -1126,20 +1126,20 @@ export default function Wmt() {
         {!loading && view === 'zusammenfassung' && (
           <>
             {summaries.length === 0 ? (
-              <div style={{ color: '#9ab0d0', fontSize: 13 }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 13 }}>
                 Noch keine Zusammenfassungen vorhanden. Die erste erscheint am Morgen nach dem ersten Spieltag.
               </div>
             ) : (
               summaries.map(s => (
                 <div key={s.id} style={{
-                  background: '#0d1221', border: '1px solid #1a2840',
+                  background: 'var(--surface)', border: '1px solid var(--border)',
                   borderRadius: 10, padding: '16px', marginBottom: 12,
                 }}>
-                  <div style={{ fontSize: 10, color: '#374d66', letterSpacing: '0.1em', marginBottom: 10 }}>
+                  <div style={{ fontSize: 10, color: 'var(--text-dim)', letterSpacing: '0.1em', marginBottom: 10 }}>
                     {new Date(s.date).toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }).toUpperCase()}
                     {' · '}{s.matches_count} SPIEL{s.matches_count !== 1 ? 'E' : ''}
                   </div>
-                  <div style={{ fontSize: 12, color: '#9ab0d0', lineHeight: 1.7 }}>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
                     {renderMarkdown(s.content)}
                   </div>
                 </div>
@@ -1164,34 +1164,34 @@ function GroupModal({ group, teams, onClose }) {
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          background: '#0d1221', border: '1px solid #2a3d5c',
+          background: 'var(--surface)', border: '1px solid var(--border-hover)',
           borderRadius: 12, padding: '20px 24px', width: 320,
         }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-          <span style={{ fontSize: 11, color: '#374d66', letterSpacing: '0.1em' }}>GRUPPE {group}</span>
+          <span style={{ fontSize: 11, color: 'var(--text-dim)', letterSpacing: '0.1em' }}>GRUPPE {group}</span>
           <button
             onClick={onClose}
-            style={{ background: 'none', border: 'none', color: '#9ab0d0', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: 0 }}>
+            style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: 0 }}>
             ✕
           </button>
         </div>
         {teams.map((t, i) => (
           <div key={i} style={{
             display: 'flex', alignItems: 'center', gap: 10,
-            padding: '9px 0', borderTop: i > 0 ? '1px solid #1a2840' : 'none',
+            padding: '9px 0', borderTop: i > 0 ? '1px solid var(--border)' : 'none',
           }}>
-            <span style={{ fontSize: 11, color: '#9ab0d0', width: 16, flexShrink: 0 }}>{i + 1}.</span>
+            <span style={{ fontSize: 11, color: 'var(--text-secondary)', width: 16, flexShrink: 0 }}>{i + 1}.</span>
             <div style={{ flex: 1 }}>
-              <span style={{ fontSize: 13, fontWeight: i === 0 ? 600 : 400, color: i === 0 ? '#eef2ff' : '#9ab0d0', marginRight: 7 }}>
+              <span style={{ fontSize: 13, fontWeight: i === 0 ? 600 : 400, color: i === 0 ? 'var(--text-primary)' : 'var(--text-secondary)', marginRight: 7 }}>
                 {t.tla}
               </span>
-              <span style={{ fontSize: 11, color: '#9ab0d0' }}>{t.team}</span>
+              <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{t.team}</span>
             </div>
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
               <div style={{ fontSize: 12, color: '#4d6fa0', fontVariantNumeric: 'tabular-nums' }}>
                 {(t.prob_1st * 100).toFixed(0)}% 1.
               </div>
-              <div style={{ fontSize: 10, color: '#9ab0d0', marginTop: 2, fontVariantNumeric: 'tabular-nums' }}>
+              <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 2, fontVariantNumeric: 'tabular-nums' }}>
                 {(t.prob_top2 * 100).toFixed(0)}% Top 2 · {(t.prob_top3 * 100).toFixed(0)}% Top 3
               </div>
             </div>
@@ -1206,18 +1206,18 @@ function BonusView({ bonus, generating, actualResults }) {
   const [modalGroup, setModalGroup] = useState(null)
 
   const cardStyle = {
-    background: '#0d1221', border: '1px solid #1a2840',
+    background: 'var(--surface)', border: '1px solid var(--border)',
     borderRadius: 10, padding: '16px', marginBottom: 12,
   }
-  const labelStyle = { fontSize: 10, color: '#374d66', letterSpacing: '0.1em', marginBottom: 8 }
+  const labelStyle = { fontSize: 10, color: 'var(--text-dim)', letterSpacing: '0.1em', marginBottom: 8 }
   const teamChip = (item, rank) => (
     <div key={rank} style={{
       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-      padding: '7px 0', borderTop: rank > 0 ? '1px solid #1a2840' : 'none',
+      padding: '7px 0', borderTop: rank > 0 ? '1px solid var(--border)' : 'none',
     }}>
       <div>
-        <span style={{ fontSize: 13, fontWeight: 600, color: '#eef2ff', marginRight: 8 }}>{item.tla}</span>
-        <span style={{ fontSize: 12, color: '#9ab0d0' }}>{item.team}</span>
+        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginRight: 8 }}>{item.tla}</span>
+        <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{item.team}</span>
       </div>
       <span style={{ fontSize: 12, color: '#4d6fa0', fontVariantNumeric: 'tabular-nums' }}>
         {(item.prob * 100).toFixed(0)}%
@@ -1227,7 +1227,7 @@ function BonusView({ bonus, generating, actualResults }) {
 
   if (generating) {
     return (
-      <div style={{ color: '#9ab0d0', fontSize: 12 }}>
+      <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
         … Monte-Carlo-Simulation läuft
       </div>
     )
@@ -1236,10 +1236,10 @@ function BonusView({ bonus, generating, actualResults }) {
   if (!bonus) {
     return (
       <div style={{ ...cardStyle, textAlign: 'center' }}>
-        <div style={{ fontSize: 13, color: '#9ab0d0', marginBottom: 8 }}>
+        <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 8 }}>
           Noch keine Bonus-Prognose vorhanden.
         </div>
-        <div style={{ fontSize: 12, color: '#374d66', lineHeight: 1.6 }}>
+        <div style={{ fontSize: 12, color: 'var(--text-dim)', lineHeight: 1.6 }}>
           Über das Menü (☰) Prognose berechnen.
         </div>
       </div>
@@ -1265,8 +1265,8 @@ function BonusView({ bonus, generating, actualResults }) {
 
       {/* Prognose vs. Realität – appears once the Final is finished */}
       {actualResults && (
-        <div style={{ ...cardStyle, borderColor: '#2a3d5c', marginBottom: 20 }}>
-          <div style={{ fontSize: 10, color: '#374d66', letterSpacing: '0.1em', marginBottom: 16 }}>
+        <div style={{ ...cardStyle, borderColor: 'var(--border-hover)', marginBottom: 20 }}>
+          <div style={{ fontSize: 10, color: 'var(--text-dim)', letterSpacing: '0.1em', marginBottom: 16 }}>
             PROGNOSE vs. REALITÄT
           </div>
 
@@ -1274,10 +1274,10 @@ function BonusView({ bonus, generating, actualResults }) {
           {bonus.winner && actualResults.winner && (() => {
             const hit = bonus.winner.tla === actualResults.winner.tla
             return (
-              <div style={{ marginBottom: 14, paddingBottom: 14, borderBottom: '1px solid #1a2840' }}>
-                <div style={{ fontSize: 10, color: '#374d66', letterSpacing: '0.08em', marginBottom: 8 }}>TURNIERSIEGER</div>
+              <div style={{ marginBottom: 14, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 10, color: 'var(--text-dim)', letterSpacing: '0.08em', marginBottom: 8 }}>TURNIERSIEGER</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ fontSize: 14, fontWeight: 600, color: '#eef2ff' }}>{bonus.winner.tla}</span>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>{bonus.winner.tla}</span>
                   <span style={{ fontSize: 11, color: '#4d6fa0' }}>{(bonus.winner.prob * 100).toFixed(0)}%</span>
                   <span style={{ fontSize: 13, color: hit ? '#4d8a4d' : '#8a4d4d' }}>
                     {hit ? '✓' : `✗ → ${actualResults.winner.tla}`}
@@ -1292,8 +1292,8 @@ function BonusView({ bonus, generating, actualResults }) {
             const actualTlas = new Set(actualResults.finalists.map(t => t?.tla))
             const hits = bonus.finalists.filter(f => actualTlas.has(f.tla)).length
             return (
-              <div style={{ marginBottom: 14, paddingBottom: 14, borderBottom: '1px solid #1a2840' }}>
-                <div style={{ fontSize: 10, color: '#374d66', letterSpacing: '0.08em', marginBottom: 8 }}>
+              <div style={{ marginBottom: 14, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 10, color: 'var(--text-dim)', letterSpacing: '0.08em', marginBottom: 8 }}>
                   FINALISTEN — {hits} von {bonus.finalists.length}
                 </div>
                 <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
@@ -1315,8 +1315,8 @@ function BonusView({ bonus, generating, actualResults }) {
             const actualTlas = new Set(actualResults.semifinalists.map(t => t?.tla))
             const hits = bonus.semifinalists.filter(f => actualTlas.has(f.tla)).length
             return (
-              <div style={{ marginBottom: 14, paddingBottom: 14, borderBottom: '1px solid #1a2840' }}>
-                <div style={{ fontSize: 10, color: '#374d66', letterSpacing: '0.08em', marginBottom: 8 }}>
+              <div style={{ marginBottom: 14, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 10, color: 'var(--text-dim)', letterSpacing: '0.08em', marginBottom: 8 }}>
                   HALBFINALISTEN — {hits} von {bonus.semifinalists.length}
                 </div>
                 <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
@@ -1343,7 +1343,7 @@ function BonusView({ bonus, generating, actualResults }) {
             }).length
             return (
               <div>
-                <div style={{ fontSize: 10, color: '#374d66', letterSpacing: '0.08em', marginBottom: 8 }}>
+                <div style={{ fontSize: 10, color: 'var(--text-dim)', letterSpacing: '0.08em', marginBottom: 8 }}>
                   GRUPPENSIEGER — {hits} von {compGroups.length}
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
@@ -1353,16 +1353,16 @@ function BonusView({ bonus, generating, actualResults }) {
                     const hit = predicted && actual && predicted.tla === actual.tla
                     return (
                       <div key={g} style={{
-                        background: '#07091a',
+                        background: 'var(--bg)',
                         border: `1px solid ${hit ? '#1a3d1a' : '#3d1a1a'}`,
                         borderRadius: 6, padding: '6px 8px',
                       }}>
-                        <div style={{ fontSize: 9, color: '#374d66', marginBottom: 4 }}>GR. {g}</div>
+                        <div style={{ fontSize: 9, color: 'var(--text-dim)', marginBottom: 4 }}>GR. {g}</div>
                         <div style={{ fontSize: 11, fontWeight: 600, color: hit ? '#4d8a4d' : '#8a4d4d' }}>
                           {predicted?.tla ?? '?'} {hit ? '✓' : '✗'}
                         </div>
                         {!hit && actual && (
-                          <div style={{ fontSize: 10, color: '#9ab0d0', marginTop: 2 }}>→ {actual.tla}</div>
+                          <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 2 }}>→ {actual.tla}</div>
                         )}
                       </div>
                     )
@@ -1376,14 +1376,14 @@ function BonusView({ bonus, generating, actualResults }) {
 
       {/* Turniersieger */}
       {bonus.winner && (
-        <div style={{ ...cardStyle, borderColor: '#2a3d5c' }}>
+        <div style={{ ...cardStyle, borderColor: 'var(--border-hover)' }}>
           <div style={labelStyle}>TURNIERSIEGER</div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <span style={{ fontSize: 18, fontWeight: 700, color: '#eef2ff', marginRight: 10 }}>
+              <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', marginRight: 10 }}>
                 {bonus.winner.tla}
               </span>
-              <span style={{ fontSize: 14, color: '#9ab0d0' }}>{bonus.winner.team}</span>
+              <span style={{ fontSize: 14, color: 'var(--text-secondary)' }}>{bonus.winner.team}</span>
             </div>
             <span style={{ fontSize: 16, fontWeight: 600, color: '#4d6fa0' }}>
               {(bonus.winner.prob * 100).toFixed(0)}%
@@ -1414,10 +1414,10 @@ function BonusView({ bonus, generating, actualResults }) {
           <div style={labelStyle}>TORSCHÜTZENKÖNIG</div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: '#eef2ff', marginBottom: 3 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 3 }}>
                 {bonus.top_scorer.player}
               </div>
-              <div style={{ fontSize: 12, color: '#9ab0d0' }}>
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
                 {bonus.top_scorer.tla} · {bonus.top_scorer.team}
               </div>
             </div>
@@ -1425,7 +1425,7 @@ function BonusView({ bonus, generating, actualResults }) {
               <div style={{ fontSize: 14, fontWeight: 600, color: '#4d6fa0' }}>
                 ~{bonus.top_scorer.goals} Tore
               </div>
-              <div style={{ fontSize: 10, color: '#374d66', marginTop: 3 }}>
+              <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 3 }}>
                 {bonus.top_scorer.source}
               </div>
             </div>
@@ -1445,13 +1445,13 @@ function BonusView({ bonus, generating, actualResults }) {
                   key={group}
                   onClick={() => setModalGroup(group)}
                   style={{
-                    background: '#07091a', border: '1px solid #1a2840', borderRadius: 6,
+                    background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6,
                     padding: '8px 10px', cursor: 'pointer',
                     transition: 'border-color 0.15s',
                   }}
-                  onMouseEnter={e => e.currentTarget.style.borderColor = '#2a3d5c'}
-                  onMouseLeave={e => e.currentTarget.style.borderColor = '#1a2840'}>
-                  <div style={{ fontSize: 9, color: '#374d66', letterSpacing: '0.1em', marginBottom: 6 }}>
+                  onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--border-hover)'}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}>
+                  <div style={{ fontSize: 9, color: 'var(--text-dim)', letterSpacing: '0.1em', marginBottom: 6 }}>
                     GRUPPE {group}
                   </div>
                   {teams.slice(0, 4).map((t, i) => (
@@ -1462,13 +1462,13 @@ function BonusView({ bonus, generating, actualResults }) {
                       <span style={{
                         fontSize: i === 0 ? 12 : 11,
                         fontWeight: i === 0 ? 600 : 400,
-                        color: i === 0 ? '#eef2ff' : '#9ab0d0',
+                        color: i === 0 ? 'var(--text-primary)' : 'var(--text-secondary)',
                       }}>
                         {i + 1}. {t.tla}
                       </span>
                       <span style={{
                         fontSize: i === 0 ? 11 : 10,
-                        color: i === 0 ? '#4d6fa0' : '#9ab0d0',
+                        color: i === 0 ? '#4d6fa0' : 'var(--text-secondary)',
                         fontVariantNumeric: 'tabular-nums',
                       }}>
                         {(t.prob_1st * 100).toFixed(0)}%
@@ -1482,33 +1482,33 @@ function BonusView({ bonus, generating, actualResults }) {
         </div>
       )}
 
-      <div style={{ fontSize: 10, color: '#374d66', textAlign: 'right', marginTop: 4, marginBottom: 24 }}>
+      <div style={{ fontSize: 10, color: 'var(--text-dim)', textAlign: 'right', marginTop: 4, marginBottom: 24 }}>
         {bonus.n_simulations.toLocaleString('de-DE')} Simulationen · {generatedDate}
       </div>
 
       {/* Simulation explanation */}
-      <div style={{ borderTop: '1px solid #1a2840', paddingTop: 20 }}>
-        <div style={{ fontSize: 10, color: '#374d66', letterSpacing: '0.1em', marginBottom: 14 }}>
+      <div style={{ borderTop: '1px solid var(--border)', paddingTop: 20 }}>
+        <div style={{ fontSize: 10, color: 'var(--text-dim)', letterSpacing: '0.1em', marginBottom: 14 }}>
           WIE FUNKTIONIERT DIE SIMULATION?
         </div>
 
-        <div style={{ fontSize: 12, color: '#9ab0d0', lineHeight: 1.8 }}>
+        <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.8 }}>
           <p style={{ marginBottom: 12 }}>
             Die Prognose basiert auf einer{' '}
-            <span style={{ color: '#eef2ff' }}>Monte-Carlo-Simulation</span>{' '}
+            <span style={{ color: 'var(--text-primary)' }}>Monte-Carlo-Simulation</span>{' '}
             mit {bonus.n_simulations.toLocaleString('de-DE')} Turnierdurchläufen.
             Jeder Durchlauf simuliert das gesamte WM-Turnier von der Gruppenphase bis zum Finale.
             Die angezeigten Prozentwerte geben an, wie häufig ein Ergebnis in diesen Durchläufen eingetreten ist.
           </p>
 
           <div style={{ marginBottom: 10 }}>
-            <span style={{ color: '#eef2ff' }}>ELO-Rating</span>
+            <span style={{ color: 'var(--text-primary)' }}>ELO-Rating</span>
             {' '}— Jedes Team erhält ein ELO-Rating, das auf Ergebnissen der letzten WM und anderen internationalen Spielen basiert.
             Stärkere Teams haben höhere Ratings; ein Unterschied von 400 Punkten entspricht grob einer Gewinnwahrscheinlichkeit von ca. 85:15.
           </div>
 
           <div style={{ marginBottom: 10 }}>
-            <span style={{ color: '#eef2ff' }}>Gruppenphase</span>
+            <span style={{ color: 'var(--text-primary)' }}>Gruppenphase</span>
             {' '}— In jedem Durchlauf wird jedes Gruppenspiel einzeln simuliert.
             Aus den ELO-Ratings wird eine erwartete Toranzahl (xG) pro Team abgeleitet;
             die tatsächlichen Tore werden per Poisson-Verteilung zufällig gezogen.
@@ -1516,20 +1516,20 @@ function BonusView({ bonus, generating, actualResults }) {
           </div>
 
           <div style={{ marginBottom: 10 }}>
-            <span style={{ color: '#eef2ff' }}>K.O.-Runde</span>
+            <span style={{ color: 'var(--text-primary)' }}>K.O.-Runde</span>
             {' '}— Die besten zwei jeder Gruppe sowie die acht besten Gruppendritter (nach Punkten, Tordifferenz, Toren) qualifizieren sich für die Runde der 32.
             Der K.O.-Baum wird in jedem Durchlauf zufällig neu gelost, damit keine bestimmte Hälfte bevorzugt wird.
             Bei Unentschieden nach 90 Minuten entscheidet ein ELO-gewichteter Münzwurf (analog Elfmeterschießen).
           </div>
 
           <div style={{ marginBottom: 10 }}>
-            <span style={{ color: '#eef2ff' }}>Torschützenkönig</span>
+            <span style={{ color: 'var(--text-primary)' }}>Torschützenkönig</span>
             {' '}— Die Prognose basiert auf einer kuratierten Liste bekannter Torjäger mit historischer Torrate.
             Aus der Torrate pro Spiel und der erwarteten Turnierlänge (abhängig vom ELO-Rating des Teams) wird eine prognostizierte Gesamttoranzahl berechnet.
           </div>
 
           <div>
-            <span style={{ color: '#eef2ff' }}>Hinweis</span>
+            <span style={{ color: 'var(--text-primary)' }}>Hinweis</span>
             {' '}— Die Simulation spiegelt den Wissensstand zum Zeitpunkt der letzten Datenaktualisierung wider.
             Nach jedem Spieltag ELO-Ratings neu berechnen (↻) und anschließend die Bonus-Prognose neu generieren, um aktuelle Ergebnisse einzubeziehen.
           </div>
@@ -1572,12 +1572,12 @@ function SummaryCalModal({ matches, summaries, generating, onClose, onGenerate }
 
     return (
       <div key={`${year}-${month}`}>
-        <div style={{ fontSize: 11, color: '#9ab0d0', textAlign: 'center', marginBottom: 8, fontWeight: 600 }}>
+        <div style={{ fontSize: 11, color: 'var(--text-secondary)', textAlign: 'center', marginBottom: 8, fontWeight: 600 }}>
           {MONTH_NAMES[month]} {year}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3, marginBottom: 4 }}>
           {DAY_NAMES.map(d => (
-            <div key={d} style={{ fontSize: 9, color: '#374d66', textAlign: 'center' }}>{d}</div>
+            <div key={d} style={{ fontSize: 9, color: 'var(--text-dim)', textAlign: 'center' }}>{d}</div>
           ))}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3 }}>
@@ -1594,11 +1594,11 @@ function SummaryCalModal({ matches, summaries, generating, onClose, onGenerate }
                 disabled={!hasMatch || !!generating}
                 style={{
                   position: 'relative',
-                  background: hasMatch ? '#1a2840' : 'none',
-                  border: `1px solid ${hasMatch ? '#2a3d5c' : 'transparent'}`,
+                  background: hasMatch ? 'var(--border)' : 'none',
+                  border: `1px solid ${hasMatch ? 'var(--border-hover)' : 'transparent'}`,
                   borderRadius: 4, padding: '6px 2px 8px',
                   fontSize: 11, textAlign: 'center',
-                  color: hasMatch ? '#eef2ff' : '#1a2840',
+                  color: hasMatch ? 'var(--text-primary)' : 'var(--border)',
                   cursor: hasMatch && !generating ? 'pointer' : 'default',
                   fontFamily: 'inherit',
                   opacity: !!generating && !busy ? 0.5 : 1,
@@ -1625,15 +1625,15 @@ function SummaryCalModal({ matches, summaries, generating, onClose, onGenerate }
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          background: '#0d1221', border: '1px solid #2a3d5c',
+          background: 'var(--surface)', border: '1px solid var(--border-hover)',
           borderRadius: 12, padding: '20px 24px',
           width: 320, maxHeight: '80vh', overflowY: 'auto',
         }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <span style={{ fontSize: 11, color: '#374d66', letterSpacing: '0.1em' }}>MORGENBERICHT ERSTELLEN</span>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#9ab0d0', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: 0 }}>✕</button>
+          <span style={{ fontSize: 11, color: 'var(--text-dim)', letterSpacing: '0.1em' }}>MORGENBERICHT ERSTELLEN</span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: 0 }}>✕</button>
         </div>
-        <div style={{ fontSize: 11, color: '#374d66', marginBottom: 16, lineHeight: 1.5 }}>
+        <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 16, lineHeight: 1.5 }}>
           Spieltag auswählen · blauer Punkt = Bericht vorhanden
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -1691,8 +1691,8 @@ function GruppenTabellen({ matches }) {
 
   if (sortedGroups.length === 0) {
     return (
-      <div style={{ background: '#0d1221', border: '1px solid #1a2840', borderRadius: 10, padding: 24, textAlign: 'center' }}>
-        <div style={{ fontSize: 13, color: '#9ab0d0' }}>Noch keine Gruppenspiele vorhanden.</div>
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 24, textAlign: 'center' }}>
+        <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Noch keine Gruppenspiele vorhanden.</div>
       </div>
     )
   }
@@ -1715,7 +1715,7 @@ function GruppenTabellen({ matches }) {
     })
   }
 
-  const th = { fontSize: 10, color: '#374d66', fontWeight: 400, letterSpacing: '0.06em', textAlign: 'right', paddingBottom: 6 }
+  const th = { fontSize: 10, color: 'var(--text-dim)', fontWeight: 400, letterSpacing: '0.06em', textAlign: 'right', paddingBottom: 6 }
 
   return (
     <div>
@@ -1724,18 +1724,18 @@ function GruppenTabellen({ matches }) {
           onClick={e => e.stopPropagation()}
           style={{
             position: 'fixed', left: tooltip.x, top: tooltip.y, zIndex: 300,
-            background: '#0d1221', border: '1px solid #2a3d5c',
+            background: 'var(--surface)', border: '1px solid var(--border-hover)',
             borderRadius: 6, padding: '8px 12px',
-            fontSize: 11, color: '#9ab0d0', lineHeight: 1.7,
+            fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.7,
             minWidth: 160, maxWidth: 220,
             boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
           }}>
-          <div style={{ color: '#eef2ff', fontWeight: 600, marginBottom: 5 }}>{tooltip.name}</div>
+          <div style={{ color: 'var(--text-primary)', fontWeight: 600, marginBottom: 5 }}>{tooltip.name}</div>
           {tooltip.results.length > 0
             ? tooltip.results.map((r, i) => (
                 <div key={i} style={{ fontVariantNumeric: 'tabular-nums' }}>{r}</div>
               ))
-            : <div style={{ color: '#374d66' }}>Noch keine Spiele</div>
+            : <div style={{ color: 'var(--text-dim)' }}>Noch keine Spiele</div>
           }
         </div>
       )}
@@ -1747,10 +1747,10 @@ function GruppenTabellen({ matches }) {
             .sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf || (b.team.elo ?? 0) - (a.team.elo ?? 0))
 
           return (
-            <div key={group} style={{ background: '#0d1221', border: '1px solid #1a2840', borderRadius: 10, padding: '12px 14px' }}>
-              <div style={{ fontSize: 10, color: '#374d66', letterSpacing: '0.1em', marginBottom: 8 }}>GRUPPE {group}</div>
+            <div key={group} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px' }}>
+              <div style={{ fontSize: 10, color: 'var(--text-dim)', letterSpacing: '0.1em', marginBottom: 8 }}>GRUPPE {group}</div>
 
-              <div style={{ display: 'flex', gap: 4, paddingBottom: 5, borderBottom: '1px solid #1a2840' }}>
+              <div style={{ display: 'flex', gap: 4, paddingBottom: 5, borderBottom: '1px solid var(--border)' }}>
                 <div style={{ width: 14, ...th }}>#</div>
                 <div style={{ flex: 1, textAlign: 'left', ...th }}>TEAM</div>
                 <div style={{ width: 20, ...th }}>Sp</div>
@@ -1759,31 +1759,31 @@ function GruppenTabellen({ matches }) {
                 <div style={{ width: 16, ...th }}>N</div>
                 <div style={{ width: 38, ...th }}>Tore</div>
                 <div style={{ width: 26, ...th }}>TD</div>
-                <div style={{ width: 22, ...th, color: '#9ab0d0' }}>Pkt</div>
+                <div style={{ width: 22, ...th, color: 'var(--text-secondary)' }}>Pkt</div>
               </div>
 
               {rows.map((r, i) => (
                 <div key={r.team.id} style={{
                   display: 'flex', gap: 4, alignItems: 'center',
-                  padding: '5px 0', borderTop: i > 0 ? '1px solid #1a2840' : 'none',
+                  padding: '5px 0', borderTop: i > 0 ? '1px solid var(--border)' : 'none',
                 }}>
-                  <div style={{ width: 14, fontSize: 10, color: '#374d66', textAlign: 'right', flexShrink: 0 }}>{i + 1}</div>
+                  <div style={{ width: 14, fontSize: 10, color: 'var(--text-dim)', textAlign: 'right', flexShrink: 0 }}>{i + 1}</div>
                   <div style={{ flex: 1, overflow: 'hidden' }}>
                     <span
                       onClick={e => handleTlaClick(e, r.team)}
-                      style={{ fontSize: 12, fontWeight: 600, color: '#eef2ff', cursor: 'pointer', userSelect: 'none' }}>
+                      style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', cursor: 'pointer', userSelect: 'none' }}>
                       {r.team.tla ?? r.team.short_name}
                     </span>
                   </div>
-                  <div style={{ width: 20, fontSize: 11, color: '#9ab0d0', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.gp}</div>
-                  <div style={{ width: 16, fontSize: 11, color: '#9ab0d0', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.w}</div>
-                  <div style={{ width: 16, fontSize: 11, color: '#9ab0d0', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.d}</div>
-                  <div style={{ width: 16, fontSize: 11, color: '#9ab0d0', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.l}</div>
-                  <div style={{ width: 38, fontSize: 11, color: '#9ab0d0', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.gf}:{r.ga}</div>
-                  <div style={{ width: 26, fontSize: 11, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: r.gd > 0 ? '#4d8a4d' : r.gd < 0 ? '#8a4d4d' : '#9ab0d0' }}>
+                  <div style={{ width: 20, fontSize: 11, color: 'var(--text-secondary)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.gp}</div>
+                  <div style={{ width: 16, fontSize: 11, color: 'var(--text-secondary)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.w}</div>
+                  <div style={{ width: 16, fontSize: 11, color: 'var(--text-secondary)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.d}</div>
+                  <div style={{ width: 16, fontSize: 11, color: 'var(--text-secondary)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.l}</div>
+                  <div style={{ width: 38, fontSize: 11, color: 'var(--text-secondary)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.gf}:{r.ga}</div>
+                  <div style={{ width: 26, fontSize: 11, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: r.gd > 0 ? '#4d8a4d' : r.gd < 0 ? '#8a4d4d' : 'var(--text-secondary)' }}>
                     {r.gd > 0 ? '+' : ''}{r.gd}
                   </div>
-                  <div style={{ width: 22, fontSize: 13, fontWeight: 600, color: '#eef2ff', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.pts}</div>
+                  <div style={{ width: 22, fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.pts}</div>
                 </div>
               ))}
             </div>
@@ -1797,13 +1797,13 @@ function GruppenTabellen({ matches }) {
 function NoDataPlaceholder() {
   return (
     <div style={{
-      background: '#0d1221', border: '1px solid #1a2840', borderRadius: 10,
+      background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10,
       padding: '24px', textAlign: 'center',
     }}>
-      <div style={{ fontSize: 13, color: '#9ab0d0', marginBottom: 12 }}>
+      <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>
         Noch keine Spieldaten vorhanden.
       </div>
-      <div style={{ fontSize: 12, color: '#9ab0d0', lineHeight: 1.6 }}>
+      <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
         Über das Menü (☰) Spielplandaten laden.
       </div>
     </div>

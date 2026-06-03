@@ -450,14 +450,14 @@ export default function Calendar() {
 
           return (
             <div key={`${y}-${m}`} style={{ marginBottom: 28 }}>
-              <div style={{ fontSize: 11, color: '#5d7592', letterSpacing: '0.2em', marginBottom: 8, textTransform: 'uppercase' }}>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', letterSpacing: '0.2em', marginBottom: 8, textTransform: 'uppercase' }}>
                 {MONTHS[m]} {y}
               </div>
               {/* Day-of-week header — blank CW cell + Mo…Su */}
               <div style={{ display: 'grid', gridTemplateColumns: COLS, gap: 2, marginBottom: 2 }}>
                 <div />
                 {DOW_HDR.map(d => (
-                  <div key={d} style={{ textAlign: 'center', fontSize: 9, color: '#374d66', letterSpacing: '0.05em', padding: '2px 0' }}>
+                  <div key={d} style={{ textAlign: 'center', fontSize: 9, color: 'var(--text-dim)', letterSpacing: '0.05em', padding: '2px 0' }}>
                     {d}
                   </div>
                 ))}
@@ -469,7 +469,7 @@ export default function Calendar() {
                   <div key={wi} style={{ display: 'grid', gridTemplateColumns: COLS, gap: 2, marginBottom: 2 }}>
                     {/* CW label */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 8, color: '#374d66', letterSpacing: '0.03em' }}>
+                      fontSize: 8, color: 'var(--text-dim)', letterSpacing: '0.03em' }}>
                       {cw}
                     </div>
                     {week.map((d, di) => {
@@ -491,11 +491,11 @@ export default function Calendar() {
                           onClick={e => openTooltip(e, tipLines)}
                           style={{
                             aspectRatio: '1',
-                            background: holBg || '#0d1221',
-                            border: isToday ? '1px solid #8855ff' : '1px solid #1a2840',
+                            background: holBg || 'var(--surface)',
+                            border: isToday ? '1px solid #8855ff' : '1px solid var(--border)',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                             fontSize: 10, position: 'relative',
-                            color: isToday ? '#8855ff' : dayHols.length ? '#9ab0d0' : '#374d66',
+                            color: isToday ? '#8855ff' : dayHols.length ? 'var(--text-secondary)' : 'var(--text-dim)',
                           }}>
                           {dayProjs.map(p => (
                             <div key={p.id} style={{
@@ -509,7 +509,7 @@ export default function Calendar() {
                             <span style={{
                               position: 'absolute', bottom: 2, left: '50%', transform: 'translateX(-50%)',
                               width: 3, height: 3, borderRadius: '50%',
-                              background: HOLIDAY_DOT[dayHols[0].country] || '#aaa',
+                              background: HOLIDAY_DOT[dayHols[0].country] || 'var(--text-subtle)',
                               zIndex: 1,
                             }} />
                           )}
@@ -525,10 +525,10 @@ export default function Calendar() {
                 const s = parseDate(p.start_date), en = parseDate(p.end_date)
                 return s <= new Date(y, m + 1, 0) && en >= new Date(y, m, 1)
               }).map(p => (
-                <div key={p.id} style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#9ab0d0' }}>
+                <div key={p.id} style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-secondary)' }}>
                   <span style={{ width: 6, height: 6, borderRadius: '50%', background: p.color }} />
                   {p.name}
-                  <span style={{ color: '#374d66' }}>{fmtIsoDate(p.start_date)} → {fmtIsoDate(p.end_date)}</span>
+                  <span style={{ color: 'var(--text-dim)' }}>{fmtIsoDate(p.start_date)} → {fmtIsoDate(p.end_date)}</span>
                 </div>
               ))}
             </div>
@@ -540,11 +540,11 @@ export default function Calendar() {
       {showSettings && (
         <div style={{
           position: 'fixed', top: 32, left: 0, right: 0, zIndex: 40,
-          background: '#07091a', borderBottom: '1px solid #1a2840',
+          background: 'var(--bg)', borderBottom: '1px solid var(--border)',
           maxHeight: 'calc(100vh - 32px)', overflowY: 'auto',
         }}>
           <div style={{ maxWidth: 900, margin: '0 auto', padding: '16px 16px' }}>
-            <div style={{ fontSize: 11, color: '#9ab0d0', marginBottom: 8, letterSpacing: '0.08em' }}>RANGE</div>
+            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 8, letterSpacing: '0.08em' }}>RANGE</div>
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
               <div>
                 <label className="label">from</label>
@@ -577,17 +577,17 @@ export default function Calendar() {
                 </div>
               </div>
             </div>
-            <div style={{ fontSize: 11, color: '#9ab0d0', marginBottom: 8, letterSpacing: '0.08em' }}>HOLIDAYS</div>
+            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 8, letterSpacing: '0.08em' }}>HOLIDAYS</div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {COUNTRIES.map(code => (
                 <button key={code} type="button" className="btn btn-sm"
-                  style={{ borderColor: countries.includes(code) ? '#4d6fa0' : '#1a2840',
-                           color:       countries.includes(code) ? '#eef2ff' : '#5d7592' }}
+                  style={{ borderColor: countries.includes(code) ? '#4d6fa0' : 'var(--border)',
+                           color:       countries.includes(code) ? 'var(--text-primary)' : 'var(--text-muted)' }}
                   onClick={() => toggleCountry(code)}>
                   <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
                     background: HOLIDAY_DOT[code], marginRight: 5 }} />
                   {code}
-                  <span style={{ marginLeft: 4, fontSize: 10, color: '#374d66' }}>{COUNTRY_LABEL[code]}</span>
+                  <span style={{ marginLeft: 4, fontSize: 10, color: 'var(--text-dim)' }}>{COUNTRY_LABEL[code]}</span>
                 </button>
               ))}
             </div>
@@ -598,7 +598,7 @@ export default function Calendar() {
       {/* Fixed controls panel — chips, add button, and forms always in view */}
       <div ref={formPanelRef} style={{
         position: 'fixed', top: 32, left: 0, right: 0, zIndex: 30,
-        background: '#07091a', borderBottom: '1px solid #1a2840',
+        background: 'var(--bg)', borderBottom: '1px solid var(--border)',
       }}>
         <div style={{ maxWidth: 900, margin: '0 auto', padding: '10px 16px' }}>
           {/* Project chips + add button */}
@@ -606,9 +606,9 @@ export default function Calendar() {
             {projects.map(p => (
               <span key={p.id} onClick={() => startEdit(p)}
                 style={{ display: 'flex', alignItems: 'center', gap: 6,
-                  background: editId === p.id ? '#1a2840' : '#0d1221',
-                  border: `1px solid ${editId === p.id ? '#2a3d5c' : '#1a2840'}`,
-                  padding: '4px 10px', fontSize: 12, cursor: 'pointer', color: '#ccc' }}>
+                  background: editId === p.id ? 'var(--border)' : 'var(--surface)',
+                  border: `1px solid ${editId === p.id ? 'var(--border-hover)' : 'var(--border)'}`,
+                  padding: '4px 10px', fontSize: 12, cursor: 'pointer', color: 'var(--text-sub)' }}>
                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.color }} />
                 {p.name}
               </span>
@@ -632,7 +632,7 @@ export default function Calendar() {
                       {COLORS.map(c => (
                         <button key={c} type="button" onClick={() => setF('color', c)}
                           style={{ width: 20, height: 20, background: c, borderRadius: 2,
-                                   border: form.color === c ? '2px solid #fff' : '2px solid transparent' }} />
+                                   border: form.color === c ? '2px solid var(--text-primary)' : '2px solid transparent' }} />
                       ))}
                     </div>
                   </div>
@@ -641,7 +641,7 @@ export default function Calendar() {
                   <label className="label">start</label>
                   <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
                     {projects.length > 0 && (
-                      <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#9ab0d0' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--text-secondary)' }}>
                         <input type="radio" checked={form.startMode === 'after'} onChange={() => setF('startMode', 'after')} />
                         after
                         <select className="input" style={{ width: 'auto', padding: '2px 6px', fontSize: 12 }}
@@ -652,7 +652,7 @@ export default function Calendar() {
                         </select>
                       </label>
                     )}
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#9ab0d0' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--text-secondary)' }}>
                       <input type="radio" checked={form.startMode === 'offset'} onChange={() => setF('startMode', 'offset')} />
                       in
                       <input type="number" min="0" className="input" style={{ width: 52, padding: '2px 6px', fontSize: 12 }}
@@ -681,7 +681,7 @@ export default function Calendar() {
                     </select>
                   </div>
                 </div>
-                <div style={{ fontSize: 11, color: '#5d7592', marginBottom: 12 }}>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 12 }}>
                   {toDateStr(previewStart)} → {toDateStr(previewEnd)}
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
@@ -712,7 +712,7 @@ export default function Calendar() {
                     {COLORS.map(c => (
                       <button key={c} type="button" onClick={() => setEF('color', c)}
                         style={{ width: 20, height: 20, background: c, borderRadius: 2,
-                                 border: editForm.color === c ? '2px solid #fff' : '2px solid transparent' }} />
+                                 border: editForm.color === c ? '2px solid var(--text-primary)' : '2px solid transparent' }} />
                     ))}
                   </div>
                 </div>
@@ -734,11 +734,11 @@ export default function Calendar() {
           left: tooltip.x,
           top: tooltip.below ? tooltip.y + 6 : tooltip.y - 6,
           transform: tooltip.below ? 'translateX(-50%)' : 'translate(-50%, -100%)',
-          background: '#0d1221',
-          border: '1px solid #2a3d5c',
+          background: 'var(--surface)',
+          border: '1px solid var(--border-hover)',
           padding: '6px 10px',
           fontSize: 11,
-          color: '#9ab0d0',
+          color: 'var(--text-secondary)',
           zIndex: 200,
           pointerEvents: 'none',
           whiteSpace: 'nowrap',

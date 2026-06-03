@@ -20,7 +20,7 @@ const BAR_SEGMENTS = [
   { key: 'deezer',     color: '#a78bfa', label: 'deezer'     },
   { key: 'getsongbpm', color: '#4ade80', label: 'getsong.co' },
   { key: 'notFound',   color: '#f44336', label: 'not found'  },
-  { key: 'pending',    color: '#1a2840', label: 'pending'    },
+  { key: 'pending',    color: 'var(--border)', label: 'pending'    },
 ]
 
 function BpmBar({ stats }) {
@@ -31,7 +31,7 @@ function BpmBar({ stats }) {
 
   return (
     <div style={{ marginTop: 16 }}>
-      <div style={{ display: 'flex', height: 10, borderRadius: 5, overflow: 'hidden', background: '#1a2840' }}>
+      <div style={{ display: 'flex', height: 10, borderRadius: 5, overflow: 'hidden', background: 'var(--border)' }}>
         {BAR_SEGMENTS.map(seg => {
           const pct = (counts[seg.key] / total) * 100
           if (!pct) return null
@@ -60,21 +60,21 @@ function BpmBar({ stats }) {
               onMouseLeave={() => setHovered(null)}
             >
               <div style={{ width: 8, height: 8, borderRadius: 2, background: seg.color, flexShrink: 0 }} />
-              <span style={{ fontSize: 11, color: isHovered ? '#eef2ff' : '#9ab0d0' }}>
+              <span style={{ fontSize: 11, color: isHovered ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
                 {seg.label}
               </span>
-              <span style={{ fontSize: 11, color: isHovered ? seg.color : '#374d66', minWidth: 18, textAlign: 'right' }}>
+              <span style={{ fontSize: 11, color: isHovered ? seg.color : 'var(--text-dim)', minWidth: 18, textAlign: 'right' }}>
                 {n}
               </span>
               {isHovered && (
-                <span style={{ fontSize: 10, color: '#374d66' }}>({pct}%)</span>
+                <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>({pct}%)</span>
               )}
             </div>
           )
         })}
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginLeft: 'auto' }}>
-          <span style={{ fontSize: 11, color: '#374d66' }}>total</span>
-          <span style={{ fontSize: 11, color: '#9ab0d0' }}>{total}</span>
+          <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>total</span>
+          <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{total}</span>
         </div>
       </div>
     </div>
@@ -84,21 +84,21 @@ function BpmBar({ stats }) {
 function LogEntry({ e }) {
   const bpmText = e.bpm ? `${e.bpm} bpm` : '—'
   return (
-    <div style={{ padding: '4px 0', borderBottom: '1px solid #0d1221' }}>
-      <div style={{ fontSize: 12, color: '#9ab0d0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>
-        <span style={{ color: '#eef2ff' }}>{e.artist}</span>
-        <span style={{ color: '#374d66' }}> — </span>
+    <div style={{ padding: '4px 0', borderBottom: '1px solid var(--surface)' }}>
+      <div style={{ fontSize: 12, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>
+        <span style={{ color: 'var(--text-primary)' }}>{e.artist}</span>
+        <span style={{ color: 'var(--text-dim)' }}> — </span>
         <span>{e.name}</span>
-        <span style={{ color: '#374d66' }}> — </span>
-        <span style={{ color: e.bpm ? '#4ade80' : '#9ab0d0', fontWeight: 500 }}>{bpmText}</span>
+        <span style={{ color: 'var(--text-dim)' }}> — </span>
+        <span style={{ color: e.bpm ? '#4ade80' : 'var(--text-secondary)', fontWeight: 500 }}>{bpmText}</span>
       </div>
       <div style={{ fontSize: 10, fontFamily: 'monospace', display: 'flex', gap: 14 }}>
         {['deezer', 'getsongbpm'].map(key => {
           const val = e[key]
           const label = key === 'getsongbpm' ? 'getsong.co' : key
-          const color = val === 'pass' ? '#4ade80' : val === 'fail' ? '#f44336' : '#374d66'
+          const color = val === 'pass' ? '#4ade80' : val === 'fail' ? '#f44336' : 'var(--text-dim)'
           return (
-            <span key={key} style={{ color: '#374d66' }}>
+            <span key={key} style={{ color: 'var(--text-dim)' }}>
               {label}: <span style={{ color }}>{val ?? '—'}</span>
             </span>
           )
@@ -436,7 +436,7 @@ export default function SpotifyExplorer() {
           /* ── Scan-all view ─────────────────────────────── */
           <>
             {/* Progress — sticky below topbar */}
-            <div style={{ position: 'sticky', top: 32, background: '#07091a', zIndex: 10, paddingBottom: 12, borderBottom: '1px solid #1a2840', marginBottom: 4 }}>
+            <div style={{ position: 'sticky', top: 32, background: 'var(--bg)', zIndex: 10, paddingBottom: 12, borderBottom: '1px solid var(--border)', marginBottom: 4 }}>
               <div style={{ display: 'flex', gap: 32, paddingTop: 12, flexWrap: 'wrap' }}>
                 {[
                   { label: 'playlists done', value: scanProgress.playlistsDone },
@@ -445,22 +445,22 @@ export default function SpotifyExplorer() {
                   { label: 'tracks open',    value: Math.max(0, scanProgress.tracksTotal - scanProgress.tracksDone) },
                 ].map(({ label, value }) => (
                   <div key={label}>
-                    <div style={{ fontSize: 10, color: '#374d66', marginBottom: 2 }}>{label}</div>
-                    <div style={{ fontSize: 24, fontWeight: 600, color: '#eef2ff', lineHeight: 1 }}>{value}</div>
+                    <div style={{ fontSize: 10, color: 'var(--text-dim)', marginBottom: 2 }}>{label}</div>
+                    <div style={{ fontSize: 24, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1 }}>{value}</div>
                   </div>
                 ))}
                 {scanStartedAt && (
                   <div>
-                    <div style={{ fontSize: 10, color: '#374d66', marginBottom: 2 }}>elapsed</div>
-                    <div style={{ fontSize: 24, fontWeight: 600, color: '#eef2ff', lineHeight: 1 }}>{fmtElapsed(elapsedMs)}</div>
+                    <div style={{ fontSize: 10, color: 'var(--text-dim)', marginBottom: 2 }}>elapsed</div>
+                    <div style={{ fontSize: 24, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1 }}>{fmtElapsed(elapsedMs)}</div>
                   </div>
                 )}
               </div>
               {scanMode === 'fetching' && (
-                <div style={{ fontSize: 11, color: '#9ab0d0', marginTop: 8 }}>fetching playlists from spotify…</div>
+                <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 8 }}>fetching playlists from spotify…</div>
               )}
               {scanMode === 'running' && (
-                <div style={{ fontSize: 11, color: '#9ab0d0', marginTop: 8 }}>scanning in background — you can close this page</div>
+                <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 8 }}>scanning in background — you can close this page</div>
               )}
               {scanMode === 'done' && (
                 <div style={{ fontSize: 11, color: '#4ade80', marginTop: 8 }}>scan complete</div>
@@ -487,13 +487,13 @@ export default function SpotifyExplorer() {
           <>
             <div className="section-header">connect spotify</div>
             <div className="card">
-              <p style={{ fontSize: 12, color: '#9ab0d0', margin: '0 0 12px' }}>
+              <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 12px' }}>
                 Create an app at{' '}
                 <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener noreferrer" style={{ color: '#4a9eff' }}>
                   developer.spotify.com/dashboard
                 </a>
                 , add{' '}
-                <code style={{ fontSize: 11, background: '#111827', padding: '1px 4px', borderRadius: 3 }}>
+                <code style={{ fontSize: 11, background: 'var(--surface-alt)', padding: '1px 4px', borderRadius: 3 }}>
                   {window.location.origin}/spt
                 </code>{' '}
                 as a redirect URI, then paste your Client ID below.
@@ -546,8 +546,8 @@ export default function SpotifyExplorer() {
               ))}
             </select>
 
-            {status   && <div style={{ fontSize: 12, color: '#9ab0d0', marginTop: 10 }}>{status}</div>}
-            {bpmStatus && <div style={{ fontSize: 12, color: '#9ab0d0', marginTop: 10 }}>{bpmStatus}</div>}
+            {status   && <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 10 }}>{status}</div>}
+            {bpmStatus && <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 10 }}>{bpmStatus}</div>}
 
             {bpmLog.length > 0 && (
               <div
@@ -580,23 +580,23 @@ export default function SpotifyExplorer() {
                             : t.bpmSource === 'getsongbpm' ? '#4ade80'
                             : t.bpmSource === 'deezer'   ? '#a78bfa'
                             : t.bpmSource === 'failed'   ? '#f44336'
-                            : '#eef2ff'
+                            : 'var(--text-primary)'
                           }}>
                             {t.bpm ?? '—'}
                           </span>
                         </div>
-                        <div style={{ fontSize: 10, color: '#374d66' }}>bpm</div>
+                        <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>bpm</div>
                       </div>
-                      <div style={{ width: 1, height: 28, background: '#1a2840', flexShrink: 0 }} />
+                      <div style={{ width: 1, height: 28, background: 'var(--border)', flexShrink: 0 }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, color: '#eef2ff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <div style={{ fontSize: 13, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {t.name}
                         </div>
-                        <div style={{ fontSize: 11, color: '#9ab0d0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <div style={{ fontSize: 11, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {t.artists.map(a => a.name).join(', ')}
                         </div>
                       </div>
-                      <span style={{ fontSize: 11, color: '#374d66', flexShrink: 0 }}>{fmtDuration(t.duration_ms)}</span>
+                      <span style={{ fontSize: 11, color: 'var(--text-dim)', flexShrink: 0 }}>{fmtDuration(t.duration_ms)}</span>
                     </div>
                   ))}
                 </div>
@@ -605,16 +605,16 @@ export default function SpotifyExplorer() {
                     { color: '#a78bfa', label: 'deezer' },
                     { color: '#4ade80', label: 'getsong.co' },
                     { color: '#f44336', label: 'not found' },
-                    { color: '#eef2ff', label: 'pending' },
+                    { color: 'var(--text-primary)', label: 'pending' },
                   ].map(({ color, label }) => (
                     <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                       <div style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
-                      <span style={{ fontSize: 10, color: '#374d66' }}>{label}</span>
+                      <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>{label}</span>
                     </div>
                   ))}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                     <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#e879f9', flexShrink: 0 }} />
-                    <span style={{ fontSize: 10, color: '#374d66' }}>db cache</span>
+                    <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>db cache</span>
                   </div>
                 </div>
               </div>
@@ -624,7 +624,7 @@ export default function SpotifyExplorer() {
 
         {/* Bottom bar — always visible when connected */}
         {connected && (
-          <div style={{ marginTop: 24, borderTop: '1px solid #1a2840', paddingTop: 16 }}>
+          <div style={{ marginTop: 24, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button className="btn btn-sm" onClick={disconnect}>disconnect spotify</button>
@@ -637,7 +637,7 @@ export default function SpotifyExplorer() {
                   {scanMode === 'fetching' ? 'fetching… (cancel)' : scanMode === 'running' ? 'scanning…' : scanMode === 'done' ? 'close scan' : 'scan all'}
                 </button>
               </div>
-              <a href="https://getsong.co" target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: '#374d66', textDecoration: 'none' }}>
+              <a href="https://getsong.co" target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: 'var(--text-dim)', textDecoration: 'none' }}>
                 BPM data: GetSong.co
               </a>
             </div>

@@ -154,7 +154,7 @@ export default function StringTracker() {
           const snapping = swipeOffset.id !== g.id
 
           return (
-            <div key={g.id} style={{ position: 'relative', marginBottom: 8, borderRadius: 8, overflow: 'hidden', border: '1px solid #1a2840' }}>
+            <div key={g.id} style={{ position: 'relative', marginBottom: 8, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)' }}>
               {/* delete zone revealed by left swipe */}
               <div style={{
                 position: 'absolute', top: 0, right: 0, bottom: 0, width: 80,
@@ -181,17 +181,17 @@ export default function StringTracker() {
                   onClick={() => handleCardClick(g.id)}
                 >
                   <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
-                  <span style={{ flex: 1, fontSize: 14, color: '#ddd' }}>{g.name}</span>
+                  <span style={{ flex: 1, fontSize: 14, color: 'var(--text-sub)' }}>{g.name}</span>
                   <span style={{ fontSize: 12, color }}>{days !== null ? `${days}d` : '—'}</span>
-                  <span style={{ fontSize: 12, color: '#374d66', margin: '0 2px' }}>|</span>
+                  <span style={{ fontSize: 12, color: 'var(--text-dim)', margin: '0 2px' }}>|</span>
                   <span style={{ fontSize: 12, color }}>{remaining !== null ? `${Math.abs(remaining)}d` : '—'}</span>
-                  <span style={{ fontSize: 12, color: '#374d66', margin: '0 2px' }}>|</span>
-                  <span style={{ fontSize: 12, color: '#374d66' }}>{g.threshold_days}d</span>
+                  <span style={{ fontSize: 12, color: 'var(--text-dim)', margin: '0 2px' }}>|</span>
+                  <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>{g.threshold_days}d</span>
                 </div>
 
                 {expanded && (
-                  <div style={{ marginTop: 12, borderTop: '1px solid #1e1e1e', paddingTop: 12 }}>
-                    <div style={{ fontSize: 11, color: '#666', marginBottom: 8 }}>
+                  <div style={{ marginTop: 12, borderTop: '1px solid var(--border-dark)', paddingTop: 12 }}>
+                    <div style={{ fontSize: 11, color: 'var(--text-faintest)', marginBottom: 8 }}>
                       last changed: {fmtDate(g.last_changed)}
                     </div>
                     {g.history?.length > 0 && (
@@ -199,7 +199,7 @@ export default function StringTracker() {
                         <div className="label">change history</div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                           {[...g.history].reverse().slice(0, 10).map((h, i) => (
-                            <div key={i} style={{ fontSize: 12, color: '#555' }}>{fmtDate(h)}</div>
+                            <div key={i} style={{ fontSize: 12, color: 'var(--text-faintest)' }}>{fmtDate(h)}</div>
                           ))}
                         </div>
                       </div>
