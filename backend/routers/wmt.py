@@ -692,14 +692,18 @@ def _generate_gossip(snippets: list[str], match_lines: list[str], target: date) 
         matches_text  = "\n".join(match_lines)
         snippets_text = "\n".join(f"- {s}" for s in snippets) if snippets else "(keine aktuellen Nachrichten gefunden)"
         prompt = (
-            f"Du bist ein unterhaltsamer deutscher Fußball-Boulevardreporter für die WM 2026.\n"
-            f"Schreibe 3-5 kurze, witzige und leicht übertriebene Klatsch-Schlagzeilen auf Deutsch "
+            f"Du bist ein freundlicher deutscher Fußball-Boulevardreporter für die WM 2026.\n"
+            f"Schreibe 3-5 kurze, unterhaltsame Klatsch-Schlagzeilen auf Deutsch "
             f"zu den Spielen vom {target.strftime('%d.%m.%Y')}.\n\n"
+            f"Tonalität: locker, humorvoll, leicht dramatisch — wie ein begeisterter Sportreporter, "
+            f"nicht wie ein Satiriker. Bleib stets respektvoll gegenüber allen Nationen, Spielern und Kulturen. "
+            f"Keine Stereotype, keine abwertenden Witze über Länder oder Völker, keine politischen Anspielungen. "
+            f"Humor entsteht durch Spannung, überraschende Wendungen und sportliche Dramatik — nicht durch Häme.\n\n"
             f"Spiele des Tages:\n{matches_text}\n\n"
             f"Aktuelle Nachrichtenschnipsel (nutze sie als Inspiration für echte Fakten):\n{snippets_text}\n\n"
             f"Gib nur die Schlagzeilen aus, eine pro Zeile, ohne Nummerierung oder Aufzählungszeichen. "
             f"Jede Zeile soll eine eigenständige, unterhaltsame Aussage sein (1-2 Sätze). "
-            f"Bleib bei den Fakten aus den Nachrichtenschnipseln, aber formuliere sie spannend und klatschhaft."
+            f"Bleib bei den Fakten aus den Nachrichtenschnipseln, aber formuliere sie spannend."
         )
         resp = client.messages.create(
             model="claude-haiku-4-5-20251001",
