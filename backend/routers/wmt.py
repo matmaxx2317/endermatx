@@ -51,6 +51,8 @@ BASE_ELO    = 1500.0  # Startwert für historisches Warmup
 # ── football-data.org ────────────────────────────────────────────────────────
 
 FOOTBALL_API_KEY  = os.getenv("FOOTBALL_DATA_API_KEY", "")
+NEWS_API_KEY      = os.getenv("NEWS_API_KEY", "")
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 FOOTBALL_API_BASE = "https://api.football-data.org/v4"
 WC2026_COMP_CODE  = "WC"
 
@@ -643,6 +645,73 @@ def do_refresh(db: Session) -> tuple[int, str]:
     return _do_refresh_openligadb(db)
 
 
+def _fetch_newsapi_snippets(team_names: list[str], target: date) -> list[str]:
+    """Fetch recent news snippets about the given teams from NewsAPI."""
+    if not NEWS_API_KEY or not team_names:
+        return []
+    query = " OR ".join(f'"{n}"' for n in team_names[:6])  # cap query length
+    from_dt = target.isoformat()
+    to_dt   = (target + timedelta(days=2)).isoformat()
+    url = "https://newsapi.org/v2/everything"
+    params = {
+        "q":        query,
+        "from":     from_dt,
+        "to":       to_dt,
+        "language": "en",
+        "sortBy":   "relevancy",
+        "pageSize": "10",
+        "apiKey":   NEWS_API_KEY,
+    }
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            r = client.get(url, params=params)
+        if r.status_code != 200:
+            logger.warning("NewsAPI returned %s", r.status_code)
+            return []
+        articles = r.json().get("articles", [])
+        snippets = []
+        for a in articles:
+            title   = (a.get("title")       or "").strip()
+            desc    = (a.get("description") or "").strip()
+            snippet = f"{title}. {desc}" if desc else title
+            if snippet:
+                snippets.append(snippet[:300])
+        return snippets[:8]
+    except Exception as exc:
+        logger.warning("NewsAPI fetch failed: %s", exc)
+        return []
+
+
+def _generate_gossip(snippets: list[str], match_lines: list[str], target: date) -> str:
+    """Use Claude API to turn news snippets into German match gossip."""
+    if not ANTHROPIC_API_KEY:
+        return ""
+    try:
+        import anthropic
+        client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        matches_text  = "\n".join(match_lines)
+        snippets_text = "\n".join(f"- {s}" for s in snippets) if snippets else "(keine aktuellen Nachrichten gefunden)"
+        prompt = (
+            f"Du bist ein unterhaltsamer deutscher Fußball-Boulevardreporter für die WM 2026.\n"
+            f"Schreibe 3-5 kurze, witzige und leicht übertriebene Klatsch-Schlagzeilen auf Deutsch "
+            f"zu den Spielen vom {target.strftime('%d.%m.%Y')}.\n\n"
+            f"Spiele des Tages:\n{matches_text}\n\n"
+            f"Aktuelle Nachrichtenschnipsel (nutze sie als Inspiration für echte Fakten):\n{snippets_text}\n\n"
+            f"Gib nur die Schlagzeilen aus, eine pro Zeile, ohne Nummerierung oder Aufzählungszeichen. "
+            f"Jede Zeile soll eine eigenständige, unterhaltsame Aussage sein (1-2 Sätze). "
+            f"Bleib bei den Fakten aus den Nachrichtenschnipseln, aber formuliere sie spannend und klatschhaft."
+        )
+        resp = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=600,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return resp.content[0].text.strip()
+    except Exception as exc:
+        logger.warning("Gossip generation failed: %s", exc)
+        return ""
+
+
 def do_generate_summary(db: Session, for_date: Optional[date] = None) -> str:
     """Tagesrückblick für die Spiele des Vortags generieren und speichern."""
     target  = for_date or (date.today() - timedelta(days=1))
@@ -667,6 +736,8 @@ def do_generate_summary(db: Session, for_date: Optional[date] = None) -> str:
 
     upsets: list[str] = []
     correct = 0
+    team_names: list[str] = []
+    match_lines: list[str] = []
 
     for m in finished:
         home = db.get(models.WmtTeam, m.home_team_id)
@@ -676,6 +747,12 @@ def do_generate_summary(db: Session, for_date: Optional[date] = None) -> str:
         score = f"{m.score_home}:{m.score_away}"
         group_info = f"Gr. {m.group_name}" if m.group_name else _stage_de(m.stage)
         line = f"**{home_name} {score} {away_name}** ({group_info})"
+
+        if home and home.short_name and home.short_name not in team_names:
+            team_names.append(home.short_name)
+        if away and away.short_name and away.short_name not in team_names:
+            team_names.append(away.short_name)
+        match_lines.append(f"{home_name} {score} {away_name} ({group_info})")
 
         pred = (
             db.query(models.WmtPrediction)
@@ -709,6 +786,14 @@ def do_generate_summary(db: Session, for_date: Optional[date] = None) -> str:
         lines.append(f"\n**Überraschungen:** {', '.join(upsets)}.")
 
     content = "\n".join(lines)
+
+    # Gossip section — only if API keys are configured
+    if NEWS_API_KEY or ANTHROPIC_API_KEY:
+        snippets = _fetch_newsapi_snippets(team_names, target)
+        gossip   = _generate_gossip(snippets, match_lines, target)
+        if gossip:
+            content += f"\n\n## Gossip\n\n{gossip}"
+
     existing = db.query(models.WmtSummary).filter_by(date=target).first()
     if existing:
         existing.content = content
