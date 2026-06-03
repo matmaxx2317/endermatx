@@ -1645,8 +1645,30 @@ function SummaryCalModal({ matches, summaries, generating, onClose, onGenerate }
 }
 
 function GruppenTabellen({ matches }) {
-  const groups = {}
+  const [tooltip, setTooltip] = useState(null)
 
+  useEffect(() => {
+    if (!tooltip) return
+    function dismiss() { setTooltip(null) }
+    document.addEventListener('click', dismiss)
+    return () => document.removeEventListener('click', dismiss)
+  }, [tooltip])
+
+  // Pre-compute finished group match history per team for tooltip
+  const teamMatchHistory = {}
+  for (const m of matches) {
+    if (m.stage !== 'GROUP_STAGE' || m.status !== 'FINISHED' || m.score_home == null) continue
+    for (const team of [m.home_team, m.away_team]) {
+      if (!team) continue
+      if (!teamMatchHistory[team.id]) teamMatchHistory[team.id] = []
+      teamMatchHistory[team.id].push(m)
+    }
+  }
+  for (const id in teamMatchHistory) {
+    teamMatchHistory[id].sort((a, b) => a.matchday - b.matchday)
+  }
+
+  const groups = {}
   for (const m of matches) {
     if (m.stage !== 'GROUP_STAGE' || !m.group_name) continue
     const g = m.group_name
@@ -1675,56 +1697,99 @@ function GruppenTabellen({ matches }) {
     )
   }
 
+  function handleTlaClick(e, team) {
+    e.stopPropagation()
+    if (tooltip?.teamId === team.id) { setTooltip(null); return }
+    const rect = e.currentTarget.getBoundingClientRect()
+    const results = (teamMatchHistory[team.id] || []).map(m => {
+      const htla = m.home_team?.tla ?? '?'
+      const atal = m.away_team?.tla ?? '?'
+      return `MD${m.matchday}: ${htla} - ${atal}: ${m.score_home}:${m.score_away}`
+    })
+    setTooltip({
+      teamId: team.id,
+      x: Math.min(rect.left, window.innerWidth - 210),
+      y: rect.bottom + 5,
+      name: team.name,
+      results,
+    })
+  }
+
   const th = { fontSize: 10, color: '#374d66', fontWeight: 400, letterSpacing: '0.06em', textAlign: 'right', paddingBottom: 6 }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-      {sortedGroups.map(([group, teamMap]) => {
-        const rows = Object.values(teamMap)
-          .map(r => ({ ...r, pts: r.w * 3 + r.d, gd: r.gf - r.ga }))
-          .sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf || (b.team.elo ?? 0) - (a.team.elo ?? 0))
+    <div>
+      {tooltip && (
+        <div
+          onClick={e => e.stopPropagation()}
+          style={{
+            position: 'fixed', left: tooltip.x, top: tooltip.y, zIndex: 300,
+            background: '#0d1221', border: '1px solid #2a3d5c',
+            borderRadius: 6, padding: '8px 12px',
+            fontSize: 11, color: '#9ab0d0', lineHeight: 1.7,
+            minWidth: 160, maxWidth: 220,
+            boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+          }}>
+          <div style={{ color: '#eef2ff', fontWeight: 600, marginBottom: 5 }}>{tooltip.name}</div>
+          {tooltip.results.length > 0
+            ? tooltip.results.map((r, i) => (
+                <div key={i} style={{ fontVariantNumeric: 'tabular-nums' }}>{r}</div>
+              ))
+            : <div style={{ color: '#374d66' }}>Noch keine Spiele</div>
+          }
+        </div>
+      )}
 
-        return (
-          <div key={group} style={{ background: '#0d1221', border: '1px solid #1a2840', borderRadius: 10, padding: '12px 14px' }}>
-            <div style={{ fontSize: 10, color: '#374d66', letterSpacing: '0.1em', marginBottom: 8 }}>GRUPPE {group}</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+        {sortedGroups.map(([group, teamMap]) => {
+          const rows = Object.values(teamMap)
+            .map(r => ({ ...r, pts: r.w * 3 + r.d, gd: r.gf - r.ga }))
+            .sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf || (b.team.elo ?? 0) - (a.team.elo ?? 0))
 
-            <div style={{ display: 'flex', gap: 4, paddingBottom: 5, borderBottom: '1px solid #1a2840' }}>
-              <div style={{ width: 14, ...th }}>#</div>
-              <div style={{ flex: 1, textAlign: 'left', ...th }}>TEAM</div>
-              <div style={{ width: 20, ...th }}>Sp</div>
-              <div style={{ width: 16, ...th }}>W</div>
-              <div style={{ width: 16, ...th }}>U</div>
-              <div style={{ width: 16, ...th }}>N</div>
-              <div style={{ width: 38, ...th }}>Tore</div>
-              <div style={{ width: 26, ...th }}>TD</div>
-              <div style={{ width: 22, ...th, color: '#9ab0d0' }}>Pkt</div>
-            </div>
+          return (
+            <div key={group} style={{ background: '#0d1221', border: '1px solid #1a2840', borderRadius: 10, padding: '12px 14px' }}>
+              <div style={{ fontSize: 10, color: '#374d66', letterSpacing: '0.1em', marginBottom: 8 }}>GRUPPE {group}</div>
 
-            {rows.map((r, i) => (
-              <div key={r.team.id} style={{
-                display: 'flex', gap: 4, alignItems: 'center',
-                padding: '5px 0', borderTop: i > 0 ? '1px solid #1a2840' : 'none',
-              }}>
-                <div style={{ width: 14, fontSize: 10, color: '#374d66', textAlign: 'right', flexShrink: 0 }}>{i + 1}</div>
-                <div style={{ flex: 1, overflow: 'hidden' }}>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: '#eef2ff' }}>
-                    {r.team.tla ?? r.team.short_name}
-                  </span>
-                </div>
-                <div style={{ width: 20, fontSize: 11, color: '#9ab0d0', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.gp}</div>
-                <div style={{ width: 16, fontSize: 11, color: '#9ab0d0', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.w}</div>
-                <div style={{ width: 16, fontSize: 11, color: '#9ab0d0', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.d}</div>
-                <div style={{ width: 16, fontSize: 11, color: '#9ab0d0', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.l}</div>
-                <div style={{ width: 38, fontSize: 11, color: '#9ab0d0', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.gf}:{r.ga}</div>
-                <div style={{ width: 26, fontSize: 11, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: r.gd > 0 ? '#4d8a4d' : r.gd < 0 ? '#8a4d4d' : '#9ab0d0' }}>
-                  {r.gd > 0 ? '+' : ''}{r.gd}
-                </div>
-                <div style={{ width: 22, fontSize: 13, fontWeight: 600, color: '#eef2ff', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.pts}</div>
+              <div style={{ display: 'flex', gap: 4, paddingBottom: 5, borderBottom: '1px solid #1a2840' }}>
+                <div style={{ width: 14, ...th }}>#</div>
+                <div style={{ flex: 1, textAlign: 'left', ...th }}>TEAM</div>
+                <div style={{ width: 20, ...th }}>Sp</div>
+                <div style={{ width: 16, ...th }}>W</div>
+                <div style={{ width: 16, ...th }}>U</div>
+                <div style={{ width: 16, ...th }}>N</div>
+                <div style={{ width: 38, ...th }}>Tore</div>
+                <div style={{ width: 26, ...th }}>TD</div>
+                <div style={{ width: 22, ...th, color: '#9ab0d0' }}>Pkt</div>
               </div>
-            ))}
-          </div>
-        )
-      })}
+
+              {rows.map((r, i) => (
+                <div key={r.team.id} style={{
+                  display: 'flex', gap: 4, alignItems: 'center',
+                  padding: '5px 0', borderTop: i > 0 ? '1px solid #1a2840' : 'none',
+                }}>
+                  <div style={{ width: 14, fontSize: 10, color: '#374d66', textAlign: 'right', flexShrink: 0 }}>{i + 1}</div>
+                  <div style={{ flex: 1, overflow: 'hidden' }}>
+                    <span
+                      onClick={e => handleTlaClick(e, r.team)}
+                      style={{ fontSize: 12, fontWeight: 600, color: '#eef2ff', cursor: 'pointer', userSelect: 'none' }}>
+                      {r.team.tla ?? r.team.short_name}
+                    </span>
+                  </div>
+                  <div style={{ width: 20, fontSize: 11, color: '#9ab0d0', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.gp}</div>
+                  <div style={{ width: 16, fontSize: 11, color: '#9ab0d0', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.w}</div>
+                  <div style={{ width: 16, fontSize: 11, color: '#9ab0d0', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.d}</div>
+                  <div style={{ width: 16, fontSize: 11, color: '#9ab0d0', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.l}</div>
+                  <div style={{ width: 38, fontSize: 11, color: '#9ab0d0', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.gf}:{r.ga}</div>
+                  <div style={{ width: 26, fontSize: 11, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: r.gd > 0 ? '#4d8a4d' : r.gd < 0 ? '#8a4d4d' : '#9ab0d0' }}>
+                    {r.gd > 0 ? '+' : ''}{r.gd}
+                  </div>
+                  <div style={{ width: 22, fontSize: 13, fontWeight: 600, color: '#eef2ff', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.pts}</div>
+                </div>
+              ))}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
