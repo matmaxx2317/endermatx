@@ -456,6 +456,8 @@ export default function Wmt() {
   const [fakingTp, setFakingTp]           = useState(false)
   const [fakingFinal, setFakingFinal]     = useState(false)
   const [fakingAll, setFakingAll]         = useState(false)
+  const [summaryCalOpen, setSummaryCalOpen]           = useState(false)
+  const [generatingSummaryFor, setGeneratingSummaryFor] = useState(null)
   const [logs, setLogs]                   = useState([])
   const [menuOpen, setMenuOpen]         = useState(false)
   const logRef                          = useRef(null)
@@ -760,6 +762,25 @@ export default function Wmt() {
     finally { setFakingFinal(false) }
   }
 
+  async function handleGenerateSummaryFor(dateStr) {
+    setGeneratingSummaryFor(dateStr)
+    addLog(`Morgenbericht für ${dateStr} wird erstellt…`)
+    try {
+      const res = await wmt.generateSummaryFor(dateStr)
+      addLog(res.message, res.updated ? 'done' : 'error')
+      if (res.updated) {
+        const ss = await wmt.getSummaries()
+        setSummaries(ss)
+        setSummaryCalOpen(false)
+        setView('zusammenfassung')
+      }
+    } catch {
+      addLog('Fehler beim Erstellen des Morgenberichts', 'error')
+    } finally {
+      setGeneratingSummaryFor(null)
+    }
+  }
+
   async function handleFakeAll() {
     setFakingAll(true); setView('import')
     addLog('Alle Turnierphasen (MD1–Finale) werden gefakt…')
@@ -864,7 +885,7 @@ export default function Wmt() {
             }}>
             {anyBusy ? '…' : '☰'}
           </button>
-          <span className="topbar-version">v2.7</span>
+          <span className="topbar-version">v2.9</span>
         </div>
       </div>
 
@@ -897,6 +918,11 @@ export default function Wmt() {
               icon="▶" label={isBonusFrozen ? 'Bonus-Prognose gesperrt' : 'Bonus-Prognose berechnen'}
               loading={generatingBonus} disabled={(anyBusy && !generatingBonus) || isBonusFrozen}
               onClick={() => { setMenuOpen(false); handleGenerateBonus() }}
+            />
+            <MenuButton
+              icon="📋" label="Morgenbericht erstellen"
+              loading={!!generatingSummaryFor} disabled={anyBusy && !generatingSummaryFor}
+              onClick={() => { setMenuOpen(false); setSummaryCalOpen(true) }}
             />
             <div style={{ borderTop: '1px solid #1a2840', margin: '6px 0' }} />
             <MenuButton
@@ -960,12 +986,23 @@ export default function Wmt() {
         </div>
       )}
 
+      {summaryCalOpen && (
+        <SummaryCalModal
+          matches={matches}
+          summaries={summaries}
+          generating={generatingSummaryFor}
+          onClose={() => setSummaryCalOpen(false)}
+          onGenerate={handleGenerateSummaryFor}
+        />
+      )}
+
       <div className="page">
         {/* view tabs */}
         <div style={{ display: 'flex', gap: 6, marginBottom: 20, flexWrap: 'wrap' }}>
           {[
             ['import', 'Import'],
             ['spieltage', 'Spieltage'],
+            ['gruppen', 'Gruppen-Tabellen'],
             ['bonus', 'Bonus-Tipps'],
             ['zusammenfassung', 'Morgenberichte'],
           ].map(([key, label]) => (
@@ -1073,6 +1110,11 @@ export default function Wmt() {
               </>
             )}
           </>
+        )}
+
+        {/* ── Gruppen-Tabellen view ─────────────────────────────────────── */}
+        {!loading && view === 'gruppen' && (
+          <GruppenTabellen matches={matches} />
         )}
 
         {/* ── Bonus-Tipps view ──────────────────────────────────────────── */}
@@ -1493,6 +1535,196 @@ function BonusView({ bonus, generating, actualResults }) {
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+function SummaryCalModal({ matches, summaries, generating, onClose, onGenerate }) {
+  const matchDates = new Set(matches.map(m => matchLocalDateKey(m)))
+  const summaryDates = new Set(summaries.map(s => (s.date || '').slice(0, 10)))
+
+  // Derive months to show from match date range
+  const sortedDates = [...matchDates].sort()
+  const months = []
+  if (sortedDates.length > 0) {
+    const first = new Date(sortedDates[0] + 'T12:00:00')
+    const last  = new Date(sortedDates[sortedDates.length - 1] + 'T12:00:00')
+    let cur = new Date(first.getFullYear(), first.getMonth(), 1)
+    while (cur <= last) {
+      months.push({ year: cur.getFullYear(), month: cur.getMonth() })
+      cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1)
+    }
+  } else {
+    months.push({ year: 2026, month: 5 })
+    months.push({ year: 2026, month: 6 })
+  }
+
+  const MONTH_NAMES = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember']
+  const DAY_NAMES   = ['Mo','Di','Mi','Do','Fr','Sa','So']
+
+  function renderMonth({ year, month }) {
+    const firstDow = new Date(year, month, 1).getDay() // 0=Sun
+    const offset   = firstDow === 0 ? 6 : firstDow - 1 // Mon=0
+    const daysInMonth = new Date(year, month + 1, 0).getDate()
+
+    const cells = Array(offset).fill(null)
+    for (let d = 1; d <= daysInMonth; d++) cells.push(d)
+
+    return (
+      <div key={`${year}-${month}`}>
+        <div style={{ fontSize: 11, color: '#9ab0d0', textAlign: 'center', marginBottom: 8, fontWeight: 600 }}>
+          {MONTH_NAMES[month]} {year}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3, marginBottom: 4 }}>
+          {DAY_NAMES.map(d => (
+            <div key={d} style={{ fontSize: 9, color: '#374d66', textAlign: 'center' }}>{d}</div>
+          ))}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3 }}>
+          {cells.map((d, i) => {
+            if (!d) return <div key={`e${i}`} />
+            const iso       = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+            const hasMatch  = matchDates.has(iso)
+            const hasSummary = summaryDates.has(iso)
+            const busy      = generating === iso
+            return (
+              <button
+                key={iso}
+                onClick={() => hasMatch && !generating && onGenerate(iso)}
+                disabled={!hasMatch || !!generating}
+                style={{
+                  position: 'relative',
+                  background: hasMatch ? '#1a2840' : 'none',
+                  border: `1px solid ${hasMatch ? '#2a3d5c' : 'transparent'}`,
+                  borderRadius: 4, padding: '6px 2px 8px',
+                  fontSize: 11, textAlign: 'center',
+                  color: hasMatch ? '#eef2ff' : '#1a2840',
+                  cursor: hasMatch && !generating ? 'pointer' : 'default',
+                  fontFamily: 'inherit',
+                  opacity: !!generating && !busy ? 0.5 : 1,
+                }}>
+                {busy ? '…' : d}
+                {hasSummary && !busy && (
+                  <div style={{
+                    position: 'absolute', bottom: 2, left: '50%', transform: 'translateX(-50%)',
+                    width: 3, height: 3, borderRadius: '50%', background: '#4d6fa0',
+                  }} />
+                )}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div
+      onClick={onClose}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(7,9,26,0.88)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }}>
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: '#0d1221', border: '1px solid #2a3d5c',
+          borderRadius: 12, padding: '20px 24px',
+          width: 320, maxHeight: '80vh', overflowY: 'auto',
+        }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <span style={{ fontSize: 11, color: '#374d66', letterSpacing: '0.1em' }}>MORGENBERICHT ERSTELLEN</span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#9ab0d0', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: 0 }}>✕</button>
+        </div>
+        <div style={{ fontSize: 11, color: '#374d66', marginBottom: 16, lineHeight: 1.5 }}>
+          Spieltag auswählen · blauer Punkt = Bericht vorhanden
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {months.map(m => renderMonth(m))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function GruppenTabellen({ matches }) {
+  const groups = {}
+
+  for (const m of matches) {
+    if (m.stage !== 'GROUP_STAGE' || !m.group_name) continue
+    const g = m.group_name
+    if (!groups[g]) groups[g] = {}
+    for (const [team, gs, gc] of [
+      [m.home_team, m.score_home, m.score_away],
+      [m.away_team, m.score_away, m.score_home],
+    ]) {
+      if (!team) continue
+      if (!groups[g][team.id]) groups[g][team.id] = { team, gp: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0 }
+      const row = groups[g][team.id]
+      if (m.status === 'FINISHED' && gs != null && gc != null) {
+        row.gp++; row.gf += gs; row.ga += gc
+        if (gs > gc) row.w++; else if (gs === gc) row.d++; else row.l++
+      }
+    }
+  }
+
+  const sortedGroups = Object.entries(groups).sort(([a], [b]) => a.localeCompare(b))
+
+  if (sortedGroups.length === 0) {
+    return (
+      <div style={{ background: '#0d1221', border: '1px solid #1a2840', borderRadius: 10, padding: 24, textAlign: 'center' }}>
+        <div style={{ fontSize: 13, color: '#9ab0d0' }}>Noch keine Gruppenspiele vorhanden.</div>
+      </div>
+    )
+  }
+
+  const th = { fontSize: 10, color: '#374d66', fontWeight: 400, letterSpacing: '0.06em', textAlign: 'right', paddingBottom: 6 }
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      {sortedGroups.map(([group, teamMap]) => {
+        const rows = Object.values(teamMap)
+          .map(r => ({ ...r, pts: r.w * 3 + r.d, gd: r.gf - r.ga }))
+          .sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf || (b.team.elo ?? 0) - (a.team.elo ?? 0))
+
+        return (
+          <div key={group} style={{ background: '#0d1221', border: '1px solid #1a2840', borderRadius: 10, padding: '12px 14px' }}>
+            <div style={{ fontSize: 10, color: '#374d66', letterSpacing: '0.1em', marginBottom: 8 }}>GRUPPE {group}</div>
+
+            <div style={{ display: 'flex', gap: 4, paddingBottom: 5, borderBottom: '1px solid #1a2840' }}>
+              <div style={{ width: 14, ...th }}>#</div>
+              <div style={{ flex: 1, textAlign: 'left', ...th }}>TEAM</div>
+              <div style={{ width: 20, ...th }}>Sp</div>
+              <div style={{ width: 16, ...th }}>W</div>
+              <div style={{ width: 16, ...th }}>U</div>
+              <div style={{ width: 16, ...th }}>N</div>
+              <div style={{ width: 38, ...th }}>Tore</div>
+              <div style={{ width: 26, ...th }}>TD</div>
+              <div style={{ width: 22, ...th, color: '#9ab0d0' }}>Pkt</div>
+            </div>
+
+            {rows.map((r, i) => (
+              <div key={r.team.id} style={{
+                display: 'flex', gap: 4, alignItems: 'center',
+                padding: '5px 0', borderTop: i > 0 ? '1px solid #1a2840' : 'none',
+              }}>
+                <div style={{ width: 14, fontSize: 10, color: '#374d66', textAlign: 'right', flexShrink: 0 }}>{i + 1}</div>
+                <div style={{ flex: 1, overflow: 'hidden' }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: '#eef2ff' }}>
+                    {r.team.tla ?? r.team.short_name}
+                  </span>
+                </div>
+                <div style={{ width: 20, fontSize: 11, color: '#9ab0d0', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.gp}</div>
+                <div style={{ width: 16, fontSize: 11, color: '#9ab0d0', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.w}</div>
+                <div style={{ width: 16, fontSize: 11, color: '#9ab0d0', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.d}</div>
+                <div style={{ width: 16, fontSize: 11, color: '#9ab0d0', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.l}</div>
+                <div style={{ width: 38, fontSize: 11, color: '#9ab0d0', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.gf}:{r.ga}</div>
+                <div style={{ width: 26, fontSize: 11, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: r.gd > 0 ? '#4d8a4d' : r.gd < 0 ? '#8a4d4d' : '#9ab0d0' }}>
+                  {r.gd > 0 ? '+' : ''}{r.gd}
+                </div>
+                <div style={{ width: 22, fontSize: 13, fontWeight: 600, color: '#eef2ff', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.pts}</div>
+              </div>
+            ))}
+          </div>
+        )
+      })}
     </div>
   )
 }
