@@ -75,7 +75,7 @@ backend/
   models.py        ← All SQLAlchemy table models
   schemas.py       ← Pydantic request/response schemas
   routers/
-    tts.py  cal.py  idx.py  strings.py
+    tts.py  cal.py  idx.py  strings.py  bpm.py  scan.py  wmt.py
 frontend/
   index.html       ← Vite entry (loads Inter font from Google Fonts)
   vite.config.js   ← Injects __GIT_HASH__, __GIT_HASH_FULL__ at build
@@ -85,6 +85,8 @@ frontend/
     App.jsx        ← BrowserRouter + Routes
     index.css      ← All shared styles (design tokens, topbar, page, cards, landing)
     api.js         ← Typed fetch wrappers for every API endpoint
+    spotify.js     ← Spotify Web API helpers (used by spt)
+    bpm.js         ← BPM-resolution helpers (used by spt)
     pages/         ← One file per route (Home, Productivity, Personal, Games, tools…)
     components/    ← Shared components
 games/             ← Legacy static game files (served at /games by FastAPI StaticFiles)
@@ -107,7 +109,10 @@ Three levels deep, all handled by React Router:
   /personal       ← Personal category page
     /str          ← String tracker
     /bpm          ← BPM tap counter
+    /spt          ← Spotify explorer
+    /wmt          ← WM 2026 Tipp-Assistent
   /games          ← Games category page (React)
+    /block-hero            ← React game (BlockHero.jsx)
     /games/teleport-tap/   ← Static legacy game (served from games/ dir)
     /games/mobs-magic/     ← Static legacy game (served from games/ dir)
 ```
@@ -160,13 +165,13 @@ Each router (`backend/routers/*.py`) follows the same pattern:
 
 ### EOD scheduler
 
-`main.py` runs an APScheduler `CronTrigger(hour=23, minute=0)` that auto-closes any open TTS timer entries at 23:00 daily.
+`main.py` runs an APScheduler `CronTrigger(hour=23, minute=0)` that auto-closes any open TTS timer entries at 23:00 daily. It also auto-generates a WMT morning summary at 08:00 daily (if WMT matches exist).
 
 ## Frontend patterns
 
 ### API client (`frontend/src/api.js`)
 
-All backend calls go through typed wrappers in `api.js`. Never call `fetch` directly in a page component. Each tool namespace (`tts`, `cal`, `idx`, `str`) exports typed methods.
+All backend calls go through typed wrappers in `api.js`. Never call `fetch` directly in a page component. Each tool namespace (`tts`, `cal`, `idx`, `str`, `wmt`) exports typed methods.
 
 ### State model
 
@@ -182,6 +187,19 @@ Each tool page owns its own version string, displayed in the topbar's right side
 
 **Why this design:** a single shared version (e.g. `package.json`) causes conflicts when multiple parallel branches each bump it independently. Per-tool versions in the tool's own file eliminate that coordination problem — two branches working on different tools never touch the same version string.
 
+**Current versions (as of last CLAUDE.md update):**
+
+| Tool | Version |
+|------|---------|
+| tts  | v4.0 |
+| cal  | v4.4 |
+| idx  | v4.2 |
+| str  | v4.0 |
+| bpm  | v4.0 |
+| spt  | v4.9 |
+| wmt  | v2.9 |
+| block-hero | v1.0 |
+
 There is no global version footer. `vite.config.js` still injects `__GIT_HASH__` and `__GIT_HASH_FULL__` (Railway fallback: `RAILWAY_GIT_COMMIT_SHA`) but these are not currently displayed.
 
 ## Tools reference
@@ -195,12 +213,129 @@ There is no global version footer. `vite.config.js` still injects `__GIT_HASH__`
 ### Personal
 
 - **str** (`/str`) — String tracker. Guitar string change dates with per-guitar thresholds (default 30 days). Status: fresh (< 3 days), warn-yellow (≥ 75% threshold), warn-red (≥ threshold).
-- **bpm** (`/bpm`) — BPM tap counter. Tap or press Space to measure tempo; auto-resets after 3 s of inactivity.
+- **bpm** (`/bpm`) — BPM tap counter. Tap or press Space to measure tempo; auto-resets after 3 s of inactivity. Backed by `backend/routers/bpm.py` + `scan.py` for Spotify track scanning.
+- **spt** (`/spt`) — Spotify explorer. Browse and play Spotify tracks, view BPM and waveform data. Uses `frontend/src/spotify.js` and `frontend/src/bpm.js`. No dedicated backend router — calls Spotify Web API directly from the browser.
+- **wmt** (`/wmt`) — WM 2026 Tipp-Assistent. See detailed section below.
 
 ### Games
 
+- **block-hero** (`/block-hero`) — Minecraft-themed rhythm game. 4-lane falling-block game with 100 procedurally generated tracks (33 easy / 33 medium / 34 hard), difficulty selection, combo multiplier, miss limit, and a Web Audio synthesiser for sound. Entirely self-contained in `BlockHero.jsx` — no backend, no database. Keys: D / F / J / K.
 - **teleport-tap** (`/games/teleport-tap/`) — Legacy static game.
 - **mobs-magic** (`/games/mobs-magic/`) — Legacy static game.
+
+## WMT — WM 2026 Tipp-Assistent
+
+Full tournament prediction assistant for the 2026 FIFA World Cup (104 matches). Backend router: `backend/routers/wmt.py`. Frontend page: `frontend/src/pages/Wmt.jsx`.
+
+### Data sources
+
+Match data is fetched via one of two sources, tried in order:
+1. **football-data.org v4** (`FOOTBALL_DATA_API_KEY` env var required) — all 104 matches, full schedule including knockout rounds.
+2. **openligadb.de** (no API key) — fallback, only covers Matchday 1.
+
+### Database models (`backend/models.py`)
+
+| Model | Table | Purpose |
+|-------|-------|---------|
+| `WmtTeam` | `wmt_teams` | Team with ELO rating, TLA, name, matches played |
+| `WmtMatch` | `wmt_matches` | Match with stage, group, date, teams, score, status |
+| `WmtPrediction` | `wmt_predictions` | ELO-based prediction snapshot per match (history kept) |
+| `WmtSummary` | `wmt_summaries` | Daily morning report (markdown) |
+| `WmtBonusPrediction` | `wmt_bonus_predictions` | Monte-Carlo tournament simulation result |
+
+### ELO prediction engine
+
+- **K-factor**: 60 (WC tournament weight)
+- **`elo_to_win_prob(home, away)`** — win/draw/away probabilities with draw modelled as a Gaussian around zero ELO difference
+- **`elo_to_expected_goals(home, away)`** — home/away xG scaled around `WC_AVG_GOALS = 1.35`
+- **`update_elo_after_match(...)`** — updates ELOs after a result, with goal-difference multiplier
+- **`do_historical_warmup(db)`** — re-calibrates ELOs using openligadb data for WM2014 → EM2024 with form-decay K-factor (older matches count less)
+
+### Refresh flow (`do_refresh`)
+
+1. Fetch all matches from API; upsert teams and matches
+2. For newly-finished matches: update ELOs (`update_elo_after_match`)
+3. `_auto_assign_next_round(db)` — if a round is now complete, fill the next round's empty team slots (strongest vs. weakest by ELO pairing)
+4. Regenerate `WmtPrediction` rows for all upcoming matches where ELO shifted ≥ 5 points
+
+### Auto-assign chain
+
+When a stage becomes fully complete, `_auto_assign_next_round` fills the next stage:
+```
+GROUP_STAGE (all 3 MDs) → LAST_32 (top-2 per group + best 8 third-placed)
+LAST_32  → LAST_16
+LAST_16  → QUARTER_FINALS
+QUARTER_FINALS → SEMI_FINALS
+SEMI_FINALS → FINAL (winners) + THIRD_PLACE (losers)
+```
+
+### Bonus prediction (`do_generate_bonus`)
+
+Monte-Carlo simulation (10 000 runs) of the full tournament. Outputs: tournament winner, finalists, semi-finalists, group winner probabilities, top-scorer estimate. Frozen (UI-locked) one day before the tournament starts. After the Final is finished, the Bonus view automatically shows a "PROGNOSE vs. REALITÄT" comparison section.
+
+### Morning summaries (`do_generate_summary`)
+
+Generates a markdown report for all matches played on a given date: results, prediction accuracy (tendency), upsets. Stored in `WmtSummary`. Auto-generated daily at 08:00 by the APScheduler. Can also be manually triggered per-date via the calendar picker in the burger menu.
+
+### Frontend views (`Wmt.jsx` — v2.9)
+
+The page has five tabs:
+
+| Tab | Content |
+|-----|---------|
+| **Import** | Log output for all async operations (refresh, fake, warmup, etc.) |
+| **Spieltage** | Match cards grouped by matchday/stage; sub-grouped by calendar day for group stage. Shows ELO-based tipp-Empfehlung, win/draw/loss prob bar, VERLAUF (prediction history with change notes) |
+| **Gruppen-Tabellen** | Live group standings for all 12 groups (A–L) in a 2-column grid. Columns: Sp / W / U / N / Tore / TD (coloured) / Pkt. Derived from match data, updates on every refresh/fake |
+| **Bonus-Tipps** | Monte-Carlo simulation results. Shows PROGNOSE vs. REALITÄT comparison at top once the Final is finished |
+| **Morgenberichte** | Daily match summaries in reverse-chronological order |
+
+**Matchday/stage selector:** pill buttons; active stages highlighted green (live), finished stages dimmed.
+
+**Team colour coding:** Only in the MD3 matchday view. Green = safely qualified for Rd.32 after MD2 results; red = safely eliminated. Determined by a pure-JS standings computation over all group matches.
+
+**Tipp suggestions:** For knockout stages the displayed tip (rounded xG) is never a draw — the higher-probability side gets +1 if scores tie. This applies to both the current tip and the VERLAUF history.
+
+**Burger menu actions:**
+- Spielplan aktualisieren (refresh from API)
+- Historische Kalibrierung (ELO warmup via openligadb)
+- Bonus-Prognose berechnen (locked one day before tournament)
+- Morgenbericht erstellen (calendar picker → generates summary for selected date)
+- Daten löschen
+- Fake alles (MD1–Finale in one call)
+- Individual fake buttons: MD1 / MD2 / MD3 / Rd.32 / Achtelfinale / Viertelfinale / Halbfinale / Spiel um Platz 3 / Finale (each unlocks sequentially)
+
+### Dev/test fake endpoints
+
+All under `POST /api/wmt/debug/…`:
+
+| Endpoint | Action |
+|----------|--------|
+| `fake-md1` | Fake Matchday 1 results (3 upsets) |
+| `fake-md2` | Fake Matchday 2 results (5 upsets) |
+| `fake-md3` | Fake Matchday 3 results (7 upsets) |
+| `fake-rd32` | Fake Rd. 32 results (5 upsets); draws always broken |
+| `fake-last16` | Fake Last-16 results (3 upsets) |
+| `fake-qf` | Fake Quarter-Finals (2 upsets) |
+| `fake-sf` | Fake Semi-Finals (1 upset) |
+| `fake-tp` | Fake Third-Place play-off (0 upsets) |
+| `fake-final` | Fake Final (0 upsets); triggers bonus comparison |
+| `fake-all` | Chain all stages in one call (ELO updates between stages, predictions only once at end) |
+
+### Key API endpoints (selected)
+
+```
+GET  /api/wmt/status            → match_count, prediction_count, calibrated, md*_done, rd32_done
+GET  /api/wmt/matches           → all matches with nested team + latest prediction + prediction history
+GET  /api/wmt/teams             → all teams with ELO
+GET  /api/wmt/summaries         → all morning reports
+GET  /api/wmt/bonus             → latest bonus prediction
+POST /api/wmt/refresh           → fetch + ELO update + predictions
+POST /api/wmt/warmup            → historical ELO calibration
+POST /api/wmt/summary/generate  → generate yesterday's morning report
+POST /api/wmt/summary/generate/{date}  → generate morning report for a specific date
+POST /api/wmt/bonus/generate    → run Monte-Carlo simulation
+POST /api/wmt/clear             → wipe all WMT data
+```
 
 ## Adding a new tool
 
