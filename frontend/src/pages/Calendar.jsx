@@ -423,7 +423,7 @@ export default function Calendar() {
           <span className="topbar-title">cal</span>
         </div>
         <div className="topbar-right">
-          <span className="topbar-version">v4.4</span>
+          <span className="topbar-version">v4.5</span>
           <button className="btn btn-sm" onClick={() => setShowSettings(s => !s)}>
             {showSettings ? 'close' : 'settings'}
           </button>
@@ -697,11 +697,11 @@ export default function Calendar() {
                   <input className="input" value={editForm.name} onChange={e => setEF('name', e.target.value)} />
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
-                  <div>
+                  <div style={{ minWidth: 0 }}>
                     <label className="label">start</label>
                     <input className="input" type="date" value={editForm.start_date} onChange={e => setEF('start_date', e.target.value)} />
                   </div>
-                  <div>
+                  <div style={{ minWidth: 0 }}>
                     <label className="label">end</label>
                     <input className="input" type="date" value={editForm.end_date} onChange={e => setEF('end_date', e.target.value)} />
                   </div>
