@@ -82,13 +82,16 @@ frontend/
   package.json     ← npm metadata only (version field is not used for display)
   src/
     main.jsx       ← React entry
-    App.jsx        ← BrowserRouter + Routes
-    index.css      ← All shared styles (design tokens, topbar, page, cards, landing)
+    App.jsx        ← BrowserRouter + Routes + ThemeProvider + ThemeToggle
+    index.css      ← All shared styles (CSS variables, design tokens, topbar, page, cards, landing)
     api.js         ← Typed fetch wrappers for every API endpoint
     spotify.js     ← Spotify Web API helpers (used by spt)
     bpm.js         ← BPM-resolution helpers (used by spt)
+    context/
+      ThemeContext.jsx  ← Theme state (dark/light), localStorage persistence, data-theme attribute
     pages/         ← One file per route (Home, Productivity, Personal, Games, tools…)
-    components/    ← Shared components
+    components/
+      ThemeToggle.jsx   ← Lightbulb toggle button + flyout (rendered globally in App.jsx)
 games/             ← Legacy static game files (served at /games by FastAPI StaticFiles)
   teleport-tap/index.html
   mobs-magic/index.html
@@ -121,30 +124,62 @@ Navigation pages (Home, Productivity, Personal, Games) use the `.landing-page` l
 
 ## Design system
 
-**Palette (hardcoded hex values, no CSS variables):**
+All colours are defined as CSS variables in `frontend/src/index.css`. The site supports **dark mode** (default) and **light mode**, switched via the theme toggle (see below).
 
-| Role | Value |
-|------|-------|
-| Page background | `#07091a` |
-| Surface / card | `#0d1221` |
-| Topbar / footer bg | `#070914` |
-| Border default | `#1a2840` |
-| Border hover | `#2a3d5c` |
-| Text primary | `#eef2ff` |
-| Text secondary | `#9ab0d0` |
-| Text muted / decorative | `#374d66` |
-| Focus / accent | `#4d6fa0` |
+### CSS variable palette
+
+| Variable | Dark value | Light value | Role |
+|----------|-----------|-------------|------|
+| `--bg` | `#07091a` | `#f0f4ff` | Page background |
+| `--surface` | `#0d1221` | `#ffffff` | Card / input background |
+| `--surface-alt` | `#111828` | `#eaf0ff` | Hover state / elevated surface |
+| `--surface-dark` | `#111` | `#f4f7ff` | Darker surface variant |
+| `--topbar-bg` | `#070914` | `#e8eef8` | Topbar background |
+| `--border` | `#1a2840` | `#c8d4e8` | Default border |
+| `--border-hover` | `#2a3d5c` | `#9ab0d0` | Hover border |
+| `--border-dark` | `#1e1e1e` | `#d8e0f0` | Separator within surfaces |
+| `--text-primary` | `#eef2ff` | `#0d1a35` | Main text |
+| `--text-secondary` | `#9ab0d0` | `#3d5880` | Secondary text |
+| `--text-muted` | `#5d7592` | `#4a6080` | Muted labels |
+| `--text-dim` | `#374d66` | `#8a9fb8` | Very dim / decorative |
+| `--text-bright` | `#e0e0e0` | `#1a2840` | Near-primary content text |
+| `--text-sub` | `#bbbbbb` | `#3d5062` | Subtitle / meta text |
+| `--text-subtle` | `#aaaaaa` | `#4a6078` | Subtle labels |
+| `--text-faint` | `#888888` | `#607080` | Faint annotations |
+| `--text-faintest` | `#666666` | `#748898` | Barely-visible hints |
+| `--timer-inactive` | `#2a2a2a` | `#c0ccdd` | TTS timer when not running |
+| `--overlay-bg` | `rgba(4,6,18,0.9)` | `rgba(10,20,50,0.7)` | Modal backdrop |
+| `--error-bg` | `#2a0000` | `#fff0f0` | Error message background |
+
+Additional TTS-specific state variables (all prefixed `--tts-`): `--tts-stop-bg`, `--tts-stop-hover`, `--tts-start-hover-bg`, `--tts-live-border`, `--tts-live-bg`, `--tts-active-bg`, `--tts-today-border`, `--tts-today-bg`. IDX swipe variables: `--swipe-promote-bg`, `--swipe-defer-bg`, `--swipe-kill-bg`.
+
+**Colours that are NOT themed** (intentionally hardcoded because they are semantic/data-viz):
+- Project/chart palette colours (`#4a9eff`, `#e74c3c`, `#2ecc71`, etc.)
+- Status accent colours (`#8855ff` purple, `#7effa0` green, `#ff6b6b` red, `#4d6fa0` blue, `#f44336` danger)
+- Enderman character colours (body blacks, `#cc00ee` eye glow)
+- External brand colours (`#1db954` Spotify green)
 
 **Typography:** Inter (400/500/600) loaded via Google Fonts in `frontend/index.html`. Fallback: `-apple-system, BlinkMacSystemFont, sans-serif`. No monospace anywhere in the UI.
 
 **Layout:**
-- Fixed topbar: `height: 32px`, `background: #070914`, `border-bottom: 1px solid #1a2840`, `z-index: 50`
+- Fixed topbar: `height: 32px`, `background: var(--topbar-bg)`, `border-bottom: 1px solid var(--border)`, `z-index: 50`. `topbar-right` has `padding-right: 22px` to leave room for the theme toggle.
 - Tool pages: `.page` — `margin-top: 32px`, `padding: 20px 16px 52px`, `max-width: 720px`, centered
 - Landing/category pages: `.landing-page` — centered column, `padding: 80px 20px 64px`
 
-**Navigation cards** (`.nav-card`): three-column flex row — label (`#374d66`, `0.6rem`), name (`#eef2ff`, `0.9rem`, `font-weight: 500`), arrow (`→`, `#374d66`). Background `#0d1221`, border `#1a2840`, hover border `#2a3d5c`.
+**Navigation cards** (`.nav-card`): three-column flex row — label (`var(--text-dim)`, `0.6rem`), name (`var(--text-primary)`, `0.9rem`, `font-weight: 500`), arrow (`→`, `var(--text-dim)`). Background `var(--surface)`, border `var(--border)`, hover border `var(--border-hover)`.
 
-**Category page header:** `landing-crumb` link back to parent (tiny, `#374d66`), then `landing-title` (`1.25rem`, `font-weight: 600`, lowercase).
+**Category page header:** `landing-crumb` link back to parent (tiny, `var(--text-dim)`), then `landing-title` (`1.25rem`, `font-weight: 600`, lowercase).
+
+### Theme toggle
+
+**Component:** `frontend/src/components/ThemeToggle.jsx`  
+**Context:** `frontend/src/context/ThemeContext.jsx`
+
+`ThemeProvider` wraps the entire app in `App.jsx`. On mount it reads `localStorage.getItem('theme')` (defaults to `'dark'`), immediately sets `document.documentElement.setAttribute('data-theme', theme)` (in the `useState` initialiser, so no flash on first render), and persists any change back to `localStorage`.
+
+`ThemeToggle` is rendered once in `App.jsx`, outside the router, as a `position: fixed; top: 0; right: 0; width: 28px; height: 32px; z-index: 200` element. It displays a lightbulb SVG icon that aligns with the topbar on tool pages and floats at the top-right corner on landing pages. Clicking it opens a small flyout with **dark** and **light** options; clicking outside or pressing Escape closes it.
+
+**Theming scope:** every React page (navigation pages + all tool pages) is themed. BlockHero (React game) is intentionally excluded. The two legacy static games (`teleport-tap`, `mobs-magic`) cannot be themed as they are separate static HTML files with no connection to the React app.
 
 ## Backend patterns
 
@@ -173,9 +208,15 @@ Each router (`backend/routers/*.py`) follows the same pattern:
 
 All backend calls go through typed wrappers in `api.js`. Never call `fetch` directly in a page component. Each tool namespace (`tts`, `cal`, `idx`, `str`, `wmt`) exports typed methods.
 
+### Theme system
+
+`ThemeContext` is the only global React context. All pages and components access the current theme via `useTheme()` if they need it, but most theming is handled automatically through CSS variables — pages rarely need to import the context directly.
+
+When writing inline `style={{}}` props, **always use CSS variables** for structural colours (`var(--surface)`, `var(--border)`, `var(--text-primary)`, etc.). Never hardcode structural hex values in JSX — they will break in light mode. Data-viz and semantic accent colours (`#8855ff`, `#7effa0`, `#f44336`, project palette colours, etc.) may remain hardcoded.
+
 ### State model
 
-Each tool page manages its own state with `useState` hooks. On mount it fetches from the API. On mutation it calls the API immediately or with a 1500 ms debounce for text fields (`scheduleSave`). There is no global state store.
+Each tool page manages its own state with `useState` hooks. On mount it fetches from the API. On mutation it calls the API immediately or with a 1500 ms debounce for text fields (`scheduleSave`). There is no global state store other than `ThemeContext`.
 
 ### Per-tool versioning
 
@@ -341,7 +382,7 @@ POST /api/wmt/clear             → wipe all WMT data
 
 1. **Backend**: add model(s) to `backend/models.py`, schemas to `backend/schemas.py`, router to `backend/routers/<name>.py`, import and register in `backend/main.py` with prefix `/api/<name>`.
 2. **Frontend API**: add a namespace to `frontend/src/api.js`.
-3. **Frontend page**: create `frontend/src/pages/<Name>.jsx` following the topbar + page layout.
+3. **Frontend page**: create `frontend/src/pages/<Name>.jsx` following the topbar + page layout. Use CSS variables (`var(--surface)`, `var(--border)`, `var(--text-primary)`, etc.) for all structural colours in inline styles — never hardcode `#07091a`, `#0d1221`, `#1a2840` etc.
 4. **Routing**: add a `<Route>` in `frontend/src/App.jsx`.
 5. **Navigation**: add an entry to the appropriate category page (`Productivity.jsx`, `Personal.jsx`, or `Games.jsx`).
 6. **Version**: set `<span className="topbar-version">v1.0</span>` in the new tool's topbar (starts at `1.0`).
