@@ -327,6 +327,13 @@ Generates a markdown report for all matches played on a given date: results, pre
 
 Kicktipp.de has no public API for reading fellow players' tips, so they're imported manually: once tip deadlines pass and Kicktipp reveals the "Tippübersicht" table, the user screenshots it and Claude (vision) parses player names + predicted scores, then calls `POST /api/wmt/opponents/import` with `{tips: [{player_name, home_tla, away_tla, pred_home_goals, pred_away_goals}, ...]}`. The endpoint resolves each tip to a `WmtMatch` via the team TLAs (most recent match between that pairing) and upserts a `WmtOpponentTip` row per `(match_id, player_name)`. Unresolvable tips (unknown TLA / no matching match) are skipped and counted separately in the response. This is purely additive groundwork — it does not touch the ELO prediction engine — laid in place ahead of the tournament so the daily screenshot→import workflow is ready to go from day one.
 
+**Daily import workflow (for Claude in any session — chat, web, or CLI):**
+1. The user sends one or more screenshots of Kicktipp's "Tippübersicht" table directly in the chat (not via the app — there is no upload UI for this).
+2. Claude (vision) reads the screenshot(s) and extracts each player's name and predicted score per match. Tips are hidden as `-:-` until each match's deadline passes — only screenshots taken after reveal contain real scores.
+3. Claude maps the team names/short codes shown in the table header to TLAs (e.g. "MEX" / "SAFR" / "KAN" / "BIH") and POSTs the parsed data to `/api/wmt/opponents/import`.
+4. The response reports how many tips were imported vs. skipped (unresolved TLA or no matching match) — relay that to the user.
+5. Imported tips immediately appear in the **Konkurrenz** tab, grouped by match with ELO-Tipp comparison and tip-distribution tally.
+
 ### Frontend views (`Wmt.jsx` — v3.0)
 
 The page has six tabs:
