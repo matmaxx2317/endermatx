@@ -64,6 +64,8 @@ export const wmt = {
   getMatches: ()             => get('/wmt/matches'),
   getMatchPredictions: (id)  => get(`/wmt/matches/${id}/predictions`),
   getTeams: ()               => get('/wmt/teams'),
+  getOpponentTips: (matchId) => get('/wmt/opponents' + (matchId ? `?match_id=${matchId}` : '')),
+  importOpponentTips: (tips) => post('/wmt/opponents/import', { tips }),
   getSummaries: ()           => get('/wmt/summaries'),
   refresh: ()                => post('/wmt/refresh'),
   generateSummary: ()        => post('/wmt/summary/generate'),

@@ -437,6 +437,7 @@ function MenuButton({ icon, label, loading, danger, disabled, onClick }) {
 
 export default function Wmt() {
   const [matches, setMatches]           = useState([])
+  const [opponentTips, setOpponentTips] = useState([])
   const [summaries, setSummaries]       = useState([])
   const [bonus, setBonus]               = useState(null)
   const [view, setView]                 = useState('spieltage')
@@ -475,6 +476,11 @@ export default function Wmt() {
     try {
       const ms = await wmt.getMatches()
       setMatches(ms)
+
+      try {
+        const ot = await wmt.getOpponentTips()
+        setOpponentTips(ot)
+      } catch { /* ignore */ }
 
       const ss = await wmt.getSummaries()
       setSummaries(ss)
@@ -885,7 +891,7 @@ export default function Wmt() {
             }}>
             {anyBusy ? '…' : '☰'}
           </button>
-          <span className="topbar-version">v2.9</span>
+          <span className="topbar-version">v3.0</span>
         </div>
       </div>
 
@@ -1003,6 +1009,7 @@ export default function Wmt() {
             ['import', 'Import'],
             ['spieltage', 'Spieltage'],
             ['gruppen', 'Gruppen-Tabellen'],
+            ['konkurrenz', 'Konkurrenz'],
             ['bonus', 'Bonus-Tipps'],
             ['zusammenfassung', 'Morgenberichte'],
           ].map(([key, label]) => (
@@ -1115,6 +1122,11 @@ export default function Wmt() {
         {/* ── Gruppen-Tabellen view ─────────────────────────────────────── */}
         {!loading && view === 'gruppen' && (
           <GruppenTabellen matches={matches} />
+        )}
+
+        {/* ── Konkurrenz view ───────────────────────────────────────────── */}
+        {!loading && view === 'konkurrenz' && (
+          <KonkurrenzView matches={matches} opponentTips={opponentTips} />
         )}
 
         {/* ── Bonus-Tipps view ──────────────────────────────────────────── */}
@@ -1640,6 +1652,88 @@ function SummaryCalModal({ matches, summaries, generating, onClose, onGenerate }
           {months.map(m => renderMonth(m))}
         </div>
       </div>
+    </div>
+  )
+}
+
+function KonkurrenzView({ matches, opponentTips }) {
+  const matchById = {}
+  for (const m of matches) matchById[m.id] = m
+
+  const tipsByMatch = {}
+  for (const t of opponentTips) {
+    if (!tipsByMatch[t.match_id]) tipsByMatch[t.match_id] = []
+    tipsByMatch[t.match_id].push(t)
+  }
+
+  const matchIds = Object.keys(tipsByMatch)
+    .map(Number)
+    .filter(id => matchById[id])
+    .sort((a, b) => new Date(matchById[a].utc_date) - new Date(matchById[b].utc_date))
+
+  if (matchIds.length === 0) {
+    return (
+      <div style={{ background: '#0d1221', border: '1px solid #1a2840', borderRadius: 10, padding: 24, textAlign: 'center' }}>
+        <div style={{ fontSize: 13, color: '#9ab0d0' }}>Noch keine Tipps der Mitspieler importiert.</div>
+        <div style={{ fontSize: 11, color: '#374d66', marginTop: 6 }}>
+          Sobald die Tipps in der Tipprunde sichtbar sind, können Screenshots zum Import übergeben werden.
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {matchIds.map(mid => {
+        const m = matchById[mid]
+        const tips = tipsByMatch[mid]
+        const home = m.home_team?.short_name ?? m.home_team?.tla ?? '?'
+        const away = m.away_team?.short_name ?? m.away_team?.tla ?? '?'
+        const p = m.prediction
+
+        const tally = { home: 0, draw: 0, away: 0 }
+        for (const t of tips) {
+          if (t.pred_home_goals > t.pred_away_goals) tally.home++
+          else if (t.pred_home_goals < t.pred_away_goals) tally.away++
+          else tally.draw++
+        }
+
+        return (
+          <div key={mid} style={{ background: '#0d1221', border: '1px solid #1a2840', borderRadius: 10, padding: '14px 16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+              <div style={{ fontSize: 13, color: '#eef2ff', fontWeight: 500 }}>
+                {home} – {away}
+                {m.score_home != null && m.score_away != null && (
+                  <span style={{ color: '#9ab0d0', fontWeight: 400 }}> ({m.score_home}:{m.score_away})</span>
+                )}
+              </div>
+              <div style={{ fontSize: 10, color: '#374d66' }}>
+                {new Date(m.utc_date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} · {stageLabel(m.stage)}
+              </div>
+            </div>
+
+            {p && (
+              <div style={{ fontSize: 11, color: '#9ab0d0', marginBottom: 10 }}>
+                ELO-Tipp: {Math.round(p.pred_home_goals)}:{Math.round(p.pred_away_goals)}
+                {' '}({Math.round(p.home_win_prob * 100)}% / {Math.round(p.draw_prob * 100)}% / {Math.round(p.away_win_prob * 100)}%)
+              </div>
+            )}
+
+            <div style={{ fontSize: 11, color: '#374d66', marginBottom: 8 }}>
+              Tipp-Verteilung: {tally.home}× Heimsieg · {tally.draw}× Unentschieden · {tally.away}× Auswärtssieg
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              {tips.map(t => (
+                <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                  <span style={{ color: '#9ab0d0' }}>{t.player_name}</span>
+                  <span style={{ color: '#eef2ff', fontVariantNumeric: 'tabular-nums' }}>{t.pred_home_goals}:{t.pred_away_goals}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }
