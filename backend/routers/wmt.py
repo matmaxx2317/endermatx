@@ -1929,6 +1929,58 @@ def list_teams(db: Session = Depends(get_db)):
     )
 
 
+@router.post("/opponents/import", response_model=schemas.WmtRefreshOut)
+def import_opponent_tips(payload: schemas.WmtOpponentTipImportIn, db: Session = Depends(get_db)):
+    """Tipps von Mitspielern (z. B. aus Kicktipp-Screenshots geparst) importieren/aktualisieren."""
+    imported = 0
+    skipped = 0
+    for tip in payload.tips:
+        home = db.query(models.WmtTeam).filter_by(tla=tip.home_tla.upper()).first()
+        away = db.query(models.WmtTeam).filter_by(tla=tip.away_tla.upper()).first()
+        if not home or not away:
+            skipped += 1
+            continue
+        match = (
+            db.query(models.WmtMatch)
+            .filter_by(home_team_id=home.id, away_team_id=away.id)
+            .order_by(models.WmtMatch.utc_date.desc())
+            .first()
+        )
+        if not match:
+            skipped += 1
+            continue
+        existing = (
+            db.query(models.WmtOpponentTip)
+            .filter_by(match_id=match.id, player_name=tip.player_name)
+            .first()
+        )
+        if existing:
+            existing.pred_home_goals = tip.pred_home_goals
+            existing.pred_away_goals = tip.pred_away_goals
+            existing.captured_at = datetime.utcnow()
+        else:
+            db.add(models.WmtOpponentTip(
+                match_id=match.id,
+                player_name=tip.player_name,
+                pred_home_goals=tip.pred_home_goals,
+                pred_away_goals=tip.pred_away_goals,
+            ))
+        imported += 1
+    db.commit()
+    return schemas.WmtRefreshOut(message=f"{imported} Tipps importiert, {skipped} übersprungen.", updated=imported)
+
+
+@router.get("/opponents", response_model=list[schemas.WmtOpponentTipOut])
+def list_opponent_tips(match_id: Optional[int] = None, db: Session = Depends(get_db)):
+    q = db.query(models.WmtOpponentTip)
+    if match_id is not None:
+        q = q.filter_by(match_id=match_id)
+    return (
+        q.order_by(models.WmtOpponentTip.match_id, models.WmtOpponentTip.player_name)
+        .all()
+    )
+
+
 @router.get("/summaries", response_model=list[schemas.WmtSummaryOut])
 def list_summaries(db: Session = Depends(get_db)):
     rows = (

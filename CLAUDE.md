@@ -238,7 +238,7 @@ Each tool page owns its own version string, displayed in the topbar's right side
 | str  | v4.0 |
 | bpm  | v4.0 |
 | spt  | v4.9 |
-| wmt  | v2.9 |
+| wmt  | v3.0 |
 | block-hero | v1.0 |
 
 There is no global version footer. `vite.config.js` still injects `__GIT_HASH__` and `__GIT_HASH_FULL__` (Railway fallback: `RAILWAY_GIT_COMMIT_SHA`) but these are not currently displayed.
@@ -283,6 +283,7 @@ Match data is fetched via one of two sources, tried in order:
 | `WmtPrediction` | `wmt_predictions` | ELO-based prediction snapshot per match (history kept) |
 | `WmtSummary` | `wmt_summaries` | Daily morning report (markdown) |
 | `WmtBonusPrediction` | `wmt_bonus_predictions` | Monte-Carlo tournament simulation result |
+| `WmtOpponentTip` | `wmt_opponent_tips` | Imported tip of a fellow Tipprunde player for a given match |
 
 ### ELO prediction engine
 
@@ -318,15 +319,24 @@ Monte-Carlo simulation (10 000 runs) of the full tournament. Outputs: tournament
 
 Generates a markdown report for all matches played on a given date: results, prediction accuracy (tendency), upsets. Stored in `WmtSummary`. Auto-generated daily at 08:00 by the APScheduler. Can also be manually triggered per-date via the calendar picker in the burger menu.
 
-### Frontend views (`Wmt.jsx` — v2.9)
+### Gossip in morning reports
 
-The page has five tabs:
+`do_generate_summary` optionally appends a "## Gossip" section: real news snippets about the day's teams are fetched from NewsAPI (`NEWS_API_KEY`, `/v2/everything`, query built from team short names, date range = target..target+2 days), then turned into 3-5 short, lighthearted German tabloid-style headlines by the Claude API (`ANTHROPIC_API_KEY`, model `claude-haiku-4-5-20251001`). The prompt explicitly requires a respectful, non-stereotyping tone — humor comes from sporting drama, not mockery of nations/cultures. Both calls fail silently (logged as warnings) if a key is missing or the request errors, so the rest of the report always renders.
+
+### Opponent tip tracking (`WmtOpponentTip`)
+
+Kicktipp.de has no public API for reading fellow players' tips, so they're imported manually: once tip deadlines pass and Kicktipp reveals the "Tippübersicht" table, the user screenshots it and Claude (vision) parses player names + predicted scores, then calls `POST /api/wmt/opponents/import` with `{tips: [{player_name, home_tla, away_tla, pred_home_goals, pred_away_goals}, ...]}`. The endpoint resolves each tip to a `WmtMatch` via the team TLAs (most recent match between that pairing) and upserts a `WmtOpponentTip` row per `(match_id, player_name)`. Unresolvable tips (unknown TLA / no matching match) are skipped and counted separately in the response. This is purely additive groundwork — it does not touch the ELO prediction engine — laid in place ahead of the tournament so the daily screenshot→import workflow is ready to go from day one.
+
+### Frontend views (`Wmt.jsx` — v3.0)
+
+The page has six tabs:
 
 | Tab | Content |
 |-----|---------|
 | **Import** | Log output for all async operations (refresh, fake, warmup, etc.) |
 | **Spieltage** | Match cards grouped by matchday/stage; sub-grouped by calendar day for group stage. Shows ELO-based tipp-Empfehlung, win/draw/loss prob bar, VERLAUF (prediction history with change notes) |
 | **Gruppen-Tabellen** | Live group standings for all 12 groups (A–L) in a 2-column grid. Columns: Sp / W / U / N / Tore / TD (coloured) / Pkt. Derived from match data, updates on every refresh/fake |
+| **Konkurrenz** | Imported opponent tips (`WmtOpponentTip`) grouped by match: ELO-Tipp + win/draw/loss probabilities, tip-distribution tally (Heimsieg/Unentschieden/Auswärtssieg), and a per-player score table. Empty-state hint until tips are imported |
 | **Bonus-Tipps** | Monte-Carlo simulation results. Shows PROGNOSE vs. REALITÄT comparison at top once the Final is finished |
 | **Morgenberichte** | Daily match summaries in reverse-chronological order |
 
@@ -368,6 +378,8 @@ All under `POST /api/wmt/debug/…`:
 GET  /api/wmt/status            → match_count, prediction_count, calibrated, md*_done, rd32_done
 GET  /api/wmt/matches           → all matches with nested team + latest prediction + prediction history
 GET  /api/wmt/teams             → all teams with ELO
+GET  /api/wmt/opponents         → imported opponent tips (optional ?match_id= filter)
+POST /api/wmt/opponents/import  → import/update opponent tips (resolved via team TLAs)
 GET  /api/wmt/summaries         → all morning reports
 GET  /api/wmt/bonus             → latest bonus prediction
 POST /api/wmt/refresh           → fetch + ELO update + predictions

@@ -144,3 +144,14 @@ class WmtBonusPrediction(Base):
     winner        = Column(JSONB)   # {"team": "...", "tla": "...", "prob": 0.15}
     top_scorer    = Column(JSONB)   # {"player": "...", "team": "...", "tla": "...", "goals": 4.2, "source": "..."}
     n_simulations = Column(Integer, default=10000)
+
+
+class WmtOpponentTip(Base):
+    __tablename__ = "wmt_opponent_tips"
+    id              = Column(Integer, primary_key=True, autoincrement=True)
+    match_id        = Column(Integer, ForeignKey("wmt_matches.id"), nullable=False)
+    player_name     = Column(String, nullable=False)
+    pred_home_goals = Column(Integer, nullable=False)
+    pred_away_goals = Column(Integer, nullable=False)
+    captured_at     = Column(DateTime, default=datetime.utcnow)
+

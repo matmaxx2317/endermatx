@@ -246,6 +246,28 @@ class WmtWarmupOut(BaseModel):
     elapsed_seconds: float
 
 
+class WmtOpponentTipIn(BaseModel):
+    player_name: str
+    home_tla: str
+    away_tla: str
+    pred_home_goals: int
+    pred_away_goals: int
+
+
+class WmtOpponentTipImportIn(BaseModel):
+    tips: list[WmtOpponentTipIn]
+
+
+class WmtOpponentTipOut(BaseModel):
+    id: int
+    match_id: int
+    player_name: str
+    pred_home_goals: int
+    pred_away_goals: int
+    captured_at: UtcDt
+    model_config = {"from_attributes": True}
+
+
 class WmtStatusOut(BaseModel):
     match_count: int
     team_count: int
