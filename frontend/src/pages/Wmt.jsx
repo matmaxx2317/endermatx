@@ -439,6 +439,7 @@ function MenuButton({ icon, label, loading, danger, disabled, onClick }) {
 export default function Wmt() {
   const [matches, setMatches]           = useState([])
   const [opponentTips, setOpponentTips] = useState([])
+  const [rankingSnapshots, setRankingSnapshots] = useState([])
   const [summaries, setSummaries]       = useState([])
   const [bonus, setBonus]               = useState(null)
   const [view, setView]                 = useState('spieltage')
@@ -481,6 +482,11 @@ export default function Wmt() {
       try {
         const ot = await wmt.getOpponentTips()
         setOpponentTips(ot)
+      } catch { /* ignore */ }
+
+      try {
+        const rs = await wmt.getRankingSnapshots()
+        setRankingSnapshots(rs)
       } catch { /* ignore */ }
 
       const ss = await wmt.getSummaries()
@@ -895,7 +901,7 @@ export default function Wmt() {
             }}>
             {anyBusy ? '…' : '☰'}
           </button>
-          <span className="topbar-version">v3.3</span>
+          <span className="topbar-version">v3.4</span>
         </div>
       </div>
 
@@ -1134,7 +1140,7 @@ export default function Wmt() {
 
         {/* ── Konkurrenz view ───────────────────────────────────────────── */}
         {!loading && view === 'konkurrenz' && (
-          <KonkurrenzView matches={matches} opponentTips={opponentTips} />
+          <KonkurrenzView matches={matches} opponentTips={opponentTips} rankingSnapshots={rankingSnapshots} />
         )}
 
         {/* ── Bonus-Tipps view ──────────────────────────────────────────── */}
@@ -1664,7 +1670,77 @@ function SummaryCalModal({ matches, summaries, generating, onClose, onGenerate }
   )
 }
 
-function KonkurrenzView({ matches, opponentTips }) {
+const RANK_CHART_COLORS = [
+  '#7effa0','#ff6b6b','#6bb5ff','#ffd56b','#d06bff',
+  '#ff9f6b','#6bfff0','#ff6bd6','#b5ff6b','#6b7fff',
+  '#c8c8c8','#4a9eff','#e74c3c','#2ecc71','#f1c40f',
+  '#9b59b6','#e67e22','#1abc9c','#e91e63',
+]
+
+function RankingChart({ snapshots }) {
+  const dates   = [...new Set(snapshots.map(s => s.date))].sort()
+  const players = [...new Set(snapshots.map(s => s.player_name))].sort()
+
+  if (dates.length < 2 || players.length === 0) return null
+
+  const maxRank = Math.max(...snapshots.map(s => s.rank))
+  const W = 680, H = 320
+  const padL = 28, padR = 12, padT = 12, padB = 28
+  const plotW = W - padL - padR
+  const plotH = H - padT - padB
+
+  const xPos = i => padL + (dates.length === 1 ? plotW / 2 : (i / (dates.length - 1)) * plotW)
+  const yPos = rank => padT + ((rank - 1) / Math.max(1, maxRank - 1)) * plotH
+
+  const byPlayer = {}
+  for (const p of players) byPlayer[p] = []
+  for (const s of snapshots) {
+    byPlayer[s.player_name][dates.indexOf(s.date)] = s.rank
+  }
+
+  const labelStep = Math.max(1, Math.ceil(dates.length / 8))
+
+  return (
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 16, overflowX: 'auto' }}>
+      <div style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 500, marginBottom: 10 }}>
+        Rangverlauf
+      </div>
+      <svg width={W} height={H} style={{ display: 'block' }}>
+        {Array.from({ length: maxRank }, (_, i) => i + 1).map(r => (
+          <g key={r}>
+            <line x1={padL} y1={yPos(r)} x2={W - padR} y2={yPos(r)} stroke="var(--border)" strokeWidth={0.5} />
+            <text x={padL - 6} y={yPos(r) + 3} textAnchor="end" fontSize={9} fill="var(--text-muted)">{r}</text>
+          </g>
+        ))}
+        {dates.map((d, i) => (
+          (i === 0 || i === dates.length - 1 || i % labelStep === 0) && (
+            <text key={d} x={xPos(i)} y={H - padB + 14} textAnchor="middle" fontSize={9} fill="var(--text-muted)">
+              {new Date(d).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}
+            </text>
+          )
+        ))}
+        {players.map((p, pi) => {
+          const color = RANK_CHART_COLORS[pi % RANK_CHART_COLORS.length]
+          const pts = byPlayer[p]
+            .map((r, i) => (r != null ? `${xPos(i)},${yPos(r)}` : null))
+            .filter(Boolean)
+            .join(' ')
+          return <polyline key={p} points={pts} fill="none" stroke={color} strokeWidth={1.5} opacity={0.85} />
+        })}
+      </svg>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 14px', marginTop: 12 }}>
+        {players.map((p, pi) => (
+          <div key={p} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--text-secondary)' }}>
+            <span style={{ width: 10, height: 10, borderRadius: 2, background: RANK_CHART_COLORS[pi % RANK_CHART_COLORS.length], display: 'inline-block' }} />
+            {p}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
   const matchById = {}
   for (const m of matches) matchById[m.id] = m
 
@@ -1679,20 +1755,18 @@ function KonkurrenzView({ matches, opponentTips }) {
     .filter(id => matchById[id])
     .sort((a, b) => new Date(matchById[a].utc_date) - new Date(matchById[b].utc_date))
 
-  if (matchIds.length === 0) {
-    return (
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 24, textAlign: 'center' }}>
-        <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Noch keine Tipps der Mitspieler importiert.</div>
-        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
-          Sobald die Tipps in der Tipprunde sichtbar sind, können Screenshots zum Import übergeben werden.
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {matchIds.map(mid => {
+      <RankingChart snapshots={rankingSnapshots} />
+
+      {matchIds.length === 0 ? (
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 24, textAlign: 'center' }}>
+          <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Noch keine Tipps der Mitspieler importiert.</div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
+            Sobald die Tipps in der Tipprunde sichtbar sind, können Screenshots zum Import übergeben werden.
+          </div>
+        </div>
+      ) : matchIds.map(mid => {
         const m = matchById[mid]
         const tips = tipsByMatch[mid]
         const home = m.home_team?.short_name ?? m.home_team?.tla ?? '?'

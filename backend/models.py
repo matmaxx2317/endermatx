@@ -155,3 +155,14 @@ class WmtOpponentTip(Base):
     pred_away_goals = Column(Integer, nullable=False)
     captured_at     = Column(DateTime, default=datetime.utcnow)
 
+
+class WmtRankingSnapshot(Base):
+    __tablename__ = "wmt_ranking_snapshots"
+    id          = Column(Integer, primary_key=True, autoincrement=True)
+    date        = Column(Date, nullable=False)
+    player_name = Column(String, nullable=False)
+    rank        = Column(Integer, nullable=False)
+    points      = Column(Integer, nullable=False)
+    captured_at = Column(DateTime, default=datetime.utcnow)
+
+
