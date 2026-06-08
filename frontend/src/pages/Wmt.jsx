@@ -870,13 +870,14 @@ export default function Wmt() {
   const currentMatches = selectedKey !== null ? (grouped[selectedKey] ?? []) : []
 
   const hasData = matches.length > 0
+  const wmtOnly = isWmtOnlyDomain()
 
   return (
     <div>
       {/* topbar */}
       <div className="topbar">
         <div className="topbar-left">
-          {!isWmtOnlyDomain() && (
+          {!wmtOnly && (
             <Link to="/personal"><button className="topbar-back btn btn-sm">←</button></Link>
           )}
           <span className="topbar-title">wmt</span>
@@ -894,7 +895,7 @@ export default function Wmt() {
             }}>
             {anyBusy ? '…' : '☰'}
           </button>
-          <span className="topbar-version">v3.1</span>
+          <span className="topbar-version">v3.3</span>
         </div>
       </div>
 
@@ -919,78 +920,82 @@ export default function Wmt() {
               onClick={() => { setMenuOpen(false); setView('import'); handleRefresh() }}
             />
             <MenuButton
-              icon="⊕" label="Historische Kalibrierung"
-              loading={warming} disabled={anyBusy && !warming}
-              onClick={() => { setMenuOpen(false); handleWarmup() }}
-            />
-            <MenuButton
-              icon="▶" label={isBonusFrozen ? 'Bonus-Prognose gesperrt' : 'Bonus-Prognose berechnen'}
-              loading={generatingBonus} disabled={(anyBusy && !generatingBonus) || isBonusFrozen}
-              onClick={() => { setMenuOpen(false); handleGenerateBonus() }}
-            />
-            <MenuButton
               icon="📋" label="Morgenbericht erstellen"
               loading={!!generatingSummaryFor} disabled={anyBusy && !generatingSummaryFor}
               onClick={() => { setMenuOpen(false); setSummaryCalOpen(true) }}
             />
-            <div style={{ borderTop: '1px solid var(--border)', margin: '6px 0' }} />
-            <MenuButton
-              icon="✕" label="Daten löschen"
-              danger loading={clearing} disabled={anyBusy && !clearing}
-              onClick={() => { setMenuOpen(false); handleClear() }}
-            />
-            <div style={{ borderTop: '1px solid var(--border)', margin: '6px 0' }} />
-            <MenuButton
-              icon="⚗" label="Fake alles (MD1–Finale)"
-              loading={fakingAll} disabled={(anyBusy && !fakingAll) || finalDone}
-              onClick={() => { setMenuOpen(false); handleFakeAll() }}
-            />
-            <div style={{ borderTop: '1px solid var(--border)', margin: '6px 0' }} />
-            <MenuButton
-              icon="⚗" label="Fake MD1-Ergebnisse"
-              loading={fakingMd1} disabled={(anyBusy && !fakingMd1) || md1Done}
-              onClick={() => { setMenuOpen(false); handleFakeMd1() }}
-            />
-            <MenuButton
-              icon="⚗" label="Fake MD2-Ergebnisse"
-              loading={fakingMd2} disabled={(anyBusy && !fakingMd2) || !md1Done || md2Done}
-              onClick={() => { setMenuOpen(false); handleFakeMd2() }}
-            />
-            <MenuButton
-              icon="⚗" label="Fake MD3-Ergebnisse"
-              loading={fakingMd3} disabled={(anyBusy && !fakingMd3) || !md2Done || md3Done}
-              onClick={() => { setMenuOpen(false); handleFakeMd3() }}
-            />
-            <MenuButton
-              icon="⚗" label="Fake Rd.32-Ergebnisse"
-              loading={fakingRd32} disabled={(anyBusy && !fakingRd32) || !md3Done || rd32Done}
-              onClick={() => { setMenuOpen(false); handleFakeRd32() }}
-            />
-            <MenuButton
-              icon="⚗" label="Fake Achtelfinale"
-              loading={fakingLast16} disabled={(anyBusy && !fakingLast16) || !rd32Done || last16Done}
-              onClick={() => { setMenuOpen(false); handleFakeLast16() }}
-            />
-            <MenuButton
-              icon="⚗" label="Fake Viertelfinale"
-              loading={fakingQf} disabled={(anyBusy && !fakingQf) || !last16Done || qfDone}
-              onClick={() => { setMenuOpen(false); handleFakeQf() }}
-            />
-            <MenuButton
-              icon="⚗" label="Fake Halbfinale"
-              loading={fakingSf} disabled={(anyBusy && !fakingSf) || !qfDone || sfDone}
-              onClick={() => { setMenuOpen(false); handleFakeSf() }}
-            />
-            <MenuButton
-              icon="⚗" label="Fake Spiel um Platz 3"
-              loading={fakingTp} disabled={(anyBusy && !fakingTp) || !sfDone || tpDone}
-              onClick={() => { setMenuOpen(false); handleFakeTp() }}
-            />
-            <MenuButton
-              icon="⚗" label="Fake Finale"
-              loading={fakingFinal} disabled={(anyBusy && !fakingFinal) || !sfDone || finalDone}
-              onClick={() => { setMenuOpen(false); handleFakeFinal() }}
-            />
+            {!wmtOnly && (
+              <>
+                <MenuButton
+                  icon="⊕" label="Historische Kalibrierung"
+                  loading={warming} disabled={anyBusy && !warming}
+                  onClick={() => { setMenuOpen(false); handleWarmup() }}
+                />
+                <MenuButton
+                  icon="▶" label={isBonusFrozen ? 'Bonus-Prognose gesperrt' : 'Bonus-Prognose berechnen'}
+                  loading={generatingBonus} disabled={(anyBusy && !generatingBonus) || isBonusFrozen}
+                  onClick={() => { setMenuOpen(false); handleGenerateBonus() }}
+                />
+                <div style={{ borderTop: '1px solid var(--border)', margin: '6px 0' }} />
+                <MenuButton
+                  icon="✕" label="Daten löschen"
+                  danger loading={clearing} disabled={anyBusy && !clearing}
+                  onClick={() => { setMenuOpen(false); handleClear() }}
+                />
+                <div style={{ borderTop: '1px solid var(--border)', margin: '6px 0' }} />
+                <MenuButton
+                  icon="⚗" label="Fake alles (MD1–Finale)"
+                  loading={fakingAll} disabled={(anyBusy && !fakingAll) || finalDone}
+                  onClick={() => { setMenuOpen(false); handleFakeAll() }}
+                />
+                <div style={{ borderTop: '1px solid var(--border)', margin: '6px 0' }} />
+                <MenuButton
+                  icon="⚗" label="Fake MD1-Ergebnisse"
+                  loading={fakingMd1} disabled={(anyBusy && !fakingMd1) || md1Done}
+                  onClick={() => { setMenuOpen(false); handleFakeMd1() }}
+                />
+                <MenuButton
+                  icon="⚗" label="Fake MD2-Ergebnisse"
+                  loading={fakingMd2} disabled={(anyBusy && !fakingMd2) || !md1Done || md2Done}
+                  onClick={() => { setMenuOpen(false); handleFakeMd2() }}
+                />
+                <MenuButton
+                  icon="⚗" label="Fake MD3-Ergebnisse"
+                  loading={fakingMd3} disabled={(anyBusy && !fakingMd3) || !md2Done || md3Done}
+                  onClick={() => { setMenuOpen(false); handleFakeMd3() }}
+                />
+                <MenuButton
+                  icon="⚗" label="Fake Rd.32-Ergebnisse"
+                  loading={fakingRd32} disabled={(anyBusy && !fakingRd32) || !md3Done || rd32Done}
+                  onClick={() => { setMenuOpen(false); handleFakeRd32() }}
+                />
+                <MenuButton
+                  icon="⚗" label="Fake Achtelfinale"
+                  loading={fakingLast16} disabled={(anyBusy && !fakingLast16) || !rd32Done || last16Done}
+                  onClick={() => { setMenuOpen(false); handleFakeLast16() }}
+                />
+                <MenuButton
+                  icon="⚗" label="Fake Viertelfinale"
+                  loading={fakingQf} disabled={(anyBusy && !fakingQf) || !last16Done || qfDone}
+                  onClick={() => { setMenuOpen(false); handleFakeQf() }}
+                />
+                <MenuButton
+                  icon="⚗" label="Fake Halbfinale"
+                  loading={fakingSf} disabled={(anyBusy && !fakingSf) || !qfDone || sfDone}
+                  onClick={() => { setMenuOpen(false); handleFakeSf() }}
+                />
+                <MenuButton
+                  icon="⚗" label="Fake Spiel um Platz 3"
+                  loading={fakingTp} disabled={(anyBusy && !fakingTp) || !sfDone || tpDone}
+                  onClick={() => { setMenuOpen(false); handleFakeTp() }}
+                />
+                <MenuButton
+                  icon="⚗" label="Fake Finale"
+                  loading={fakingFinal} disabled={(anyBusy && !fakingFinal) || !sfDone || finalDone}
+                  onClick={() => { setMenuOpen(false); handleFakeFinal() }}
+                />
+              </>
+            )}
           </div>
         </div>
       )}
@@ -1676,9 +1681,9 @@ function KonkurrenzView({ matches, opponentTips }) {
 
   if (matchIds.length === 0) {
     return (
-      <div style={{ background: '#0d1221', border: '1px solid #1a2840', borderRadius: 10, padding: 24, textAlign: 'center' }}>
-        <div style={{ fontSize: 13, color: '#9ab0d0' }}>Noch keine Tipps der Mitspieler importiert.</div>
-        <div style={{ fontSize: 11, color: '#374d66', marginTop: 6 }}>
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 24, textAlign: 'center' }}>
+        <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Noch keine Tipps der Mitspieler importiert.</div>
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
           Sobald die Tipps in der Tipprunde sichtbar sind, können Screenshots zum Import übergeben werden.
         </div>
       </div>
@@ -1702,35 +1707,35 @@ function KonkurrenzView({ matches, opponentTips }) {
         }
 
         return (
-          <div key={mid} style={{ background: '#0d1221', border: '1px solid #1a2840', borderRadius: 10, padding: '14px 16px' }}>
+          <div key={mid} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
-              <div style={{ fontSize: 13, color: '#eef2ff', fontWeight: 500 }}>
+              <div style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 500 }}>
                 {home} – {away}
                 {m.score_home != null && m.score_away != null && (
-                  <span style={{ color: '#9ab0d0', fontWeight: 400 }}> ({m.score_home}:{m.score_away})</span>
+                  <span style={{ color: 'var(--text-secondary)', fontWeight: 400 }}> ({m.score_home}:{m.score_away})</span>
                 )}
               </div>
-              <div style={{ fontSize: 10, color: '#374d66' }}>
+              <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>
                 {new Date(m.utc_date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} · {stageLabel(m.stage)}
               </div>
             </div>
 
             {p && (
-              <div style={{ fontSize: 11, color: '#9ab0d0', marginBottom: 10 }}>
+              <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 10 }}>
                 ELO-Tipp: {Math.round(p.pred_home_goals)}:{Math.round(p.pred_away_goals)}
                 {' '}({Math.round(p.home_win_prob * 100)}% / {Math.round(p.draw_prob * 100)}% / {Math.round(p.away_win_prob * 100)}%)
               </div>
             )}
 
-            <div style={{ fontSize: 11, color: '#374d66', marginBottom: 8 }}>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8 }}>
               Tipp-Verteilung: {tally.home}× Heimsieg · {tally.draw}× Unentschieden · {tally.away}× Auswärtssieg
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
               {tips.map(t => (
                 <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
-                  <span style={{ color: '#9ab0d0' }}>{t.player_name}</span>
-                  <span style={{ color: '#eef2ff', fontVariantNumeric: 'tabular-nums' }}>{t.pred_home_goals}:{t.pred_away_goals}</span>
+                  <span style={{ color: 'var(--text-secondary)' }}>{t.player_name}</span>
+                  <span style={{ color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>{t.pred_home_goals}:{t.pred_away_goals}</span>
                 </div>
               ))}
             </div>
