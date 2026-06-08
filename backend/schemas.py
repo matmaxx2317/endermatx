@@ -268,6 +268,26 @@ class WmtOpponentTipOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class WmtRankingSnapshotIn(BaseModel):
+    date: str
+    player_name: str
+    rank: int
+    points: int
+
+
+class WmtRankingSnapshotImportIn(BaseModel):
+    snapshots: list[WmtRankingSnapshotIn]
+
+
+class WmtRankingSnapshotOut(BaseModel):
+    id: int
+    date: str
+    player_name: str
+    rank: int
+    points: int
+    model_config = {"from_attributes": True}
+
+
 class WmtStatusOut(BaseModel):
     match_count: int
     team_count: int

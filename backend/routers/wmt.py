@@ -2104,6 +2104,57 @@ def list_opponent_tips(match_id: Optional[int] = None, db: Session = Depends(get
     )
 
 
+@router.post("/rankings/import", response_model=schemas.WmtRefreshOut)
+def import_ranking_snapshots(payload: schemas.WmtRankingSnapshotImportIn, db: Session = Depends(get_db)):
+    """Tagesschnappschüsse der Kicktipp-Rangliste (Pos/P aus der Tippübersicht) importieren/aktualisieren."""
+    imported = 0
+    skipped = 0
+    for snap in payload.snapshots:
+        try:
+            parsed = date.fromisoformat(snap.date)
+        except ValueError:
+            skipped += 1
+            continue
+        existing = (
+            db.query(models.WmtRankingSnapshot)
+            .filter_by(date=parsed, player_name=snap.player_name)
+            .first()
+        )
+        if existing:
+            existing.rank = snap.rank
+            existing.points = snap.points
+            existing.captured_at = datetime.utcnow()
+        else:
+            db.add(models.WmtRankingSnapshot(
+                date=parsed,
+                player_name=snap.player_name,
+                rank=snap.rank,
+                points=snap.points,
+            ))
+        imported += 1
+    db.commit()
+    return schemas.WmtRefreshOut(message=f"{imported} Rangliste-Schnappschüsse importiert, {skipped} übersprungen.", updated=imported)
+
+
+@router.get("/rankings", response_model=list[schemas.WmtRankingSnapshotOut])
+def list_ranking_snapshots(db: Session = Depends(get_db)):
+    rows = (
+        db.query(models.WmtRankingSnapshot)
+        .order_by(models.WmtRankingSnapshot.date, models.WmtRankingSnapshot.rank)
+        .all()
+    )
+    return [
+        schemas.WmtRankingSnapshotOut(
+            id=r.id,
+            date=r.date.isoformat(),
+            player_name=r.player_name,
+            rank=r.rank,
+            points=r.points,
+        )
+        for r in rows
+    ]
+
+
 @router.get("/summaries", response_model=list[schemas.WmtSummaryOut])
 def list_summaries(db: Session = Depends(get_db)):
     rows = (

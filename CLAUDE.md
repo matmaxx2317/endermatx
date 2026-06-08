@@ -238,7 +238,7 @@ Each tool page owns its own version string, displayed in the topbar's right side
 | str  | v4.0 |
 | bpm  | v4.0 |
 | spt  | v4.9 |
-| wmt  | v3.3 |
+| wmt  | v3.4 |
 | block-hero | v1.0 |
 
 There is no global version footer. `vite.config.js` still injects `__GIT_HASH__` and `__GIT_HASH_FULL__` (Railway fallback: `RAILWAY_GIT_COMMIT_SHA`) but these are not currently displayed.
@@ -284,6 +284,7 @@ Match data is fetched via one of two sources, tried in order:
 | `WmtSummary` | `wmt_summaries` | Daily morning report (markdown) |
 | `WmtBonusPrediction` | `wmt_bonus_predictions` | Monte-Carlo tournament simulation result |
 | `WmtOpponentTip` | `wmt_opponent_tips` | Imported tip of a fellow Tipprunde player for a given match |
+| `WmtRankingSnapshot` | `wmt_ranking_snapshots` | Imported daily leaderboard snapshot (date, player, rank, points) from Kicktipp's Tippübersicht |
 
 ### ELO prediction engine
 
@@ -337,6 +338,11 @@ Kicktipp.de has no public API for reading fellow players' tips, so they're impor
 3. Claude maps the team names/short codes shown in the table header to TLAs (e.g. "MEX" / "SAFR" / "KAN" / "BIH") and POSTs the parsed data to `/api/wmt/opponents/import`.
 4. The response reports how many tips were imported vs. skipped (unresolved TLA or no matching match) — relay that to the user.
 5. Imported tips immediately appear in the **Konkurrenz** tab, grouped by match with ELO-Tipp comparison and tip-distribution tally.
+6. The same Tippübersicht screenshot also shows each player's current **Pos** (rank) and **P** (points) in the leaderboard header/footer — Claude extracts those too and POSTs them to `/api/wmt/rankings/import` as `{snapshots: [{date, player_name, rank, points}, ...]}`, where `date` is the calendar day the screenshot represents (not the import date — historical catch-up imports are fine as long as the represented date is correct). The endpoint upserts a `WmtRankingSnapshot` row per `(date, player_name)`.
+
+### Rank evolution chart (`WmtRankingSnapshot`)
+
+Kicktipp has no public export and its exact point formula (exact-score / goal-difference bonuses) isn't published, so the app doesn't try to recompute the leaderboard — instead it captures the **official** Pos/P values straight from the daily Tippübersicht screenshot (see step 6 above) and stores them as `WmtRankingSnapshot` rows. Because historical ranks can't be reconstructed retroactively, the chart is only as complete as the daily screenshot habit — there is no backfill. The **Konkurrenz** tab renders a `RankingChart` (custom inline SVG, no charting library — `polyline` per player, axis gridlines/labels, a cycling colour palette) plotting day on the x-axis and rank on the y-axis (inverted, rank 1 at top), one line per player — a Mario-Party-style "ranking over time" view of the whole Tipprunde.
 
 ### Frontend views (`Wmt.jsx` — v3.0)
 
@@ -347,7 +353,7 @@ The page has six tabs:
 | **Import** | Log output for all async operations (refresh, fake, warmup, etc.) |
 | **Spieltage** | Match cards grouped by matchday/stage; sub-grouped by calendar day for group stage. Shows ELO-based tipp-Empfehlung, win/draw/loss prob bar, VERLAUF (prediction history with change notes) |
 | **Gruppen-Tabellen** | Live group standings for all 12 groups (A–L) in a 2-column grid. Columns: Sp / W / U / N / Tore / TD (coloured) / Pkt. Derived from match data, updates on every refresh/fake |
-| **Konkurrenz** | Imported opponent tips (`WmtOpponentTip`) grouped by match: ELO-Tipp + win/draw/loss probabilities, tip-distribution tally (Heimsieg/Unentschieden/Auswärtssieg), and a per-player score table. Empty-state hint until tips are imported |
+| **Konkurrenz** | Rank evolution chart (`RankingChart`, one line per player across imported `WmtRankingSnapshot` days) at the top, then imported opponent tips (`WmtOpponentTip`) grouped by match: ELO-Tipp + win/draw/loss probabilities, tip-distribution tally (Heimsieg/Unentschieden/Auswärtssieg), and a per-player score table. Empty-state hints until tips/snapshots are imported |
 | **Bonus-Tipps** | Monte-Carlo simulation results. Shows PROGNOSE vs. REALITÄT comparison at top once the Final is finished |
 | **Morgenberichte** | Daily match summaries in reverse-chronological order |
 
@@ -391,6 +397,8 @@ GET  /api/wmt/matches           → all matches with nested team + latest predic
 GET  /api/wmt/teams             → all teams with ELO
 GET  /api/wmt/opponents         → imported opponent tips (optional ?match_id= filter)
 POST /api/wmt/opponents/import  → import/update opponent tips (resolved via team TLAs)
+GET  /api/wmt/rankings          → imported daily ranking snapshots (date, player, rank, points)
+POST /api/wmt/rankings/import   → import/update ranking snapshots (upsert by date + player_name)
 GET  /api/wmt/summaries         → all morning reports
 GET  /api/wmt/bonus             → latest bonus prediction
 POST /api/wmt/refresh           → fetch + ELO update + predictions
