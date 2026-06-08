@@ -226,6 +226,8 @@ Each tool page owns its own version string, displayed in the topbar's right side
 
 **When to bump:** increment the minor version (`1.0` → `1.1`) of the **affected tool only** when that tool's page changes in a PR. Other tools' versions are never touched. Major bump only when the user explicitly asks.
 
+**Note on minor version rollover:** the minor number is not capped at `9` — after `x.9` the next bump is `x.10`, not `(x+1).0`. A major bump only happens when the user explicitly asks for one, regardless of how high the minor number climbs (e.g. `wmt` goes `3.9` → `3.10` → `3.11`, not `4.0`).
+
 **Why this design:** a single shared version (e.g. `package.json`) causes conflicts when multiple parallel branches each bump it independently. Per-tool versions in the tool's own file eliminate that coordination problem — two branches working on different tools never touch the same version string.
 
 **Current versions (as of last CLAUDE.md update):**
