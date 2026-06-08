@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { wmt } from '../api'
+import { isWmtOnlyDomain } from '../domain'
 
 // ── constants & helpers ───────────────────────────────────────────────────────
 
@@ -875,7 +876,9 @@ export default function Wmt() {
       {/* topbar */}
       <div className="topbar">
         <div className="topbar-left">
-          <Link to="/personal"><button className="topbar-back btn btn-sm">←</button></Link>
+          {!isWmtOnlyDomain() && (
+            <Link to="/personal"><button className="topbar-back btn btn-sm">←</button></Link>
+          )}
           <span className="topbar-title">wmt</span>
         </div>
         <div className="topbar-right">
@@ -891,7 +894,7 @@ export default function Wmt() {
             }}>
             {anyBusy ? '…' : '☰'}
           </button>
-          <span className="topbar-version">v3.0</span>
+          <span className="topbar-version">v3.1</span>
         </div>
       </div>
 
