@@ -895,7 +895,7 @@ export default function Wmt() {
             }}>
             {anyBusy ? '…' : '☰'}
           </button>
-          <span className="topbar-version">v3.2</span>
+          <span className="topbar-version">v3.3</span>
         </div>
       </div>
 
@@ -1681,9 +1681,9 @@ function KonkurrenzView({ matches, opponentTips }) {
 
   if (matchIds.length === 0) {
     return (
-      <div style={{ background: '#0d1221', border: '1px solid #1a2840', borderRadius: 10, padding: 24, textAlign: 'center' }}>
-        <div style={{ fontSize: 13, color: '#9ab0d0' }}>Noch keine Tipps der Mitspieler importiert.</div>
-        <div style={{ fontSize: 11, color: '#374d66', marginTop: 6 }}>
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 24, textAlign: 'center' }}>
+        <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Noch keine Tipps der Mitspieler importiert.</div>
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
           Sobald die Tipps in der Tipprunde sichtbar sind, können Screenshots zum Import übergeben werden.
         </div>
       </div>
@@ -1707,35 +1707,35 @@ function KonkurrenzView({ matches, opponentTips }) {
         }
 
         return (
-          <div key={mid} style={{ background: '#0d1221', border: '1px solid #1a2840', borderRadius: 10, padding: '14px 16px' }}>
+          <div key={mid} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
-              <div style={{ fontSize: 13, color: '#eef2ff', fontWeight: 500 }}>
+              <div style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 500 }}>
                 {home} – {away}
                 {m.score_home != null && m.score_away != null && (
-                  <span style={{ color: '#9ab0d0', fontWeight: 400 }}> ({m.score_home}:{m.score_away})</span>
+                  <span style={{ color: 'var(--text-secondary)', fontWeight: 400 }}> ({m.score_home}:{m.score_away})</span>
                 )}
               </div>
-              <div style={{ fontSize: 10, color: '#374d66' }}>
+              <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>
                 {new Date(m.utc_date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} · {stageLabel(m.stage)}
               </div>
             </div>
 
             {p && (
-              <div style={{ fontSize: 11, color: '#9ab0d0', marginBottom: 10 }}>
+              <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 10 }}>
                 ELO-Tipp: {Math.round(p.pred_home_goals)}:{Math.round(p.pred_away_goals)}
                 {' '}({Math.round(p.home_win_prob * 100)}% / {Math.round(p.draw_prob * 100)}% / {Math.round(p.away_win_prob * 100)}%)
               </div>
             )}
 
-            <div style={{ fontSize: 11, color: '#374d66', marginBottom: 8 }}>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8 }}>
               Tipp-Verteilung: {tally.home}× Heimsieg · {tally.draw}× Unentschieden · {tally.away}× Auswärtssieg
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
               {tips.map(t => (
                 <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
-                  <span style={{ color: '#9ab0d0' }}>{t.player_name}</span>
-                  <span style={{ color: '#eef2ff', fontVariantNumeric: 'tabular-nums' }}>{t.pred_home_goals}:{t.pred_away_goals}</span>
+                  <span style={{ color: 'var(--text-secondary)' }}>{t.player_name}</span>
+                  <span style={{ color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>{t.pred_home_goals}:{t.pred_away_goals}</span>
                 </div>
               ))}
             </div>

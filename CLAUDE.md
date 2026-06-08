@@ -238,7 +238,7 @@ Each tool page owns its own version string, displayed in the topbar's right side
 | str  | v4.0 |
 | bpm  | v4.0 |
 | spt  | v4.9 |
-| wmt  | v3.2 |
+| wmt  | v3.3 |
 | block-hero | v1.0 |
 
 There is no global version footer. `vite.config.js` still injects `__GIT_HASH__` and `__GIT_HASH_FULL__` (Railway fallback: `RAILWAY_GIT_COMMIT_SHA`) but these are not currently displayed.
