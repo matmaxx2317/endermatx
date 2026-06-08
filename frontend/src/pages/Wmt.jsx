@@ -870,13 +870,14 @@ export default function Wmt() {
   const currentMatches = selectedKey !== null ? (grouped[selectedKey] ?? []) : []
 
   const hasData = matches.length > 0
+  const wmtOnly = isWmtOnlyDomain()
 
   return (
     <div>
       {/* topbar */}
       <div className="topbar">
         <div className="topbar-left">
-          {!isWmtOnlyDomain() && (
+          {!wmtOnly && (
             <Link to="/personal"><button className="topbar-back btn btn-sm">←</button></Link>
           )}
           <span className="topbar-title">wmt</span>
@@ -894,7 +895,7 @@ export default function Wmt() {
             }}>
             {anyBusy ? '…' : '☰'}
           </button>
-          <span className="topbar-version">v3.1</span>
+          <span className="topbar-version">v3.2</span>
         </div>
       </div>
 
@@ -919,78 +920,82 @@ export default function Wmt() {
               onClick={() => { setMenuOpen(false); setView('import'); handleRefresh() }}
             />
             <MenuButton
-              icon="⊕" label="Historische Kalibrierung"
-              loading={warming} disabled={anyBusy && !warming}
-              onClick={() => { setMenuOpen(false); handleWarmup() }}
-            />
-            <MenuButton
-              icon="▶" label={isBonusFrozen ? 'Bonus-Prognose gesperrt' : 'Bonus-Prognose berechnen'}
-              loading={generatingBonus} disabled={(anyBusy && !generatingBonus) || isBonusFrozen}
-              onClick={() => { setMenuOpen(false); handleGenerateBonus() }}
-            />
-            <MenuButton
               icon="📋" label="Morgenbericht erstellen"
               loading={!!generatingSummaryFor} disabled={anyBusy && !generatingSummaryFor}
               onClick={() => { setMenuOpen(false); setSummaryCalOpen(true) }}
             />
-            <div style={{ borderTop: '1px solid var(--border)', margin: '6px 0' }} />
-            <MenuButton
-              icon="✕" label="Daten löschen"
-              danger loading={clearing} disabled={anyBusy && !clearing}
-              onClick={() => { setMenuOpen(false); handleClear() }}
-            />
-            <div style={{ borderTop: '1px solid var(--border)', margin: '6px 0' }} />
-            <MenuButton
-              icon="⚗" label="Fake alles (MD1–Finale)"
-              loading={fakingAll} disabled={(anyBusy && !fakingAll) || finalDone}
-              onClick={() => { setMenuOpen(false); handleFakeAll() }}
-            />
-            <div style={{ borderTop: '1px solid var(--border)', margin: '6px 0' }} />
-            <MenuButton
-              icon="⚗" label="Fake MD1-Ergebnisse"
-              loading={fakingMd1} disabled={(anyBusy && !fakingMd1) || md1Done}
-              onClick={() => { setMenuOpen(false); handleFakeMd1() }}
-            />
-            <MenuButton
-              icon="⚗" label="Fake MD2-Ergebnisse"
-              loading={fakingMd2} disabled={(anyBusy && !fakingMd2) || !md1Done || md2Done}
-              onClick={() => { setMenuOpen(false); handleFakeMd2() }}
-            />
-            <MenuButton
-              icon="⚗" label="Fake MD3-Ergebnisse"
-              loading={fakingMd3} disabled={(anyBusy && !fakingMd3) || !md2Done || md3Done}
-              onClick={() => { setMenuOpen(false); handleFakeMd3() }}
-            />
-            <MenuButton
-              icon="⚗" label="Fake Rd.32-Ergebnisse"
-              loading={fakingRd32} disabled={(anyBusy && !fakingRd32) || !md3Done || rd32Done}
-              onClick={() => { setMenuOpen(false); handleFakeRd32() }}
-            />
-            <MenuButton
-              icon="⚗" label="Fake Achtelfinale"
-              loading={fakingLast16} disabled={(anyBusy && !fakingLast16) || !rd32Done || last16Done}
-              onClick={() => { setMenuOpen(false); handleFakeLast16() }}
-            />
-            <MenuButton
-              icon="⚗" label="Fake Viertelfinale"
-              loading={fakingQf} disabled={(anyBusy && !fakingQf) || !last16Done || qfDone}
-              onClick={() => { setMenuOpen(false); handleFakeQf() }}
-            />
-            <MenuButton
-              icon="⚗" label="Fake Halbfinale"
-              loading={fakingSf} disabled={(anyBusy && !fakingSf) || !qfDone || sfDone}
-              onClick={() => { setMenuOpen(false); handleFakeSf() }}
-            />
-            <MenuButton
-              icon="⚗" label="Fake Spiel um Platz 3"
-              loading={fakingTp} disabled={(anyBusy && !fakingTp) || !sfDone || tpDone}
-              onClick={() => { setMenuOpen(false); handleFakeTp() }}
-            />
-            <MenuButton
-              icon="⚗" label="Fake Finale"
-              loading={fakingFinal} disabled={(anyBusy && !fakingFinal) || !sfDone || finalDone}
-              onClick={() => { setMenuOpen(false); handleFakeFinal() }}
-            />
+            {!wmtOnly && (
+              <>
+                <MenuButton
+                  icon="⊕" label="Historische Kalibrierung"
+                  loading={warming} disabled={anyBusy && !warming}
+                  onClick={() => { setMenuOpen(false); handleWarmup() }}
+                />
+                <MenuButton
+                  icon="▶" label={isBonusFrozen ? 'Bonus-Prognose gesperrt' : 'Bonus-Prognose berechnen'}
+                  loading={generatingBonus} disabled={(anyBusy && !generatingBonus) || isBonusFrozen}
+                  onClick={() => { setMenuOpen(false); handleGenerateBonus() }}
+                />
+                <div style={{ borderTop: '1px solid var(--border)', margin: '6px 0' }} />
+                <MenuButton
+                  icon="✕" label="Daten löschen"
+                  danger loading={clearing} disabled={anyBusy && !clearing}
+                  onClick={() => { setMenuOpen(false); handleClear() }}
+                />
+                <div style={{ borderTop: '1px solid var(--border)', margin: '6px 0' }} />
+                <MenuButton
+                  icon="⚗" label="Fake alles (MD1–Finale)"
+                  loading={fakingAll} disabled={(anyBusy && !fakingAll) || finalDone}
+                  onClick={() => { setMenuOpen(false); handleFakeAll() }}
+                />
+                <div style={{ borderTop: '1px solid var(--border)', margin: '6px 0' }} />
+                <MenuButton
+                  icon="⚗" label="Fake MD1-Ergebnisse"
+                  loading={fakingMd1} disabled={(anyBusy && !fakingMd1) || md1Done}
+                  onClick={() => { setMenuOpen(false); handleFakeMd1() }}
+                />
+                <MenuButton
+                  icon="⚗" label="Fake MD2-Ergebnisse"
+                  loading={fakingMd2} disabled={(anyBusy && !fakingMd2) || !md1Done || md2Done}
+                  onClick={() => { setMenuOpen(false); handleFakeMd2() }}
+                />
+                <MenuButton
+                  icon="⚗" label="Fake MD3-Ergebnisse"
+                  loading={fakingMd3} disabled={(anyBusy && !fakingMd3) || !md2Done || md3Done}
+                  onClick={() => { setMenuOpen(false); handleFakeMd3() }}
+                />
+                <MenuButton
+                  icon="⚗" label="Fake Rd.32-Ergebnisse"
+                  loading={fakingRd32} disabled={(anyBusy && !fakingRd32) || !md3Done || rd32Done}
+                  onClick={() => { setMenuOpen(false); handleFakeRd32() }}
+                />
+                <MenuButton
+                  icon="⚗" label="Fake Achtelfinale"
+                  loading={fakingLast16} disabled={(anyBusy && !fakingLast16) || !rd32Done || last16Done}
+                  onClick={() => { setMenuOpen(false); handleFakeLast16() }}
+                />
+                <MenuButton
+                  icon="⚗" label="Fake Viertelfinale"
+                  loading={fakingQf} disabled={(anyBusy && !fakingQf) || !last16Done || qfDone}
+                  onClick={() => { setMenuOpen(false); handleFakeQf() }}
+                />
+                <MenuButton
+                  icon="⚗" label="Fake Halbfinale"
+                  loading={fakingSf} disabled={(anyBusy && !fakingSf) || !qfDone || sfDone}
+                  onClick={() => { setMenuOpen(false); handleFakeSf() }}
+                />
+                <MenuButton
+                  icon="⚗" label="Fake Spiel um Platz 3"
+                  loading={fakingTp} disabled={(anyBusy && !fakingTp) || !sfDone || tpDone}
+                  onClick={() => { setMenuOpen(false); handleFakeTp() }}
+                />
+                <MenuButton
+                  icon="⚗" label="Fake Finale"
+                  loading={fakingFinal} disabled={(anyBusy && !fakingFinal) || !sfDone || finalDone}
+                  onClick={() => { setMenuOpen(false); handleFakeFinal() }}
+                />
+              </>
+            )}
           </div>
         </div>
       )}
