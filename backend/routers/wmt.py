@@ -253,6 +253,10 @@ def _stage_de(stage: str) -> str:
     return mapping.get(stage, stage.replace("_", " ").title())
 
 
+def _round_label(m: models.WmtMatch) -> str:
+    return f"MD{m.matchday}" if m.stage == "GROUP_STAGE" else _stage_de(m.stage)
+
+
 def build_reasoning(
     home_name: str, away_name: str, home_tla: str, away_tla: str,
     home_elo: float, away_elo: float,
@@ -716,6 +720,117 @@ def _generate_gossip(snippets: list[str], match_lines: list[str], target: date) 
         return ""
 
 
+def _compute_opponent_tip_breakdown(db: Session, target: date) -> Optional[dict]:
+    """Per-Spieler Tipp-Trefferquote (Tendenz), aufgeschlüsselt nach Runde, bis einschließlich `target`."""
+    day_end = datetime(target.year, target.month, target.day) + timedelta(days=1)
+
+    finished = (
+        db.query(models.WmtMatch)
+        .filter(models.WmtMatch.status == "FINISHED", models.WmtMatch.utc_date < day_end)
+        .order_by(models.WmtMatch.utc_date)
+        .all()
+    )
+    if not finished:
+        return None
+
+    match_ids = [m.id for m in finished]
+    tips = (
+        db.query(models.WmtOpponentTip)
+        .filter(models.WmtOpponentTip.match_id.in_(match_ids))
+        .all()
+    )
+    if not tips:
+        return None
+
+    matches_by_id = {m.id: m for m in finished}
+    round_order: list[str] = []
+    for m in finished:
+        lbl = _round_label(m)
+        if lbl not in round_order:
+            round_order.append(lbl)
+
+    yesterday_ids = {m.id for m in finished if m.utc_date.date() == target}
+
+    players: dict[str, dict] = {}
+    for tip in tips:
+        m = matches_by_id.get(tip.match_id)
+        if not m or m.score_home is None or m.score_away is None:
+            continue
+        correct = (
+            (m.score_home > m.score_away  and tip.pred_home_goals > tip.pred_away_goals) or
+            (m.score_home < m.score_away  and tip.pred_home_goals < tip.pred_away_goals) or
+            (m.score_home == m.score_away and tip.pred_home_goals == tip.pred_away_goals)
+        )
+        p = players.setdefault(tip.player_name, {
+            "rounds":    defaultdict(lambda: {"correct": 0, "total": 0}),
+            "yesterday": {"correct": 0, "total": 0},
+            "overall":   {"correct": 0, "total": 0},
+        })
+        lbl = _round_label(m)
+        p["rounds"][lbl]["total"] += 1
+        p["overall"]["total"]     += 1
+        if correct:
+            p["rounds"][lbl]["correct"] += 1
+            p["overall"]["correct"]     += 1
+        if m.id in yesterday_ids:
+            p["yesterday"]["total"] += 1
+            if correct:
+                p["yesterday"]["correct"] += 1
+
+    if not players:
+        return None
+    return {"players": players, "round_order": round_order}
+
+
+def _format_tip_breakdown_text(breakdown: dict) -> str:
+    round_order = breakdown["round_order"]
+    lines = []
+    for player, data in breakdown["players"].items():
+        parts = [
+            f"{lbl} {r['correct']}/{r['total']}"
+            for lbl in round_order
+            if (r := data["rounds"].get(lbl)) and r["total"]
+        ]
+        overall   = data["overall"]
+        yesterday = data["yesterday"]
+        line = f"{player}: " + ", ".join(parts) + f" — gesamt {overall['correct']}/{overall['total']}"
+        if yesterday["total"]:
+            line += f", gestern {yesterday['correct']}/{yesterday['total']}"
+        lines.append(line)
+    return "\n".join(lines)
+
+
+def _generate_tip_gossip(breakdown_text: str, target: date) -> str:
+    """Claude API: liebevoll-spöttische Bemerkungen zur Tipp-Performance der Mitspieler generieren."""
+    if not ANTHROPIC_API_KEY:
+        return ""
+    try:
+        import anthropic
+        client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        prompt = (
+            f"Du bist ein freundlicher deutscher Fußball-Boulevardreporter für die WM 2026.\n"
+            f"Hier ist die Tipp-Trefferquote (richtige Tendenz: Heimsieg/Unentschieden/Auswärtssieg) der "
+            f"Mitspieler einer privaten Tipprunde, aufgeschlüsselt nach Spieltagen/Runden, "
+            f"bis einschließlich {target.strftime('%d.%m.%Y')}:\n\n"
+            f"{breakdown_text}\n\n"
+            f"Schreibe 2-4 kurze, liebevoll-spöttische Bemerkungen auf Deutsch über auffällige Muster — "
+            f"z. B. wer aktuell glänzt, wer eingebrochen ist, wer sich gesteigert hat oder bemerkenswert konstant tippt. "
+            f"Beziehe dich sowohl auf die gestrige Leistung als auch auf den Verlauf über das gesamte Turnier.\n\n"
+            f"Tonalität: humorvoll, herzlich, wie liebevolle Frotzelei unter Freunden in einer Tippgemeinschaft — "
+            f"niemals gehässig, abwertend oder verletzend. Sprich die Spieler beim Namen an.\n\n"
+            f"Gib nur die Bemerkungen aus, eine pro Zeile, ohne Nummerierung oder Aufzählungszeichen."
+        )
+        resp = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=500,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return resp.content[0].text.strip()
+    except Exception as exc:
+        logger.warning("Tip gossip generation failed: %s", exc)
+        return ""
+
+
 def do_generate_summary(db: Session, for_date: Optional[date] = None) -> str:
     """Tagesrückblick für die Spiele des Vortags generieren und speichern."""
     target  = for_date or (date.today() - timedelta(days=1))
@@ -797,6 +912,14 @@ def do_generate_summary(db: Session, for_date: Optional[date] = None) -> str:
         gossip   = _generate_gossip(snippets, match_lines, target)
         if gossip:
             content += f"\n\n## Gossip\n\n{gossip}"
+
+    # Tipp-Klatsch — friendly commentary on opponents' tip performance (uses imported WmtOpponentTip data)
+    if ANTHROPIC_API_KEY:
+        breakdown = _compute_opponent_tip_breakdown(db, target)
+        if breakdown:
+            tip_gossip = _generate_tip_gossip(_format_tip_breakdown_text(breakdown), target)
+            if tip_gossip:
+                content += f"\n\n## Tipp-Klatsch\n\n{tip_gossip}"
 
     existing = db.query(models.WmtSummary).filter_by(date=target).first()
     if existing:
