@@ -18,7 +18,11 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from .database import engine, Base, SessionLocal
 from .models import TtsEntry
 from .routers import tts, cal, idx, strings, bpm, scan, wmt
-from .routers.wmt import do_refresh as _wmt_do_refresh, do_generate_summary as _wmt_do_summary
+from .routers.wmt import (
+    do_refresh as _wmt_do_refresh,
+    do_generate_summary as _wmt_do_summary,
+    do_news_adjust as _wmt_do_news_adjust,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +57,22 @@ def _wmt_morning_summary() -> None:
             logger.debug("WMT morning summary: no finished matches for %s", yesterday)
     except Exception as exc:
         logger.error("WMT morning summary failed: %s", exc)
+        db.rollback()
+    finally:
+        db.close()
+
+
+def _wmt_news_factors() -> None:
+    """Update news-based WMT team factors at 07:30 for teams playing within 48h."""
+    db = SessionLocal()
+    try:
+        n, err = _wmt_do_news_adjust(db)
+        if err:
+            logger.debug("WMT news factors skipped: %s", err)
+        else:
+            logger.info("WMT news factors: %d adjustment(s) active", n)
+    except Exception as exc:
+        logger.error("WMT news factors failed: %s", exc)
         db.rollback()
     finally:
         db.close()
@@ -114,8 +134,14 @@ async def lifespan(app: FastAPI):
         CronTrigger(hour=6, minute=0),
         misfire_grace_time=3600,
     )
+    scheduler.add_job(
+        _wmt_news_factors,
+        CronTrigger(hour=7, minute=30),
+        misfire_grace_time=3600,
+    )
     scheduler.start()
-    logger.info("Scheduler started — TTS EOD at 23:00, WMT refresh every 30 min, WMT summary at 06:00")
+    logger.info("Scheduler started — TTS EOD at 23:00, WMT refresh every 30 min, "
+                "WMT summary at 06:00, WMT news factors at 07:30")
 
     yield
 

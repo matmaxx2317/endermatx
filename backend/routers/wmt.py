@@ -28,6 +28,16 @@ router = APIRouter()
 ELO_K        = 60      # WC-Turnier-K-Faktor
 WC_AVG_GOALS = 1.35    # Ø Tore pro Team pro WC-Spiel
 
+# Team-Faktoren: begrenzte, befristete ELO-Anpassungen aus aktuellen Fakten
+# (Heimvorteil, Verletzungen, externe Ratings). Sie wirken nur auf Prognosen
+# ("effektives ELO"), nie auf die ELO-Buchführung nach Ergebnissen.
+HOST_TLAS          = {"USA", "MEX", "CAN"}
+HOME_ADVANTAGE_ELO = 60.0
+FACTOR_DELTA_CAP   = 50.0    # max. |Delta| eines einzelnen Faktors
+FACTOR_TOTAL_CAP   = 100.0   # max. |Summe aller Faktoren| pro Team
+NEWS_FACTOR_CAP    = 40.0    # max. |Delta| eines automatischen News-Faktors
+NEWS_FACTOR_VALID_DAYS = 3   # News-Faktoren verfallen nach wenigen Tagen
+
 
 # Initial ELO estimates for WC 2026 participants (calibrated ~June 2026)
 INITIAL_ELO: dict[str, float] = {
@@ -192,6 +202,69 @@ GERMAN_TO_TLA: dict[str, str] = {
 }
 
 
+# ── team factors (effektives ELO) ────────────────────────────────────────────
+
+def _active_factors(db: Session, on_date: Optional[date] = None) -> dict[int, list[models.WmtTeamFactor]]:
+    """Aktive Faktoren je Team-ID, valid_from/valid_until-Fenster beachtet."""
+    today = on_date or date.today()
+    by_team: dict[int, list[models.WmtTeamFactor]] = defaultdict(list)
+    for f in db.query(models.WmtTeamFactor).all():
+        if f.valid_from and today < f.valid_from:
+            continue
+        if f.valid_until and today > f.valid_until:
+            continue
+        by_team[f.team_id].append(f)
+    return by_team
+
+
+def _factor_sum(factors: list[models.WmtTeamFactor]) -> float:
+    total = sum(f.elo_delta for f in factors)
+    return max(-FACTOR_TOTAL_CAP, min(FACTOR_TOTAL_CAP, total))
+
+
+def _effective_elo(team: models.WmtTeam, factors_by_team: dict[int, list]) -> float:
+    return team.elo + _factor_sum(factors_by_team.get(team.id, []))
+
+
+def _factor_note_for_teams(
+    teams: list[models.WmtTeam],
+    factors_by_team: dict[int, list],
+) -> Optional[str]:
+    """'USA +60 (WM-Gastgeber), FRA -25 (Mbappé verletzt)' für die Reasoning-Zeile."""
+    parts = []
+    for team in teams:
+        for f in factors_by_team.get(team.id, []):
+            tla = team.tla or team.short_name or team.name
+            note = f" ({f.note})" if f.note else ""
+            parts.append(f"{tla} {f.elo_delta:+.0f}{note}")
+    return ", ".join(parts) if parts else None
+
+
+def _ensure_host_factors(db: Session) -> None:
+    """Heimvorteil-Faktoren für die Gastgeber USA/MEX/CAN anlegen, falls fehlend."""
+    changed = False
+    for tla in sorted(HOST_TLAS):
+        team = db.query(models.WmtTeam).filter_by(tla=tla).first()
+        if not team:
+            continue
+        exists = (
+            db.query(models.WmtTeamFactor)
+            .filter_by(team_id=team.id, factor_type="home_advantage")
+            .first()
+        )
+        if not exists:
+            db.add(models.WmtTeamFactor(
+                team_id=team.id,
+                factor_type="home_advantage",
+                elo_delta=HOME_ADVANTAGE_ELO,
+                note="WM-Gastgeber",
+                source="auto",
+            ))
+            changed = True
+    if changed:
+        db.commit()
+
+
 # ── prediction engine ────────────────────────────────────────────────────────
 
 def elo_to_win_prob(home_elo: float, away_elo: float) -> tuple[float, float, float]:
@@ -263,6 +336,7 @@ def build_reasoning(
     home_win: float = 0.0, draw: float = 0.0, away_win: float = 0.0,
     home_xg: float = 0.0, away_xg: float = 0.0,
     trigger_note: Optional[str] = None,
+    factor_note: Optional[str] = None,
 ) -> str:
     diff = home_elo - away_elo
     if abs(diff) < 30:
@@ -280,6 +354,8 @@ def build_reasoning(
     )
     if trigger_note:
         result += f" {trigger_note}."
+    if factor_note:
+        result += f"\nFaktoren: {factor_note}."
     return result
 
 
@@ -426,8 +502,11 @@ def _apply_elo_and_predictions(
     if not upcoming:
         return
 
-    # Bulk-load teams and latest predictions to avoid N+1 (~80 queries → 2)
+    _ensure_host_factors(db)
+
+    # Bulk-load teams, factors and latest predictions to avoid N+1 (~80 queries → 3)
     all_teams = {t.id: t for t in db.query(models.WmtTeam).all()}
+    factors_by_team = _active_factors(db)
     latest_preds: dict[int, models.WmtPrediction] = {}
     upcoming_ids = [m.id for m in upcoming]
     for p in (
@@ -444,22 +523,27 @@ def _apply_elo_and_predictions(
         away = all_teams.get(match.away_team_id) if match.away_team_id else None
         if not home or not away:
             continue
-        home_win, draw, away_win = elo_to_win_prob(home.elo, away.elo)
-        home_xg, away_xg = elo_to_expected_goals(home.elo, away.elo)
+        home_eff = _effective_elo(home, factors_by_team)
+        away_eff = _effective_elo(away, factors_by_team)
+        home_win, draw, away_win = elo_to_win_prob(home_eff, away_eff)
+        home_xg, away_xg = elo_to_expected_goals(home_eff, away_eff)
         latest = latest_preds.get(match.id)
         if latest:
-            if (abs((latest.home_elo or 0) - home.elo) < 5.0 and
-                    abs((latest.away_elo or 0) - away.elo) < 5.0):
+            # Gespeicherte Prognose-ELOs sind effektive Werte — Vergleich gegen effektiv
+            if (abs((latest.home_elo or 0) - home_eff) < 5.0 and
+                    abs((latest.away_elo or 0) - away_eff) < 5.0):
                 continue
         home_tla = home.tla or home.short_name or home.name
         away_tla = away.tla or away.short_name or away.name
         trigger_note = _build_trigger_note(
             match.home_team_id, match.away_team_id, newly_finished, all_teams
         )
+        factor_note = _factor_note_for_teams([home, away], factors_by_team)
         reasoning = build_reasoning(
             home.name, away.name, home_tla, away_tla,
-            home.elo, away.elo, home_win, draw, away_win, home_xg, away_xg,
+            home_eff, away_eff, home_win, draw, away_win, home_xg, away_xg,
             trigger_note=trigger_note,
+            factor_note=factor_note,
         )
         db.add(models.WmtPrediction(
             match_id=match.id,
@@ -468,8 +552,8 @@ def _apply_elo_and_predictions(
             away_win_prob=away_win,
             pred_home_goals=home_xg,
             pred_away_goals=away_xg,
-            home_elo=home.elo,
-            away_elo=away.elo,
+            home_elo=home_eff,
+            away_elo=away_eff,
             reasoning=reasoning,
         ))
     db.commit()
@@ -720,6 +804,181 @@ def _generate_gossip(snippets: list[str], match_lines: list[str], target: date) 
         return ""
 
 
+# ── News-Faktoren: aktuelle Team-Fakten → begrenzte ELO-Anpassungen ──────────
+
+def _fetch_team_news(client: httpx.Client, team_name: str, ref_date: date) -> list[str]:
+    """NewsAPI: aktuelle Kader-/Verletzungs-/Form-Nachrichten zu einem Team (letzte 3 Tage)."""
+    query = (
+        f'"{team_name}" AND (injury OR injured OR lineup OR squad OR suspended '
+        f'OR doubt OR fitness OR coach OR crisis)'
+    )
+    params = {
+        "q":        query,
+        "from":     (ref_date - timedelta(days=3)).isoformat(),
+        "to":       ref_date.isoformat(),
+        "language": "en",
+        "sortBy":   "publishedAt",
+        "pageSize": "5",
+        "apiKey":   NEWS_API_KEY,
+    }
+    try:
+        r = client.get("https://newsapi.org/v2/everything", params=params)
+        if r.status_code != 200:
+            logger.warning("NewsAPI (team %s) returned %s", team_name, r.status_code)
+            return []
+        snippets = []
+        for a in r.json().get("articles", []):
+            title   = (a.get("title")       or "").strip()
+            desc    = (a.get("description") or "").strip()
+            snippet = f"{title}. {desc}" if desc else title
+            if snippet:
+                snippets.append(snippet[:300])
+        return snippets[:5]
+    except Exception as exc:
+        logger.warning("NewsAPI fetch for %s failed: %s", team_name, exc)
+        return []
+
+
+def _claude_news_factors(
+    team_snippets: dict[str, tuple[str, list[str]]], ref_date: date,
+) -> Optional[list[dict]]:
+    """Claude API: Nachrichtenschnipsel → strikte JSON-Liste begrenzter ELO-Anpassungen.
+
+    Returns None bei API-Fehlern (Aufrufer lässt bestehende Faktoren dann unangetastet),
+    [] wenn es schlicht keine wesentlichen Fakten gibt.
+    """
+    if not ANTHROPIC_API_KEY or not team_snippets:
+        return []
+    try:
+        import json
+
+        import anthropic
+        client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        blocks = []
+        for tla, (name, snippets) in team_snippets.items():
+            joined = "\n".join(f"  - {s}" for s in snippets)
+            blocks.append(f"{tla} ({name}):\n{joined}")
+        teams_text = "\n\n".join(blocks)
+        prompt = (
+            f"Du bist Analyst für ein WM-2026-Prognosemodell (ELO-basiert). "
+            f"Heute ist der {ref_date.strftime('%d.%m.%Y')}.\n\n"
+            f"Unten stehen aktuelle Nachrichtenschnipsel zu Teams, die in den nächsten 48 Stunden spielen. "
+            f"Leite daraus NUR spielrelevante, faktische Anpassungen ab — z. B. Verletzung/Sperre eines "
+            f"Schlüsselspielers, kurzfristiger Trainerwechsel, massive interne Unruhe. "
+            f"Routineberichte, Spekulationen, Vorschauen und Stimmungsartikel ergeben KEINE Anpassung.\n\n"
+            f"{teams_text}\n\n"
+            f"Antworte AUSSCHLIESSLICH mit einem JSON-Array (kein Markdown, kein Text davor/danach):\n"
+            f'[{{"tla": "FRA", "delta": -25, "reason": "Mbappé verletzt (Oberschenkel)"}}]\n\n'
+            f"Regeln:\n"
+            f"- delta: ganze Zahl zwischen -{NEWS_FACTOR_CAP:.0f} und +{NEWS_FACTOR_CAP:.0f} "
+            f"(ELO-Punkte; Ausfall eines Superstars ≈ -25 bis -40, kleinere Ausfälle -10 bis -20)\n"
+            f"- reason: kurze deutsche Begründung (max. 60 Zeichen)\n"
+            f"- Teams ohne wesentliche Fakten weglassen\n"
+            f"- Im Zweifel: keine Anpassung. Leeres Array [] ist eine gute Antwort."
+        )
+        resp = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=800,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        text = resp.content[0].text.strip()
+        if text.startswith("```"):
+            text = text.strip("`")
+            if text.startswith("json"):
+                text = text[4:]
+        parsed = json.loads(text.strip())
+        if not isinstance(parsed, list):
+            return None
+        out = []
+        for item in parsed:
+            if not isinstance(item, dict):
+                continue
+            tla    = str(item.get("tla", "")).strip().upper()
+            reason = str(item.get("reason", "")).strip()[:120]
+            try:
+                delta = float(item.get("delta", 0))
+            except (TypeError, ValueError):
+                continue
+            if tla and abs(delta) >= 5.0:
+                out.append({"tla": tla, "delta": delta, "reason": reason})
+        return out
+    except Exception as exc:
+        logger.warning("News factor generation failed: %s", exc)
+        return None
+
+
+def do_news_adjust(db: Session, hours_ahead: int = 48) -> tuple[int, str]:
+    """News-Faktoren für Teams mit Spielen in den nächsten `hours_ahead` Stunden aktualisieren.
+
+    Ersetzt vorhandene 'news'-Faktoren der betrachteten Teams (verschwundene News
+    heilen sich so selbst) und berechnet anschließend die Prognosen neu.
+    """
+    if not NEWS_API_KEY:
+        return 0, "NEWS_API_KEY nicht gesetzt — News-Faktoren übersprungen."
+    if not ANTHROPIC_API_KEY:
+        return 0, "ANTHROPIC_API_KEY nicht gesetzt — News-Faktoren übersprungen."
+
+    now = datetime.utcnow()
+    upcoming = (
+        db.query(models.WmtMatch)
+        .filter(
+            models.WmtMatch.status.in_(["SCHEDULED", "TIMED"]),
+            models.WmtMatch.utc_date >= now,
+            models.WmtMatch.utc_date <= now + timedelta(hours=hours_ahead),
+        )
+        .all()
+    )
+    team_ids = {m.home_team_id for m in upcoming} | {m.away_team_id for m in upcoming}
+    team_ids.discard(None)
+    if not team_ids:
+        return 0, f"Keine anstehenden Spiele in den nächsten {hours_ahead}h."
+
+    teams = db.query(models.WmtTeam).filter(models.WmtTeam.id.in_(team_ids)).all()
+    today = date.today()
+
+    team_snippets: dict[str, tuple[str, list[str]]] = {}
+    with httpx.Client(timeout=10.0) as client:
+        for team in teams:
+            if not team.tla:
+                continue
+            name = team.short_name or team.name
+            snippets = _fetch_team_news(client, name, today)
+            if snippets:
+                team_snippets[team.tla] = (name, snippets)
+
+    adjustments = _claude_news_factors(team_snippets, today)
+    if adjustments is None:
+        return 0, "News-Auswertung fehlgeschlagen — bestehende Faktoren bleiben unverändert."
+
+    # Alte News-Faktoren der betrachteten Teams ersetzen (nicht mehr gemeldete News heilen sich selbst)
+    db.query(models.WmtTeamFactor).filter(
+        models.WmtTeamFactor.factor_type == "news",
+        models.WmtTeamFactor.team_id.in_([t.id for t in teams]),
+    ).delete(synchronize_session=False)
+
+    tla_to_team = {t.tla: t for t in teams if t.tla}
+    applied = 0
+    for adj in adjustments:
+        team = tla_to_team.get(adj["tla"])
+        if not team:
+            continue
+        delta = max(-NEWS_FACTOR_CAP, min(NEWS_FACTOR_CAP, adj["delta"]))
+        db.add(models.WmtTeamFactor(
+            team_id=team.id,
+            factor_type="news",
+            elo_delta=delta,
+            note=adj["reason"] or "Aktuelle Nachrichtenlage",
+            source="newsapi+claude",
+            valid_from=today,
+            valid_until=today + timedelta(days=NEWS_FACTOR_VALID_DAYS),
+        ))
+        applied += 1
+    db.commit()
+
+    _apply_elo_and_predictions(db, [])
+    return applied, ""
+
+
 def _compute_opponent_tip_breakdown(db: Session, target: date) -> Optional[dict]:
     """Per-Spieler Tipp-Trefferquote (Tendenz), aufgeschlüsselt nach Runde, bis einschließlich `target`."""
     day_end = datetime(target.year, target.month, target.day) + timedelta(days=1)
@@ -967,16 +1226,18 @@ def _sample_goals_poisson(lam: float) -> int:
 
 
 def _compute_top_scorer(db: Session) -> dict:
-    """Torjäger-Prognose auf Basis von ELO-Stärke + historischer Torquote."""
+    """Torjäger-Prognose auf Basis von effektiver ELO-Stärke + historischer Torquote."""
     all_teams   = {t.id: t for t in db.query(models.WmtTeam).all()}
     tla_to_team = {t.tla: t for t in all_teams.values() if t.tla}
+    factors_by_team = _active_factors(db)
 
     candidates: list[dict] = []
     for tla, (player, rate) in TOP_PLAYERS.items():
         wc_team = tla_to_team.get(tla)
         if not wc_team:
             continue
-        exp_m = 3.0 + 3.5 * min(1.0, max(0.0, (wc_team.elo - 1600) / 400))
+        eff = _effective_elo(wc_team, factors_by_team)
+        exp_m = 3.0 + 3.5 * min(1.0, max(0.0, (eff - 1600) / 400))
         candidates.append({
             "player": player,
             "team":   wc_team.short_name or wc_team.name,
@@ -994,10 +1255,13 @@ def _compute_top_scorer(db: Session) -> dict:
 
 
 def do_generate_bonus(db: Session, n_sims: int = 10000) -> Optional[models.WmtBonusPrediction]:
-    """Monte-Carlo-Simulation WM 2026: Gruppenphase + K.o.-Runde."""
+    """Monte-Carlo-Simulation WM 2026: Gruppenphase + K.o.-Runde (auf Basis effektiver ELOs)."""
     all_teams = {t.id: t for t in db.query(models.WmtTeam).all()}
     if not all_teams:
         return None
+
+    factors_by_team = _active_factors(db)
+    eff_elo = {tid: _effective_elo(t, factors_by_team) for tid, t in all_teams.items()}
 
     group_matches_q = (
         db.query(models.WmtMatch)
@@ -1048,7 +1312,7 @@ def do_generate_bonus(db: Session, n_sims: int = 10000) -> Optional[models.WmtBo
                 if m.status == "FINISHED" and m.score_home is not None:
                     h, a = m.score_home, m.score_away
                 else:
-                    h_xg, a_xg = elo_to_expected_goals(ht.elo, at.elo)
+                    h_xg, a_xg = elo_to_expected_goals(eff_elo[m.home_team_id], eff_elo[m.away_team_id])
                     h = _sample_goals_poisson(h_xg)
                     a = _sample_goals_poisson(a_xg)
 
@@ -1066,13 +1330,13 @@ def do_generate_bonus(db: Session, n_sims: int = 10000) -> Optional[models.WmtBo
                 team_ids,
                 key=lambda t: (
                     pts[t], gd[t], gf[t],
-                    all_teams[t].elo if t in all_teams else DEFAULT_ELO,
+                    eff_elo.get(t, DEFAULT_ELO),
                     random.random(),
                 ),
                 reverse=True,
             )
             for rank, tid in enumerate(sorted_ids):
-                elo = all_teams[tid].elo if tid in all_teams else DEFAULT_ELO
+                elo = eff_elo.get(tid, DEFAULT_ELO)
                 if rank == 0:
                     group_win_count[tid] += 1
                     top2_count[tid] += 1
@@ -2054,10 +2318,114 @@ def match_predictions(mid: int, db: Session = Depends(get_db)):
 
 @router.get("/teams", response_model=list[schemas.WmtTeamOut])
 def list_teams(db: Session = Depends(get_db)):
-    return (
+    teams = (
         db.query(models.WmtTeam)
         .order_by(models.WmtTeam.elo.desc())
         .all()
+    )
+    factors_by_team = _active_factors(db)
+    out = []
+    for t in teams:
+        item = _team_out(t)
+        item.effective_elo = _effective_elo(t, factors_by_team)
+        out.append(item)
+    return out
+
+
+def _factor_out(f: models.WmtTeamFactor, team: Optional[models.WmtTeam]) -> schemas.WmtTeamFactorOut:
+    return schemas.WmtTeamFactorOut(
+        id=f.id,
+        team_id=f.team_id,
+        tla=team.tla if team else None,
+        team_name=(team.short_name or team.name) if team else None,
+        factor_type=f.factor_type,
+        elo_delta=f.elo_delta,
+        note=f.note,
+        source=f.source,
+        valid_from=f.valid_from.isoformat() if f.valid_from else None,
+        valid_until=f.valid_until.isoformat() if f.valid_until else None,
+        created_at=f.created_at,
+    )
+
+
+@router.get("/factors", response_model=list[schemas.WmtTeamFactorOut])
+def list_factors(db: Session = Depends(get_db)):
+    """Alle Team-Faktoren (inkl. abgelaufener) mit Team-Infos auflisten."""
+    teams = {t.id: t for t in db.query(models.WmtTeam).all()}
+    rows = (
+        db.query(models.WmtTeamFactor)
+        .order_by(models.WmtTeamFactor.team_id, models.WmtTeamFactor.factor_type)
+        .all()
+    )
+    return [_factor_out(f, teams.get(f.team_id)) for f in rows]
+
+
+@router.post("/factors/import", response_model=schemas.WmtRefreshOut)
+def import_factors(payload: schemas.WmtTeamFactorImportIn, db: Session = Depends(get_db)):
+    """Team-Faktoren importieren (z. B. von Claude im Chat recherchierte aktuelle Fakten).
+
+    Ersetzt je (Team, factor_type) alle vorhandenen Faktoren durch die übergebenen.
+    Deltas werden serverseitig auf ±FACTOR_DELTA_CAP begrenzt.
+    """
+    to_insert: list[models.WmtTeamFactor] = []
+    pairs: set[tuple[int, str]] = set()
+    skipped = 0
+    for item in payload.factors:
+        team = db.query(models.WmtTeam).filter_by(tla=item.tla.strip().upper()).first()
+        if not team or not item.factor_type.strip():
+            skipped += 1
+            continue
+        try:
+            valid_from  = date.fromisoformat(item.valid_from)  if item.valid_from  else None
+            valid_until = date.fromisoformat(item.valid_until) if item.valid_until else None
+        except ValueError:
+            skipped += 1
+            continue
+        ftype = item.factor_type.strip()
+        delta = max(-FACTOR_DELTA_CAP, min(FACTOR_DELTA_CAP, item.elo_delta))
+        pairs.add((team.id, ftype))
+        to_insert.append(models.WmtTeamFactor(
+            team_id=team.id,
+            factor_type=ftype,
+            elo_delta=delta,
+            note=item.note,
+            source=item.source or "chat-import",
+            valid_from=valid_from,
+            valid_until=valid_until,
+        ))
+    for team_id, ftype in pairs:
+        db.query(models.WmtTeamFactor).filter_by(team_id=team_id, factor_type=ftype).delete()
+    for f in to_insert:
+        db.add(f)
+    db.commit()
+
+    _apply_elo_and_predictions(db, [])
+    return schemas.WmtRefreshOut(
+        message=f"{len(to_insert)} Faktor(en) importiert, {skipped} übersprungen. Prognosen aktualisiert.",
+        updated=len(to_insert),
+    )
+
+
+@router.delete("/factors/{fid}", response_model=schemas.WmtRefreshOut)
+def delete_factor(fid: int, db: Session = Depends(get_db)):
+    f = db.get(models.WmtTeamFactor, fid)
+    if not f:
+        raise HTTPException(status_code=404, detail="Faktor nicht gefunden.")
+    db.delete(f)
+    db.commit()
+    _apply_elo_and_predictions(db, [])
+    return schemas.WmtRefreshOut(message="Faktor gelöscht. Prognosen aktualisiert.", updated=1)
+
+
+@router.post("/news-adjust", response_model=schemas.WmtRefreshOut)
+def news_adjust(db: Session = Depends(get_db)):
+    """News-Faktoren für Teams mit Spielen in den nächsten 48h aktualisieren."""
+    n, err = do_news_adjust(db)
+    if err:
+        return schemas.WmtRefreshOut(message=err, updated=0)
+    return schemas.WmtRefreshOut(
+        message=f"News-Faktoren aktualisiert: {n} Anpassung{'en' if n != 1 else ''} aktiv. Prognosen aktualisiert.",
+        updated=n,
     )
 
 
@@ -2253,6 +2621,8 @@ def clear_data(db: Session = Depends(get_db)):
     db.query(models.WmtBonusPrediction).delete()
     db.query(models.WmtPrediction).delete()
     db.query(models.WmtSummary).delete()
+    db.query(models.WmtOpponentTip).delete()
+    db.query(models.WmtTeamFactor).delete()
     db.query(models.WmtMatch).delete()
     db.query(models.WmtTeam).delete()
     db.commit()

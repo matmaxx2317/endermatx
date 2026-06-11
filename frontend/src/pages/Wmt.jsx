@@ -58,6 +58,67 @@ function formatDateLong(utcStr) {
 //  coerces to 0, so we must not rely on matchday for those).
 const STAGE_ORDER = ['GROUP_STAGE','LAST_32','ROUND_OF_32','LAST_16','ROUND_OF_16','QUARTER_FINALS','SEMI_FINALS','THIRD_PLACE','FINAL']
 
+// ── Kicktipp-optimaler Tipp ───────────────────────────────────────────────────
+// Kicktipp-Standardwertung: Ergebnis 4 · Tordifferenz 3 · Tendenz 2
+function kicktippPoints(tipH, tipA, h, a) {
+  if (tipH === h && tipA === a) return 4
+  if (tipH - tipA === h - a) return 3
+  if (Math.sign(tipH - tipA) === Math.sign(h - a)) return 2
+  return 0
+}
+
+function poissonPmf(k, lambda) {
+  let p = Math.exp(-lambda)
+  for (let i = 1; i <= k; i++) p *= lambda / i
+  return p
+}
+
+// Tipp mit maximaler Kicktipp-Punkterwartung: Poisson-Torgitter aus den xG,
+// reskaliert auf die Sieg/Remis/Niederlage-Wahrscheinlichkeiten des Modells.
+// In K.o.-Runden wird (wie bisher) nie ein Remis getippt.
+function bestTip(p, isKnockout) {
+  const lh = Math.max(0.05, p.pred_home_goals)
+  const la = Math.max(0.05, p.pred_away_goals)
+  const MAX_G = 6
+  const grid = []
+  let sumHome = 0, sumDraw = 0, sumAway = 0
+  for (let h = 0; h <= MAX_G; h++) {
+    for (let a = 0; a <= MAX_G; a++) {
+      const pr = poissonPmf(h, lh) * poissonPmf(a, la)
+      grid.push([h, a, pr])
+      if (h > a) sumHome += pr
+      else if (h === a) sumDraw += pr
+      else sumAway += pr
+    }
+  }
+  const scaleHome = sumHome > 0 ? (p.home_win_prob ?? sumHome) / sumHome : 1
+  const scaleDraw = sumDraw > 0 ? (p.draw_prob ?? sumDraw) / sumDraw : 1
+  const scaleAway = sumAway > 0 ? (p.away_win_prob ?? sumAway) / sumAway : 1
+  for (const cell of grid) {
+    cell[2] *= cell[0] > cell[1] ? scaleHome : cell[0] === cell[1] ? scaleDraw : scaleAway
+  }
+  const homeLean = (p.home_win_prob ?? 0) >= (p.away_win_prob ?? 0)
+  const cands = []
+  for (let th = 0; th <= 5; th++) {
+    for (let ta = 0; ta <= 5; ta++) {
+      if (isKnockout && th === ta) continue
+      let ev = 0, cellPr = 0
+      for (const [h, a, pr] of grid) {
+        ev += pr * kicktippPoints(th, ta, h, a)
+        if (h === th && a === ta) cellPr = pr
+      }
+      cands.push({ th, ta, ev, cellPr })
+    }
+  }
+  // Bei EV-Gleichstand: wahrscheinlicheres Ergebnis, dann Richtung des Favoriten
+  cands.sort((x, y) =>
+    y.ev - x.ev ||
+    y.cellPr - x.cellPr ||
+    (homeLean ? (y.th - y.ta) - (x.th - x.ta) : (y.ta - y.th) - (x.ta - x.th))
+  )
+  return [cands[0].th, cands[0].ta]
+}
+
 function groupMatches(matches) {
   const map = {}
   for (const m of matches) {
@@ -229,12 +290,7 @@ function MatchCard({ match, teamStatuses = {} }) {
   const awayTla  = match.away_team?.tla ?? '?'
   const homeStatus = match.home_team ? teamStatuses[match.home_team.id] ?? null : null
   const awayStatus = match.away_team ? teamStatuses[match.away_team.id] ?? null : null
-  let tipHome  = p ? Math.max(0, Math.round(p.pred_home_goals)) : null
-  let tipAway  = p ? Math.max(0, Math.round(p.pred_away_goals)) : null
-  if (match.stage !== 'GROUP_STAGE' && tipHome !== null && tipHome === tipAway) {
-    if ((p.home_win_prob ?? 0) >= (p.away_win_prob ?? 0)) tipHome += 1
-    else tipAway += 1
-  }
+  const [tipHome, tipAway] = p ? bestTip(p, match.stage !== 'GROUP_STAGE') : [null, null]
 
   const tipBgColor = isFinished ? 'var(--surface)' : 'rgba(77,111,160,0.06)'
 
@@ -326,21 +382,14 @@ function MatchCard({ match, teamStatuses = {} }) {
                   </div>
                   {match.predictions.map((ph, i) => {
                     const prev = match.predictions[i + 1]
-                    let tipH = Math.max(0, Math.round(ph.pred_home_goals))
-                    let tipA = Math.max(0, Math.round(ph.pred_away_goals))
-                    if (match.stage !== 'GROUP_STAGE' && tipH === tipA) {
-                      if ((ph.home_win_prob ?? 0) >= (ph.away_win_prob ?? 0)) tipH += 1
-                      else tipA += 1
-                    }
-                    const tipChanged = prev && (
-                      tipH !== Math.max(0, Math.round(prev.pred_home_goals)) ||
-                      tipA !== Math.max(0, Math.round(prev.pred_away_goals))
-                    )
+                    const isKo = match.stage !== 'GROUP_STAGE'
+                    const [tipH, tipA] = bestTip(ph, isKo)
+                    const prevTip = prev ? bestTip(prev, isKo) : null
+                    const tipChanged = prevTip && (tipH !== prevTip[0] || tipA !== prevTip[1])
 
                     let changeNote = null
                     if (tipChanged) {
-                      const prevTipH = Math.max(0, Math.round(prev.pred_home_goals))
-                      const prevTipA = Math.max(0, Math.round(prev.pred_away_goals))
+                      const [prevTipH, prevTipA] = prevTip
                       const dHome = (ph.home_elo != null && prev.home_elo != null) ? Math.round(ph.home_elo - prev.home_elo) : null
                       const dAway = (ph.away_elo != null && prev.away_elo != null) ? Math.round(ph.away_elo - prev.away_elo) : null
                       const nachMatch = ph.reasoning?.match(/nach: ([^.]+)/)
@@ -448,6 +497,7 @@ export default function Wmt() {
   const [refreshing, setRefreshing]     = useState(false)
   const [clearing, setClearing]         = useState(false)
   const [warming, setWarming]           = useState(false)
+  const [adjustingNews, setAdjustingNews] = useState(false)
   const [generatingBonus, setGeneratingBonus] = useState(false)
   const [fakingMd1, setFakingMd1]         = useState(false)
   const [fakingMd2, setFakingMd2]         = useState(false)
@@ -538,6 +588,13 @@ export default function Wmt() {
           addLog('Keine Prognosen — Spielplan aktualisieren (☰) um Prognosen zu berechnen')
         }
 
+        try {
+          const factors = await wmt.getFactors()
+          if (factors.length > 0) {
+            addLog(`${factors.length} Team-Faktor${factors.length === 1 ? '' : 'en'} aktiv (effektives ELO)`, 'done')
+          }
+        } catch { /* ignore */ }
+
         addLog('Spieldaten werden geladen…')
         const t0 = Date.now()
         await loadAll()
@@ -554,7 +611,7 @@ export default function Wmt() {
   }, [addLog, loadAll])
 
   async function handleClear() {
-    if (!window.confirm('Alle WMT-Daten löschen? (Teams, Spiele, Prognosen, Morgenberichte, Bonus)')) return
+    if (!window.confirm('Alle WMT-Daten löschen? (Teams, Spiele, Prognosen, Faktoren, Konkurrenz-Tipps, Morgenberichte, Bonus)')) return
     setClearing(true)
     addLog('Datenbank wird geleert…')
     try {
@@ -628,6 +685,23 @@ export default function Wmt() {
       addLog('Fehler bei der Kalibrierung', 'error')
     } finally {
       setWarming(false)
+    }
+  }
+
+  async function handleNewsAdjust() {
+    setAdjustingNews(true)
+    setView('import')
+    addLog('News-Faktoren werden aktualisiert (NewsAPI + Claude)…')
+    const t0 = Date.now()
+    try {
+      const res = await wmt.newsAdjust()
+      const elapsed = ((Date.now() - t0) / 1000).toFixed(1)
+      addLog(`${res.message} (${elapsed}s)`, res.message.includes('nicht gesetzt') ? 'error' : 'done')
+      await loadAll()
+    } catch (e) {
+      addLog('Fehler beim Aktualisieren der News-Faktoren', 'error')
+    } finally {
+      setAdjustingNews(false)
     }
   }
 
@@ -806,7 +880,7 @@ export default function Wmt() {
     finally { setFakingAll(false) }
   }
 
-  const anyBusy = refreshing || clearing || warming || generatingBonus ||
+  const anyBusy = refreshing || clearing || warming || generatingBonus || adjustingNews ||
     fakingMd1 || fakingMd2 || fakingMd3 || fakingRd32 ||
     fakingLast16 || fakingQf || fakingSf || fakingTp || fakingFinal || fakingAll
 
@@ -901,7 +975,7 @@ export default function Wmt() {
             }}>
             {anyBusy ? '…' : '☰'}
           </button>
-          <span className="topbar-version">v3.5</span>
+          <span className="topbar-version">v3.6</span>
         </div>
       </div>
 
@@ -936,6 +1010,11 @@ export default function Wmt() {
                   icon="⊕" label="Historische Kalibrierung"
                   loading={warming} disabled={anyBusy && !warming}
                   onClick={() => { setMenuOpen(false); handleWarmup() }}
+                />
+                <MenuButton
+                  icon="📰" label="News-Faktoren aktualisieren"
+                  loading={adjustingNews} disabled={anyBusy && !adjustingNews}
+                  onClick={() => { setMenuOpen(false); handleNewsAdjust() }}
                 />
                 <MenuButton
                   icon="▶" label={isBonusFrozen ? 'Bonus-Prognose gesperrt' : 'Bonus-Prognose berechnen'}
@@ -1807,7 +1886,7 @@ function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
 
             {p && (
               <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 10 }}>
-                ELO-Tipp: {Math.round(p.pred_home_goals)}:{Math.round(p.pred_away_goals)}
+                ELO-Tipp: {bestTip(p, m.stage !== 'GROUP_STAGE').join(':')}
                 {' '}({Math.round(p.home_win_prob * 100)}% / {Math.round(p.draw_prob * 100)}% / {Math.round(p.away_win_prob * 100)}%)
               </div>
             )}

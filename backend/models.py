@@ -147,6 +147,19 @@ class WmtBonusPrediction(Base):
     n_simulations = Column(Integer, default=10000)
 
 
+class WmtTeamFactor(Base):
+    __tablename__ = "wmt_team_factors"
+    id          = Column(Integer, primary_key=True, autoincrement=True)
+    team_id     = Column(Integer, ForeignKey("wmt_teams.id"), nullable=False)
+    factor_type = Column(String, nullable=False)   # 'home_advantage' | 'rating_sync' | 'injury' | 'form' | 'news' | …
+    elo_delta   = Column(Float, nullable=False)
+    note        = Column(String, nullable=True)
+    source      = Column(String, nullable=True)    # 'auto' | 'chat-import' | 'newsapi+claude'
+    valid_from  = Column(Date, nullable=True)
+    valid_until = Column(Date, nullable=True)
+    created_at  = Column(DateTime, default=datetime.utcnow)
+
+
 class WmtOpponentTip(Base):
     __tablename__ = "wmt_opponent_tips"
     id              = Column(Integer, primary_key=True, autoincrement=True)
