@@ -46,7 +46,7 @@ def _wmt_refresh() -> None:
 
 
 def _wmt_morning_summary() -> None:
-    """Generate morning summary at 06:00 for yesterday's matches."""
+    """Generate morning summary at 04:30 for yesterday's matches."""
     db = SessionLocal()
     try:
         yesterday = date.today() - timedelta(days=1)
@@ -131,7 +131,7 @@ async def lifespan(app: FastAPI):
     )
     scheduler.add_job(
         _wmt_morning_summary,
-        CronTrigger(hour=6, minute=0),
+        CronTrigger(hour=4, minute=30),
         misfire_grace_time=3600,
     )
     scheduler.add_job(
@@ -141,7 +141,7 @@ async def lifespan(app: FastAPI):
     )
     scheduler.start()
     logger.info("Scheduler started — TTS EOD at 23:00, WMT refresh every 30 min, "
-                "WMT summary at 06:00, WMT news factors at 07:30")
+                "WMT summary at 04:30, WMT news factors at 07:30")
 
     yield
 

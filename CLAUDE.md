@@ -200,7 +200,7 @@ Each router (`backend/routers/*.py`) follows the same pattern:
 
 ### EOD scheduler
 
-`main.py` runs an APScheduler `CronTrigger(hour=23, minute=0)` that auto-closes any open TTS timer entries at 23:00 daily. It also auto-generates a WMT morning summary at 08:00 daily (if WMT matches exist) and refreshes WMT news-based team factors at 07:30 daily.
+`main.py` runs an APScheduler `CronTrigger(hour=23, minute=0)` that auto-closes any open TTS timer entries at 23:00 daily. It also auto-generates a WMT morning summary at 04:30 daily (if WMT matches exist) and refreshes WMT news-based team factors at 07:30 daily.
 
 ## Frontend patterns
 
@@ -332,7 +332,7 @@ Monte-Carlo simulation (10 000 runs) of the full tournament, based on effective 
 
 ### Morning summaries (`do_generate_summary`)
 
-Generates a markdown report for all matches played on a given date: results, prediction accuracy (tendency), upsets. Stored in `WmtSummary`. Auto-generated daily at 08:00 by the APScheduler. Can also be manually triggered per-date via the calendar picker in the burger menu.
+Generates a markdown report for all matches played on a given date: results, prediction accuracy (tendency), upsets. Stored in `WmtSummary`. Auto-generated daily at 04:30 by the APScheduler. Can also be manually triggered per-date via the calendar picker in the burger menu.
 
 ### Gossip in morning reports
 
