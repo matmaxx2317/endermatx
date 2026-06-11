@@ -200,7 +200,7 @@ Each router (`backend/routers/*.py`) follows the same pattern:
 
 ### EOD scheduler
 
-`main.py` runs an APScheduler `CronTrigger(hour=23, minute=0)` that auto-closes any open TTS timer entries at 23:00 daily. It also auto-generates a WMT morning summary at 08:00 daily (if WMT matches exist).
+`main.py` runs an APScheduler `CronTrigger(hour=23, minute=0)` that auto-closes any open TTS timer entries at 23:00 daily. It also auto-generates a WMT morning summary at 08:00 daily (if WMT matches exist) and refreshes WMT news-based team factors at 07:30 daily.
 
 ## Frontend patterns
 
@@ -240,7 +240,7 @@ Each tool page owns its own version string, displayed in the topbar's right side
 | str  | v4.0 |
 | bpm  | v4.0 |
 | spt  | v4.9 |
-| wmt  | v3.5 |
+| wmt  | v3.6 |
 | block-hero | v1.0 |
 
 There is no global version footer. `vite.config.js` still injects `__GIT_HASH__` and `__GIT_HASH_FULL__` (Railway fallback: `RAILWAY_GIT_COMMIT_SHA`) but these are not currently displayed.
@@ -285,6 +285,7 @@ Match data is fetched via one of two sources, tried in order:
 | `WmtPrediction` | `wmt_predictions` | ELO-based prediction snapshot per match (history kept) |
 | `WmtSummary` | `wmt_summaries` | Daily morning report (markdown) |
 | `WmtBonusPrediction` | `wmt_bonus_predictions` | Monte-Carlo tournament simulation result |
+| `WmtTeamFactor` | `wmt_team_factors` | Bounded, dated ELO adjustment from current real-world facts (home advantage, injuries, external ratings, news) |
 | `WmtOpponentTip` | `wmt_opponent_tips` | Imported tip of a fellow Tipprunde player for a given match |
 | `WmtRankingSnapshot` | `wmt_ranking_snapshots` | Imported daily leaderboard snapshot (date, player, rank, points) from Kicktipp's Tippübersicht |
 
@@ -296,12 +297,23 @@ Match data is fetched via one of two sources, tried in order:
 - **`update_elo_after_match(...)`** — updates ELOs after a result, with goal-difference multiplier
 - **`do_historical_warmup(db)`** — re-calibrates ELOs using openligadb data for WM2014 → EM2024 with form-decay K-factor (older matches count less)
 
+### Team factors — effective ELO (`WmtTeamFactor`)
+
+Predictions (win probs, xG, Monte-Carlo bonus sim) are computed from **effective ELO** = `WmtTeam.elo` + sum of the team's active `WmtTeamFactor` deltas. Factors are a *lens* on top of the rating: `update_elo_after_match` keeps operating on the raw `elo`, so a wrong factor never corrupts the ELO bookkeeping. Each factor has a `factor_type`, a bounded `elo_delta` (±50 per factor at import, ±40 for automated news factors, team total capped at ±100), an optional `note`/`source`, and an optional `valid_from`/`valid_until` window so it expires instead of lingering. Active factors are listed in the prediction's `reasoning` as a `Faktoren: …` line (visible in the match card and VERLAUF). `WmtPrediction.home_elo`/`away_elo` store the **effective** values used; the ≥5-point regeneration trigger compares effective ELOs.
+
+Three intake paths:
+1. **Automatic** — `_ensure_host_factors` seeds a permanent `home_advantage` factor (+60) for the hosts USA/MEX/CAN on first prediction run.
+2. **News adjuster** (`do_news_adjust`, `POST /api/wmt/news-adjust`, scheduled daily at 07:30) — for every team playing within the next 48 h, fetches injury/squad/coach news from NewsAPI (per-team query, last 3 days) and has Claude (`claude-haiku-4-5-20251001`) convert only *material, match-relevant* facts into strict-JSON deltas (±40 max, empty array encouraged). Existing `news` factors of the evaluated teams are replaced on every run (stale news self-heals) and they expire after 3 days. Requires `NEWS_API_KEY` + `ANTHROPIC_API_KEY`; skips gracefully otherwise. Manual trigger via burger menu ("News-Faktoren aktualisieren").
+3. **Chat import** (`POST /api/wmt/factors/import`, mirrors the Kicktipp screenshot workflow) — Claude in any chat session researches slower-moving facts (e.g. current World Football Elo Ratings from eloratings.net as a `rating_sync` delta, FIFA rank, Transfermarkt squad values, confirmed long-term injuries) and POSTs `{factors: [{tla, factor_type, elo_delta, note?, source?, valid_from?, valid_until?}]}`. Import replaces all existing factors per `(team, factor_type)` pair and regenerates predictions immediately. `GET /api/wmt/factors` lists factors; `DELETE /api/wmt/factors/{id}` removes one.
+
+**Factor import workflow (for Claude in any session):** when the user asks to sync current team strength, look up the relevant numbers (eloratings.net, FIFA ranking, market values, squad news), map team names to TLAs, convert to bounded deltas (e.g. `rating_sync` = a fraction of the gap between external and internal rating, capped at ±50), POST them to `/api/wmt/factors/import`, and relay the import/skip counts.
+
 ### Refresh flow (`do_refresh`)
 
 1. Fetch all matches from API; upsert teams and matches
 2. For newly-finished matches: update ELOs (`update_elo_after_match`)
 3. `_auto_assign_next_round(db)` — if a round is now complete, fill the next round's empty team slots (strongest vs. weakest by ELO pairing)
-4. Regenerate `WmtPrediction` rows for all upcoming matches where ELO shifted ≥ 5 points
+4. Regenerate `WmtPrediction` rows for all upcoming matches where **effective** ELO (raw ELO + active team factors) shifted ≥ 5 points
 
 ### Auto-assign chain
 
@@ -316,7 +328,7 @@ SEMI_FINALS → FINAL (winners) + THIRD_PLACE (losers)
 
 ### Bonus prediction (`do_generate_bonus`)
 
-Monte-Carlo simulation (10 000 runs) of the full tournament. Outputs: tournament winner (plus the top-3 winner candidates by simulated win probability, `winner_candidates`), finalists, semi-finalists, group winner probabilities, top-scorer estimate. Frozen (UI-locked) one day before the tournament starts. After the Final is finished, the Bonus view automatically shows a "PROGNOSE vs. REALITÄT" comparison section (which still compares against the single top `winner` pick).
+Monte-Carlo simulation (10 000 runs) of the full tournament, based on effective ELOs (raw ELO + active team factors). Outputs: tournament winner (plus the top-3 winner candidates by simulated win probability, `winner_candidates`), finalists, semi-finalists, group winner probabilities, top-scorer estimate. Frozen (UI-locked) one day before the tournament starts. After the Final is finished, the Bonus view automatically shows a "PROGNOSE vs. REALITÄT" comparison section (which still compares against the single top `winner` pick).
 
 ### Morning summaries (`do_generate_summary`)
 
@@ -346,7 +358,7 @@ Kicktipp.de has no public API for reading fellow players' tips, so they're impor
 
 Kicktipp has no public export and its exact point formula (exact-score / goal-difference bonuses) isn't published, so the app doesn't try to recompute the leaderboard — instead it captures the **official** Pos/P values straight from the daily Tippübersicht screenshot (see step 6 above) and stores them as `WmtRankingSnapshot` rows. Because historical ranks can't be reconstructed retroactively, the chart is only as complete as the daily screenshot habit — there is no backfill. The **Konkurrenz** tab renders a `RankingChart` (custom inline SVG, no charting library — `polyline` per player, axis gridlines/labels, a cycling colour palette) plotting day on the x-axis and rank on the y-axis (inverted, rank 1 at top), one line per player — a Mario-Party-style "ranking over time" view of the whole Tipprunde.
 
-### Frontend views (`Wmt.jsx` — v3.0)
+### Frontend views (`Wmt.jsx`)
 
 The page has six tabs:
 
@@ -363,11 +375,12 @@ The page has six tabs:
 
 **Team colour coding:** Only in the MD3 matchday view. Green = safely qualified for Rd.32 after MD2 results; red = safely eliminated. Determined by a pure-JS standings computation over all group matches.
 
-**Tipp suggestions:** For knockout stages the displayed tip (rounded xG) is never a draw — the higher-probability side gets +1 if scores tie. This applies to both the current tip and the VERLAUF history.
+**Tipp suggestions:** The displayed tip is the scoreline with the highest **expected Kicktipp points** (default scoring: exact result 4, goal difference 3, tendency 2), computed client-side (`bestTip` in `Wmt.jsx`) over a Poisson goal grid from the predicted xG, rescaled to the model's win/draw/loss probabilities. For knockout stages a draw is never tipped (draw candidates are excluded). This applies to the current tip, the VERLAUF history, and the ELO-Tipp shown in the Konkurrenz tab.
 
 **Burger menu actions:**
 - Spielplan aktualisieren (refresh from API)
 - Historische Kalibrierung (ELO warmup via openligadb)
+- News-Faktoren aktualisieren (NewsAPI + Claude → bounded ELO factors for teams playing within 48h)
 - Bonus-Prognose berechnen (locked one day before tournament)
 - Morgenbericht erstellen (calendar picker → generates summary for selected date)
 - Daten löschen
@@ -399,6 +412,10 @@ GET  /api/wmt/matches           → all matches with nested team + latest predic
 GET  /api/wmt/teams             → all teams with ELO
 GET  /api/wmt/opponents         → imported opponent tips (optional ?match_id= filter)
 POST /api/wmt/opponents/import  → import/update opponent tips (resolved via team TLAs)
+GET  /api/wmt/factors           → all team factors (with team TLA/name, validity window)
+POST /api/wmt/factors/import    → import team factors (replaces per (team, factor_type); regenerates predictions)
+DELETE /api/wmt/factors/{id}    → delete a single factor (regenerates predictions)
+POST /api/wmt/news-adjust       → refresh news-based factors for teams playing within 48h
 GET  /api/wmt/rankings          → imported daily ranking snapshots (date, player, rank, points)
 POST /api/wmt/rankings/import   → import/update ranking snapshots (upsert by date + player_name)
 GET  /api/wmt/summaries         → all morning reports

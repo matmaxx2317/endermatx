@@ -176,6 +176,7 @@ class WmtTeamOut(BaseModel):
     short_name: Optional[str]
     tla: Optional[str]
     elo: float
+    effective_elo: Optional[float] = None
     matches_played: int
     model_config = {"from_attributes": True}
 
@@ -245,6 +246,34 @@ class WmtWarmupOut(BaseModel):
     matches_processed: int
     teams_updated: int
     elapsed_seconds: float
+
+
+class WmtTeamFactorIn(BaseModel):
+    tla: str
+    factor_type: str
+    elo_delta: float
+    note: Optional[str] = None
+    source: Optional[str] = None
+    valid_from: Optional[str] = None   # ISO date
+    valid_until: Optional[str] = None  # ISO date
+
+
+class WmtTeamFactorImportIn(BaseModel):
+    factors: list[WmtTeamFactorIn]
+
+
+class WmtTeamFactorOut(BaseModel):
+    id: int
+    team_id: int
+    tla: Optional[str] = None
+    team_name: Optional[str] = None
+    factor_type: str
+    elo_delta: float
+    note: Optional[str] = None
+    source: Optional[str] = None
+    valid_from: Optional[str] = None
+    valid_until: Optional[str] = None
+    created_at: UtcDt
 
 
 class WmtOpponentTipIn(BaseModel):
