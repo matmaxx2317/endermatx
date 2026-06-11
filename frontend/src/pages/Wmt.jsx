@@ -901,7 +901,7 @@ export default function Wmt() {
             }}>
             {anyBusy ? '…' : '☰'}
           </button>
-          <span className="topbar-version">v3.4</span>
+          <span className="topbar-version">v3.5</span>
         </div>
       </div>
 
@@ -1401,22 +1401,33 @@ function BonusView({ bonus, generating, actualResults }) {
       )}
 
       {/* Turniersieger */}
-      {bonus.winner && (
-        <div style={{ ...cardStyle, borderColor: 'var(--border-hover)' }}>
-          <div style={labelStyle}>TURNIERSIEGER</div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', marginRight: 10 }}>
-                {bonus.winner.tla}
-              </span>
-              <span style={{ fontSize: 14, color: 'var(--text-secondary)' }}>{bonus.winner.team}</span>
-            </div>
-            <span style={{ fontSize: 16, fontWeight: 600, color: '#4d6fa0' }}>
-              {(bonus.winner.prob * 100).toFixed(0)}%
-            </span>
+      {bonus.winner && (() => {
+        const candidates = bonus.winner_candidates?.length > 0 ? bonus.winner_candidates : [bonus.winner]
+        return (
+          <div style={{ ...cardStyle, borderColor: 'var(--border-hover)' }}>
+            <div style={labelStyle}>{candidates.length > 1 ? 'TURNIERSIEGER — TOP 3' : 'TURNIERSIEGER'}</div>
+            {candidates.map((item, i) => (
+              <div key={i} style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: i === 0 ? '0 0 7px' : '7px 0 0', borderTop: i > 0 ? '1px solid var(--border)' : 'none',
+              }}>
+                <div>
+                  <span style={{
+                    fontSize: i === 0 ? 18 : 13, fontWeight: i === 0 ? 700 : 600,
+                    color: 'var(--text-primary)', marginRight: 10,
+                  }}>
+                    {item.tla}
+                  </span>
+                  <span style={{ fontSize: i === 0 ? 14 : 12, color: 'var(--text-secondary)' }}>{item.team}</span>
+                </div>
+                <span style={{ fontSize: i === 0 ? 16 : 12, fontWeight: 600, color: '#4d6fa0' }}>
+                  {(item.prob * 100).toFixed(0)}%
+                </span>
+              </div>
+            ))}
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* Finalisten */}
       {bonus.finalists?.length > 0 && (

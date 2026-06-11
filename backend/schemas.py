@@ -232,6 +232,7 @@ class WmtBonusPredictionOut(BaseModel):
     semifinalists: Any
     finalists: Any
     winner: Any
+    winner_candidates: Any = None
     top_scorer: Any
     n_simulations: int
     model_config = {"from_attributes": True}

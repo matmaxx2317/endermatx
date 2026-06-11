@@ -240,7 +240,7 @@ Each tool page owns its own version string, displayed in the topbar's right side
 | str  | v4.0 |
 | bpm  | v4.0 |
 | spt  | v4.9 |
-| wmt  | v3.4 |
+| wmt  | v3.5 |
 | block-hero | v1.0 |
 
 There is no global version footer. `vite.config.js` still injects `__GIT_HASH__` and `__GIT_HASH_FULL__` (Railway fallback: `RAILWAY_GIT_COMMIT_SHA`) but these are not currently displayed.
@@ -316,7 +316,7 @@ SEMI_FINALS → FINAL (winners) + THIRD_PLACE (losers)
 
 ### Bonus prediction (`do_generate_bonus`)
 
-Monte-Carlo simulation (10 000 runs) of the full tournament. Outputs: tournament winner, finalists, semi-finalists, group winner probabilities, top-scorer estimate. Frozen (UI-locked) one day before the tournament starts. After the Final is finished, the Bonus view automatically shows a "PROGNOSE vs. REALITÄT" comparison section.
+Monte-Carlo simulation (10 000 runs) of the full tournament. Outputs: tournament winner (plus the top-3 winner candidates by simulated win probability, `winner_candidates`), finalists, semi-finalists, group winner probabilities, top-scorer estimate. Frozen (UI-locked) one day before the tournament starts. After the Final is finished, the Bonus view automatically shows a "PROGNOSE vs. REALITÄT" comparison section (which still compares against the single top `winner` pick).
 
 ### Morning summaries (`do_generate_summary`)
 
