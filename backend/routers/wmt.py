@@ -1169,8 +1169,16 @@ def do_generate_bonus(db: Session, n_sims: int = 10000) -> Optional[models.WmtBo
             "tla":  w.tla or "?",
             "prob": round(win_count.get(winner_id, 0) / n_sims, 3),
         }
+        winner_candidates = sorted(
+            [{"team": all_teams[t].short_name or all_teams[t].name,
+              "tla":  all_teams[t].tla or "?",
+              "prob": round(win_count[t] / n_sims, 3)}
+             for t in all_ids if win_count.get(t, 0) > 0],
+            key=lambda x: -x["prob"],
+        )[:3]
     else:
         winner = {"team": "?", "tla": "?", "prob": 0.0}
+        winner_candidates = []
 
     top_scorer = _compute_top_scorer(db)
 
@@ -1179,6 +1187,7 @@ def do_generate_bonus(db: Session, n_sims: int = 10000) -> Optional[models.WmtBo
         semifinalists=semifinalists,
         finalists=finalists,
         winner=winner,
+        winner_candidates=winner_candidates,
         top_scorer=top_scorer,
         n_simulations=n_sims,
     )

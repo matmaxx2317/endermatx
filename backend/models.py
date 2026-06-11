@@ -142,6 +142,7 @@ class WmtBonusPrediction(Base):
     semifinalists = Column(JSONB)   # [{"team": "...", "tla": "...", "prob": 0.32}, ...]
     finalists     = Column(JSONB)   # [{"team": "...", "tla": "...", "prob": 0.20}, ...]
     winner        = Column(JSONB)   # {"team": "...", "tla": "...", "prob": 0.15}
+    winner_candidates = Column(JSONB)  # [{"team": "...", "tla": "...", "prob": 0.15}, ...] (top 3)
     top_scorer    = Column(JSONB)   # {"player": "...", "team": "...", "tla": "...", "goals": 4.2, "source": "..."}
     n_simulations = Column(Integer, default=10000)
 
