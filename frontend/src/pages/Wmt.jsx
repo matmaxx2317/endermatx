@@ -904,6 +904,8 @@ export default function Wmt() {
   const teamStatuses = useMemo(() => computeTeamStatuses(matches), [matches])
 
   const isBonusFrozen = useMemo(() => {
+    return false // TEMPORARY: bonus generation unlocked again — re-enable after use
+    // eslint-disable-next-line no-unreachable
     if (!matches.length) return false
     const firstMs = Math.min(...matches.map(m => new Date(m.utc_date).getTime()))
     const freeze = new Date(firstMs)
