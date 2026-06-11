@@ -423,7 +423,7 @@ export default function Calendar() {
           <span className="topbar-title">cal</span>
         </div>
         <div className="topbar-right">
-          <span className="topbar-version">v4.7</span>
+          <span className="topbar-version">v4.8</span>
           <button className="btn btn-sm" onClick={() => setShowSettings(s => !s)}>
             {showSettings ? 'close' : 'settings'}
           </button>
@@ -698,11 +698,11 @@ export default function Calendar() {
                 </div>
                 <div style={{ marginBottom: 10 }}>
                   <label className="label">start</label>
-                  <input className="input" type="date" value={editForm.start_date} onChange={e => setEF('start_date', e.target.value)} />
+                  <input className="input" type="date" style={{ WebkitAppearance: 'none', appearance: 'none', maxWidth: '100%' }} value={editForm.start_date} onChange={e => setEF('start_date', e.target.value)} />
                 </div>
                 <div style={{ marginBottom: 10 }}>
                   <label className="label">end</label>
-                  <input className="input" type="date" value={editForm.end_date} onChange={e => setEF('end_date', e.target.value)} />
+                  <input className="input" type="date" style={{ WebkitAppearance: 'none', appearance: 'none', maxWidth: '100%' }} value={editForm.end_date} onChange={e => setEF('end_date', e.target.value)} />
                 </div>
                 <div style={{ marginBottom: 12 }}>
                   <label className="label">color</label>
