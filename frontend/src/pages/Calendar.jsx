@@ -240,6 +240,9 @@ function computeStart(form, projects) {
       return d
     }
   }
+  if (form.startMode === 'date' && form.startDate) {
+    return parseDate(form.startDate)
+  }
   const v = Math.max(0, parseInt(form.startValue) || 0)
   if (form.startUnit === 'days')   return addWorkingDays(today, v)
   if (form.startUnit === 'weeks')  { const d = new Date(today); d.setDate(d.getDate() + v * 7); return d }
@@ -267,6 +270,7 @@ const DEFAULT_ADD = {
   name: '', color: COLORS[0],
   startMode: 'offset', startValue: 5, startUnit: 'days',
   afterProjectId: '',
+  startDate: toDateStr(new Date()),
   durationValue: 30, durationUnit: 'days',
 }
 
@@ -423,7 +427,7 @@ export default function Calendar() {
           <span className="topbar-title">cal</span>
         </div>
         <div className="topbar-right">
-          <span className="topbar-version">v4.8</span>
+          <span className="topbar-version">v4.9</span>
           <button className="btn btn-sm" onClick={() => setShowSettings(s => !s)}>
             {showSettings ? 'close' : 'settings'}
           </button>
@@ -639,7 +643,7 @@ export default function Calendar() {
                 </div>
                 <div style={{ marginBottom: 10 }}>
                   <label className="label">start</label>
-                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {projects.length > 0 && (
                       <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--text-secondary)' }}>
                         <input type="radio" checked={form.startMode === 'after'} onChange={() => setF('startMode', 'after')} />
@@ -665,6 +669,13 @@ export default function Calendar() {
                         <option value="weeks">weeks</option>
                         <option value="months">months</option>
                       </select>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--text-secondary)' }}>
+                      <input type="radio" checked={form.startMode === 'date'} onChange={() => setF('startMode', 'date')} />
+                      on
+                      <input type="date" className="input" style={{ width: 130, padding: '2px 6px', fontSize: 12, WebkitAppearance: 'none', appearance: 'none' }}
+                        value={form.startDate}
+                        onChange={e => { setF('startDate', e.target.value); setF('startMode', 'date') }} />
                     </label>
                   </div>
                 </div>
