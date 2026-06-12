@@ -977,7 +977,7 @@ export default function Wmt() {
             }}>
             {anyBusy ? '…' : '☰'}
           </button>
-          <span className="topbar-version">v3.8</span>
+          <span className="topbar-version">v3.9</span>
         </div>
       </div>
 
@@ -1835,10 +1835,10 @@ function RankingChart({ snapshots }) {
 // Kicktipp-Treffergüte eines Tipps gegen das Endergebnis — als dezente,
 // halbtransparente Overlays, damit der Text in beiden Themes lesbar bleibt.
 const TIP_OVERLAYS = {
-  exact:    'rgba(46, 204, 113, 0.22)',  // exaktes Ergebnis
-  diff:     'rgba(241, 196, 15, 0.20)',  // richtige Tordifferenz
-  tendency: 'rgba(230, 126, 34, 0.22)',  // nur Tendenz (Sieger) richtig
-  wrong:    'rgba(231, 76, 60, 0.20)',   // komplett daneben
+  exact:    'rgba(255, 64, 255, 0.24)',  // Magenta — exaktes Ergebnis
+  diff:     'rgba(0, 200, 255, 0.24)',   // Cyan — richtige Tordifferenz
+  tendency: 'rgba(241, 196, 15, 0.24)',  // Gelb — nur Tendenz (Sieger) richtig
+  wrong:    'rgba(231, 76, 60, 0.22)',   // Rot — komplett daneben
 }
 
 function tipOverlay(m, t) {
