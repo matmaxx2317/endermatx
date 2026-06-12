@@ -660,7 +660,7 @@ export default function Wmt() {
       if (!isErr) await loadAll()
       addLog('Ansicht aktualisiert', 'done')
     } catch (e) {
-      addLog('Fehler beim Refresh', 'error')
+      addLog(`Fehler beim Refresh${e?.message ? ` — ${e.message}` : ''}`, 'error')
     } finally {
       setRefreshing(false)
     }
@@ -977,7 +977,7 @@ export default function Wmt() {
             }}>
             {anyBusy ? '…' : '☰'}
           </button>
-          <span className="topbar-version">v3.6</span>
+          <span className="topbar-version">v3.7</span>
         </div>
       </div>
 

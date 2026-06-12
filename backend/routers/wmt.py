@@ -10,6 +10,7 @@ import logging
 import math
 import os
 import random
+import threading
 import time
 from collections import defaultdict
 from datetime import date, datetime, timedelta
@@ -722,15 +723,26 @@ def _do_refresh_openligadb(db: Session) -> tuple[int, str]:
     return updated, ""
 
 
+# Refresh läuft alle 30 min per Scheduler UND manuell per Button. Seit echte
+# Ergebnisse eintreffen, schreiben Refreshes (ELO-Updates, Prognosen) — zwei
+# gleichzeitige Läufe würden dieselben Ergebnisse doppelt in die ELOs einrechnen.
+_refresh_lock = threading.Lock()
+
+
 def do_refresh(db: Session) -> tuple[int, str]:
     """
     WM 2026-Spielplan laden: football-data.org (alle 104 Spiele) wenn API-Key gesetzt,
     sonst openligadb (Fallback, nur erster Spieltag).
     Returns (updated_count, error_message).
     """
-    if FOOTBALL_API_KEY:
-        return _do_refresh_fdorg(db)
-    return _do_refresh_openligadb(db)
+    if not _refresh_lock.acquire(blocking=False):
+        return 0, "Eine Aktualisierung läuft bereits — bitte gleich erneut versuchen."
+    try:
+        if FOOTBALL_API_KEY:
+            return _do_refresh_fdorg(db)
+        return _do_refresh_openligadb(db)
+    finally:
+        _refresh_lock.release()
 
 
 def _fetch_newsapi_snippets(team_names: list[str], target: date) -> list[str]:
@@ -2553,7 +2565,17 @@ def list_summaries(db: Session = Depends(get_db)):
 
 @router.post("/refresh", response_model=schemas.WmtRefreshOut)
 def manual_refresh(db: Session = Depends(get_db)):
-    n, err_msg = do_refresh(db)
+    try:
+        n, err_msg = do_refresh(db)
+    except Exception as exc:
+        # Ein unbehandelter Fehler würde als nacktes 500 enden und im Frontend
+        # nur "Fehler beim Refresh" anzeigen — Ursache stattdessen sichtbar machen.
+        logger.exception("WMT refresh failed")
+        db.rollback()
+        return schemas.WmtRefreshOut(
+            message=f"Refresh fehlgeschlagen: {type(exc).__name__}: {str(exc)[:300]}",
+            updated=0,
+        )
     if err_msg:
         return schemas.WmtRefreshOut(message=err_msg, updated=0)
     return schemas.WmtRefreshOut(
