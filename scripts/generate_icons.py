@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Generate the apple-touch-icon PNGs in frontend/public/icons/.
 
-Pure-stdlib renderer (no Pillow): draws the site's Enderman mascot head —
-dark gradient block with glowing magenta eyes on the page background colour —
-with a classic football in front of it, and writes one PNG per requested
-size. Run from the repo root:
+Pure-stdlib renderer (no Pillow): draws a flat, modern WM-2026 icon —
+a white football with pentagon panels on a pitch-green gradient, with a
+"2026" wordmark below — and writes one PNG per requested size. Run from
+the repo root:
 
     python3 scripts/generate_icons.py
 """
@@ -16,94 +16,150 @@ from pathlib import Path
 SIZES = [180, 152, 120]
 OUT_DIR = Path(__file__).parent.parent / "frontend" / "public" / "icons"
 
-BG = (0x07, 0x09, 0x1A)          # --bg (dark)
-HEAD_LIGHT = (0x1E, 0x1E, 0x1E)  # .ender-head gradient start
-HEAD_DARK = (0x0C, 0x0C, 0x0C)   # .ender-head gradient end
-EYE = (0xCC, 0x00, 0xEE)         # .ender-eye
+BG_TOP = (0x19, 0xA9, 0x5C)      # pitch green, light (top left)
+BG_BOTTOM = (0x06, 0x52, 0x2D)   # deep green (bottom right)
+SHADOW = (0x03, 0x2E, 0x19)
+BALL_TOP = (0xFF, 0xFF, 0xFF)
+BALL_BOTTOM = (0xE4, 0xEB, 0xF1)
+PANEL = (0x0B, 0x3F, 0x25)       # panels in deep pitch green (monochrome look)
+TEXT = (0xFF, 0xFF, 0xFF)
 
-# Geometry in unit space, derived from the 11px CSS head:
-# head block 0.18..0.82, eyes 2/11 wide, 4/11 tall, inset 1/11, top 3/11.
-HEAD_X0, HEAD_X1 = 0.18, 0.82
-HEAD_Y0, HEAD_Y1 = 0.18, 0.82
-HEAD_W = HEAD_X1 - HEAD_X0
-HEAD_RADIUS = 2 / 11 * HEAD_W * 0.6
-EYE_W = 2 / 11 * HEAD_W
-EYE_H = 4 / 11 * HEAD_W
-EYE_INSET = 1 / 11 * HEAD_W
-EYE_Y0 = HEAD_Y0 + 3 / 11 * HEAD_W
-EYES = [
-    (HEAD_X0 + EYE_INSET, EYE_Y0, HEAD_X0 + EYE_INSET + EYE_W, EYE_Y0 + EYE_H),
-    (HEAD_X1 - EYE_INSET - EYE_W, EYE_Y0, HEAD_X1 - EYE_INSET, EYE_Y0 + EYE_H),
+# Ball: central pentagon (one vertex up) + five rim panels beyond its edges.
+BALL_CX, BALL_CY, BALL_R = 0.5, 0.40, 0.255
+PENT_SECTOR = 2 * math.pi / 5
+PENTAGONS = [(BALL_CX, BALL_CY, 0.40 * BALL_R, -math.pi / 2)] + [
+    (
+        BALL_CX + 0.98 * BALL_R * math.cos(a),
+        BALL_CY + 0.98 * BALL_R * math.sin(a),
+        0.34 * BALL_R,
+        a + math.pi,
+    )
+    for a in (-math.pi / 2 + PENT_SECTOR / 2 + k * PENT_SECTOR for k in range(5))
 ]
-
-# Pixel-art football overlapping the lower right of the head: an 11x11
-# sprite of hard square cells (Minecraft-style — blocky, flat colours, no
-# round silhouette). W = white, S = shaded white, B = black patch.
-BALL_CX, BALL_CY, BALL_R = 0.62, 0.76, 0.19
-BALL_SPRITE = [
-    "...WWWWW...",
-    "..WWBBBWW..",
-    ".WWWBBBWWW.",
-    "WWWWWWWWWWW",
-    "WWWWBBBWWWW",
-    "WWWBBBBBWWW",
-    "WBBWBBBWBBW",
-    "WBBWWWWWBBW",
-    ".WBWSSSWBW.",
-    "..WSSSSSW..",
-    "...WSSSW...",
-]
-BALL_COLORS = {
-    "W": (0xF2, 0xF4, 0xF6),
-    "S": (0xC6, 0xCE, 0xDA),
-    "B": (0x10, 0x12, 0x18),
-}
-
-
-def in_rounded_rect(u, v, x0, y0, x1, y1, r):
-    if not (x0 <= u <= x1 and y0 <= v <= y1):
-        return False
-    dx = max(x0 + r - u, u - (x1 - r), 0.0)
-    dy = max(y0 + r - v, v - (y1 - r), 0.0)
-    return dx * dx + dy * dy <= r * r
-
-
-def dist_to_rect(u, v, x0, y0, x1, y1):
-    dx = max(x0 - u, u - x1, 0.0)
-    dy = max(y0 - v, v - y1, 0.0)
-    return math.hypot(dx, dy)
 
 
 def lerp(a, b, t):
     return tuple(a[i] + (b[i] - a[i]) * t for i in range(3))
 
 
-def ball_sample(u, v):
-    n = len(BALL_SPRITE)
-    cell = 2 * BALL_R / n
-    col = math.floor((u - (BALL_CX - BALL_R)) / cell)
-    row = math.floor((v - (BALL_CY - BALL_R)) / cell)
-    if 0 <= row < n and 0 <= col < n:
-        return BALL_COLORS.get(BALL_SPRITE[row][col])
-    return None
+def in_pentagon(u, v, cx, cy, radius, rot):
+    dx, dy = u - cx, v - cy
+    d = math.hypot(dx, dy)
+    if d > radius:
+        return False
+    apothem = radius * math.cos(math.pi / 5)
+    theta = (math.atan2(dy, dx) - rot) % PENT_SECTOR
+    return d <= apothem / math.cos(theta - PENT_SECTOR / 2)
 
+
+# ── "2026" wordmark ──────────────────────────────────────────────────
+# Digits are stroked polylines in a local 1x1 box (y down), rendered with
+# round caps/joins via distance-to-segment.
+
+def _arc(cx, cy, r, a0, a1, n=28):
+    return [
+        (cx + r * math.cos(a0 + (a1 - a0) * i / n), cy + r * math.sin(a0 + (a1 - a0) * i / n))
+        for i in range(n + 1)
+    ]
+
+
+def _bezier(p0, p1, p2, n=20):
+    pts = []
+    for i in range(n + 1):
+        t = i / n
+        mt = 1 - t
+        pts.append(
+            (
+                mt * mt * p0[0] + 2 * mt * t * p1[0] + t * t * p2[0],
+                mt * mt * p0[1] + 2 * mt * t * p1[1] + t * t * p2[1],
+            )
+        )
+    return pts
+
+
+def _ellipse(cx, cy, rx, ry, n=40):
+    return [
+        (cx + rx * math.cos(2 * math.pi * i / n), cy + ry * math.sin(2 * math.pi * i / n))
+        for i in range(n + 1)
+    ]
+
+
+DIGITS = {
+    "2": [
+        _arc(0.5, 0.34, 0.34, math.pi, 2 * math.pi + math.radians(30))
+        + [(0.14, 0.98), (0.86, 0.98)]
+    ],
+    "0": [_ellipse(0.5, 0.5, 0.34, 0.47)],
+    "6": [
+        _ellipse(0.5, 0.66, 0.30, 0.30),
+        _bezier((0.71, 0.03), (0.32, 0.18), (0.215, 0.58)),
+    ],
+}
+
+TEXT_STR = "2026"
+GLYPH_SCALE = 0.125     # glyph box height in icon units
+TEXT_ADVANCE = 0.120
+TEXT_Y = 0.745
+STROKE = 0.0165         # stroke radius
+
+TEXT_X0 = (1 - (TEXT_ADVANCE * (len(TEXT_STR) - 1) + 0.72 * GLYPH_SCALE + 2 * STROKE)) / 2
+
+
+def _build_strokes():
+    strokes = []
+    for i, ch in enumerate(TEXT_STR):
+        ox = TEXT_X0 + i * TEXT_ADVANCE
+        for poly in DIGITS[ch]:
+            pts = [(ox + x * GLYPH_SCALE, TEXT_Y + y * GLYPH_SCALE) for x, y in poly]
+            xs = [p[0] for p in pts]
+            ys = [p[1] for p in pts]
+            bbox = (min(xs) - STROKE, min(ys) - STROKE, max(xs) + STROKE, max(ys) + STROKE)
+            strokes.append((pts, bbox))
+    return strokes
+
+
+STROKES = _build_strokes()
+
+
+def _seg_d2(px, py, ax, ay, bx, by):
+    dx, dy = bx - ax, by - ay
+    l2 = dx * dx + dy * dy
+    t = 0.0 if l2 == 0 else max(0.0, min(1.0, ((px - ax) * dx + (py - ay) * dy) / l2))
+    ex, ey = ax + t * dx - px, ay + t * dy - py
+    return ex * ex + ey * ey
+
+
+def text_hit(u, v):
+    r2 = STROKE * STROKE
+    for pts, (x0, y0, x1, y1) in STROKES:
+        if not (x0 <= u <= x1 and y0 <= v <= y1):
+            continue
+        for i in range(len(pts) - 1):
+            if _seg_d2(u, v, pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1]) <= r2:
+                return True
+    return False
+
+
+# ── Scene ────────────────────────────────────────────────────────────
 
 def sample(u, v):
-    if in_rounded_rect(u, v, HEAD_X0, HEAD_Y0, HEAD_X1, HEAD_Y1, HEAD_RADIUS):
-        t = ((u - HEAD_X0) + (v - HEAD_Y0)) / (2 * HEAD_W)
-        col = lerp(HEAD_LIGHT, HEAD_DARK, t)
-    else:
-        col = BG
+    col = lerp(BG_TOP, BG_BOTTOM, (u + v) / 2)
 
-    ball = ball_sample(u, v)
-    if ball is not None:
-        return ball
+    # soft contact shadow under the ball
+    d = math.hypot((u - BALL_CX) / 0.21, (v - 0.668) / 0.055)
+    if d < 3.0:
+        col = lerp(col, SHADOW, 0.40 * math.exp(-d * d))
 
-    d = min(dist_to_rect(u, v, *eye) for eye in EYES)
-    if d == 0.0:
-        return EYE
-    glow = 0.55 * math.exp(-((d / 0.045) ** 2)) + 0.20 * math.exp(-((d / 0.13) ** 2))
-    return lerp(col, EYE, glow)
+    if math.hypot(u - BALL_CX, v - BALL_CY) <= BALL_R:
+        ty = (v - (BALL_CY - BALL_R)) / (2 * BALL_R)
+        col = lerp(BALL_TOP, BALL_BOTTOM, ty)
+        if any(in_pentagon(u, v, *p) for p in PENTAGONS):
+            col = PANEL
+        return col
+
+    if text_hit(u, v):
+        return TEXT
+    return col
 
 
 def render(size, supersample=4):
