@@ -977,7 +977,7 @@ export default function Wmt() {
             }}>
             {anyBusy ? '…' : '☰'}
           </button>
-          <span className="topbar-version">v3.7</span>
+          <span className="topbar-version">v3.8</span>
         </div>
       </div>
 
@@ -1006,13 +1006,13 @@ export default function Wmt() {
               loading={!!generatingSummaryFor} disabled={anyBusy && !generatingSummaryFor}
               onClick={() => { setMenuOpen(false); setSummaryCalOpen(true) }}
             />
+            <MenuButton
+              icon="⊕" label="Historische Kalibrierung"
+              loading={warming} disabled={anyBusy && !warming}
+              onClick={() => { setMenuOpen(false); handleWarmup() }}
+            />
             {!wmtOnly && (
               <>
-                <MenuButton
-                  icon="⊕" label="Historische Kalibrierung"
-                  loading={warming} disabled={anyBusy && !warming}
-                  onClick={() => { setMenuOpen(false); handleWarmup() }}
-                />
                 <MenuButton
                   icon="📰" label="News-Faktoren aktualisieren"
                   loading={adjustingNews} disabled={anyBusy && !adjustingNews}
