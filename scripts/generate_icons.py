@@ -16,12 +16,12 @@ from pathlib import Path
 SIZES = [180, 152, 120]
 OUT_DIR = Path(__file__).parent.parent / "frontend" / "public" / "icons"
 
-BG_TOP = (0x19, 0xA9, 0x5C)      # pitch green, light (top left)
-BG_BOTTOM = (0x06, 0x52, 0x2D)   # deep green (bottom right)
-SHADOW = (0x03, 0x2E, 0x19)
-BALL_TOP = (0xFF, 0xFF, 0xFF)
-BALL_BOTTOM = (0xE4, 0xEB, 0xF1)
-PANEL = (0x0B, 0x3F, 0x25)       # panels in deep pitch green (monochrome look)
+BG_TOP = (0x22, 0xD3, 0xEE)      # cyan, light (top left)
+BG_BOTTOM = (0x06, 0x7A, 0x8C)   # deep cyan/teal (bottom right)
+SHADOW = (0x03, 0x36, 0x3E)
+BALL_TOP = (0xEA, 0xFB, 0xFE)
+BALL_BOTTOM = (0xC7, 0xEC, 0xF2)
+PANEL = (0x0E, 0x4E, 0x59)       # panels in deep cyan (monochrome look)
 TEXT = (0xFF, 0xFF, 0xFF)
 
 # Ball: central pentagon (one vertex up) + five rim panels beyond its edges.
