@@ -977,7 +977,7 @@ export default function Wmt() {
             }}>
             {anyBusy ? '…' : '☰'}
           </button>
-          <span className="topbar-version">v3.9</span>
+          <span className="topbar-version">v3.10</span>
         </div>
       </div>
 
@@ -1838,7 +1838,7 @@ const TIP_OVERLAYS = {
   exact:    'rgba(255, 64, 255, 0.24)',  // Magenta — exaktes Ergebnis
   diff:     'rgba(0, 200, 255, 0.24)',   // Cyan — richtige Tordifferenz
   tendency: 'rgba(241, 196, 15, 0.24)',  // Gelb — nur Tendenz (Sieger) richtig
-  wrong:    'rgba(231, 76, 60, 0.22)',   // Rot — komplett daneben
+  wrong:    'rgba(128, 128, 128, 0.25)', // Grau — komplett daneben
 }
 
 function tipOverlay(m, t) {
