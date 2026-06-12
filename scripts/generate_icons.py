@@ -2,9 +2,9 @@
 """Generate the apple-touch-icon PNGs in frontend/public/icons/.
 
 Pure-stdlib renderer (no Pillow): draws a flat, modern WM-2026 icon —
-a white football with pentagon panels on a pitch-green gradient, with a
-"2026" wordmark below — and writes one PNG per requested size. Run from
-the repo root:
+a football with a tri-swirl ("triskelion") motif on a cyan gradient,
+with a "2026" wordmark below — and writes one PNG per requested size.
+Run from the repo root:
 
     python3 scripts/generate_icons.py
 """
@@ -24,44 +24,49 @@ BALL_BOTTOM = (0xC7, 0xEC, 0xF2)
 PANEL = (0x0E, 0x4E, 0x59)       # panels in deep cyan (monochrome look)
 TEXT = (0xFF, 0xFF, 0xFF)
 
-# Ball: central pentagon (offset toward the upper right, as if the ball is
-# turned and lit from that side) + five rim panels around it. Panels on the
-# near/upper-right side are drawn larger, panels on the far/lower-left side
-# smaller and pulled closer to the rim, to suggest the angled 3D photo.
+# Ball: a modern tri-swirl ("triskelion") motif — three tapered teardrop
+# blades, each a Bezier-shaped union of circles, rotated 120° apart.
 BALL_CX, BALL_CY, BALL_R = 0.5, 0.40, 0.255
-PENT_SECTOR = 2 * math.pi / 5
-CENTER_OFFSET_ANGLE = -math.pi / 4  # toward upper right
-CENTER_CX = BALL_CX + 0.16 * BALL_R * math.cos(CENTER_OFFSET_ANGLE)
-CENTER_CY = BALL_CY + 0.16 * BALL_R * math.sin(CENTER_OFFSET_ANGLE)
-PENTAGONS = [(CENTER_CX, CENTER_CY, 0.40 * BALL_R, -math.pi / 2 + 0.25)]
-for k in range(5):
-    a = -math.pi / 2 + 0.25 + PENT_SECTOR / 2 + k * PENT_SECTOR
-    # blend factor: 1.0 facing the offset direction (near side), 0.0 opposite
-    facing = (math.cos(a - CENTER_OFFSET_ANGLE) + 1) / 2
-    dist = 0.80 * BALL_R + 0.20 * BALL_R * facing
-    size = 0.30 * BALL_R + 0.10 * BALL_R * facing
-    PENTAGONS.append(
-        (
-            CENTER_CX + dist * math.cos(a),
-            CENTER_CY + dist * math.sin(a),
-            size,
-            a + math.pi,
-        )
+
+_BLADE_P0 = (0.05, -0.10)   # thin tail near the centre
+_BLADE_P1 = (0.55, -0.62)   # control point — curls the blade
+_BLADE_P2 = (0.82, 0.18)    # broad tip near the rim
+_BLADE_R0 = 0.05
+_BLADE_R1 = 0.46
+_BLADE_SAMPLES = 24
+
+
+def _bezier_pt(p0, p1, p2, t):
+    mt = 1 - t
+    return (
+        mt * mt * p0[0] + 2 * mt * t * p1[0] + t * t * p2[0],
+        mt * mt * p0[1] + 2 * mt * t * p1[1] + t * t * p2[1],
     )
+
+
+BLADE = [
+    (_bezier_pt(_BLADE_P0, _BLADE_P1, _BLADE_P2, i / _BLADE_SAMPLES),
+     _BLADE_R0 + (_BLADE_R1 - _BLADE_R0) * (i / _BLADE_SAMPLES))
+    for i in range(_BLADE_SAMPLES + 1)
+]
+BLADE_ROTATIONS = [0, 2 * math.pi / 3, 4 * math.pi / 3]
 
 
 def lerp(a, b, t):
     return tuple(a[i] + (b[i] - a[i]) * t for i in range(3))
 
 
-def in_pentagon(u, v, cx, cy, radius, rot):
-    dx, dy = u - cx, v - cy
-    d = math.hypot(dx, dy)
-    if d > radius:
-        return False
-    apothem = radius * math.cos(math.pi / 5)
-    theta = (math.atan2(dy, dx) - rot) % PENT_SECTOR
-    return d <= apothem / math.cos(theta - PENT_SECTOR / 2)
+def in_swirl(u, v, cx, cy, radius):
+    # local coords, normalised to the ball radius
+    x, y = (u - cx) / radius, (v - cy) / radius
+    for rot in BLADE_ROTATIONS:
+        cos_r, sin_r = math.cos(rot), math.sin(rot)
+        rx = x * cos_r + y * sin_r
+        ry = -x * sin_r + y * cos_r
+        for (px, py), r in BLADE:
+            if (rx - px) ** 2 + (ry - py) ** 2 <= r * r:
+                return True
+    return False
 
 
 # ── "2026" wordmark ──────────────────────────────────────────────────
@@ -168,7 +173,7 @@ def sample(u, v):
         ly = (v - (BALL_CY - BALL_R)) / (2 * BALL_R)
         t = max(0.0, min(1.0, 0.5 * ((1 - lx) + ly)))
         col = lerp(BALL_TOP, BALL_BOTTOM, t)
-        if any(in_pentagon(u, v, *p) for p in PENTAGONS):
+        if in_swirl(u, v, BALL_CX, BALL_CY, BALL_R):
             col = PANEL
         return col
 
