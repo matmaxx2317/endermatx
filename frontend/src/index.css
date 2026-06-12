@@ -102,6 +102,9 @@ input, textarea, select {
   justify-content: space-between;
   align-items: center;
   padding: 8px 14px;
+  /* iOS standalone mode (black-translucent status bar): keep the topbar
+     content below the status bar / notch */
+  padding-top: calc(8px + env(safe-area-inset-top, 0px));
   background: var(--topbar-bg);
   border-bottom: 1px solid var(--border);
   font-size: 11px;
@@ -121,6 +124,7 @@ input, textarea, select {
 /* ── Page shell ──────────────────────────────────────────────── */
 .page {
   margin-top: 32px;
+  margin-top: calc(32px + env(safe-area-inset-top, 0px));
   padding: 20px 16px 52px;
   max-width: 720px;
   margin-left: auto;
@@ -247,6 +251,8 @@ input, textarea, select {
   flex-direction: column;
   align-items: center;
   padding: 80px 20px 64px;
+  padding-top: calc(80px + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
 }
 
 .landing-header {
@@ -1017,6 +1023,7 @@ input, textarea, select {
 .theme-toggle-wrap {
   position: fixed;
   top: 0; right: 0;
+  top: env(safe-area-inset-top, 0px);
   width: 28px; height: 32px;
   display: flex; align-items: center; justify-content: center;
   z-index: 200;
