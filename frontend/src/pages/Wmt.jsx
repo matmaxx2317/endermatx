@@ -1861,10 +1861,11 @@ function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
     tipsByMatch[t.match_id].push(t)
   }
 
+  // Neueste Spiele zuerst — das jüngste steht direkt unter dem Ranking-Chart
   const matchIds = Object.keys(tipsByMatch)
     .map(Number)
     .filter(id => matchById[id])
-    .sort((a, b) => new Date(matchById[a].utc_date) - new Date(matchById[b].utc_date))
+    .sort((a, b) => new Date(matchById[b].utc_date) - new Date(matchById[a].utc_date))
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
