@@ -24,18 +24,30 @@ BALL_BOTTOM = (0xC7, 0xEC, 0xF2)
 PANEL = (0x0E, 0x4E, 0x59)       # panels in deep cyan (monochrome look)
 TEXT = (0xFF, 0xFF, 0xFF)
 
-# Ball: central pentagon (one vertex up) + five rim panels beyond its edges.
+# Ball: central pentagon (offset toward the upper right, as if the ball is
+# turned and lit from that side) + five rim panels around it. Panels on the
+# near/upper-right side are drawn larger, panels on the far/lower-left side
+# smaller and pulled closer to the rim, to suggest the angled 3D photo.
 BALL_CX, BALL_CY, BALL_R = 0.5, 0.40, 0.255
 PENT_SECTOR = 2 * math.pi / 5
-PENTAGONS = [(BALL_CX, BALL_CY, 0.40 * BALL_R, -math.pi / 2)] + [
-    (
-        BALL_CX + 0.98 * BALL_R * math.cos(a),
-        BALL_CY + 0.98 * BALL_R * math.sin(a),
-        0.34 * BALL_R,
-        a + math.pi,
+CENTER_OFFSET_ANGLE = -math.pi / 4  # toward upper right
+CENTER_CX = BALL_CX + 0.16 * BALL_R * math.cos(CENTER_OFFSET_ANGLE)
+CENTER_CY = BALL_CY + 0.16 * BALL_R * math.sin(CENTER_OFFSET_ANGLE)
+PENTAGONS = [(CENTER_CX, CENTER_CY, 0.40 * BALL_R, -math.pi / 2 + 0.25)]
+for k in range(5):
+    a = -math.pi / 2 + 0.25 + PENT_SECTOR / 2 + k * PENT_SECTOR
+    # blend factor: 1.0 facing the offset direction (near side), 0.0 opposite
+    facing = (math.cos(a - CENTER_OFFSET_ANGLE) + 1) / 2
+    dist = 0.80 * BALL_R + 0.20 * BALL_R * facing
+    size = 0.30 * BALL_R + 0.10 * BALL_R * facing
+    PENTAGONS.append(
+        (
+            CENTER_CX + dist * math.cos(a),
+            CENTER_CY + dist * math.sin(a),
+            size,
+            a + math.pi,
+        )
     )
-    for a in (-math.pi / 2 + PENT_SECTOR / 2 + k * PENT_SECTOR for k in range(5))
-]
 
 
 def lerp(a, b, t):
@@ -151,8 +163,11 @@ def sample(u, v):
         col = lerp(col, SHADOW, 0.40 * math.exp(-d * d))
 
     if math.hypot(u - BALL_CX, v - BALL_CY) <= BALL_R:
-        ty = (v - (BALL_CY - BALL_R)) / (2 * BALL_R)
-        col = lerp(BALL_TOP, BALL_BOTTOM, ty)
+        # light source toward the upper right, matching the offset panels
+        lx = (u - (BALL_CX - BALL_R)) / (2 * BALL_R)
+        ly = (v - (BALL_CY - BALL_R)) / (2 * BALL_R)
+        t = max(0.0, min(1.0, 0.5 * ((1 - lx) + ly)))
+        col = lerp(BALL_TOP, BALL_BOTTOM, t)
         if any(in_pentagon(u, v, *p) for p in PENTAGONS):
             col = PANEL
         return col
