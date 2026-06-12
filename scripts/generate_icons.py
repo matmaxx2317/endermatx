@@ -3,7 +3,8 @@
 
 Pure-stdlib renderer (no Pillow): draws the site's Enderman mascot head —
 dark gradient block with glowing magenta eyes on the page background colour —
-and writes one PNG per requested size. Run from the repo root:
+with a classic football in front of it, and writes one PNG per requested
+size. Run from the repo root:
 
     python3 scripts/generate_icons.py
 """
@@ -35,6 +36,29 @@ EYES = [
     (HEAD_X1 - EYE_INSET - EYE_W, EYE_Y0, HEAD_X1 - EYE_INSET, EYE_Y0 + EYE_H),
 ]
 
+# Pixel-art football overlapping the lower right of the head: an 11x11
+# sprite of hard square cells (Minecraft-style — blocky, flat colours, no
+# round silhouette). W = white, S = shaded white, B = black patch.
+BALL_CX, BALL_CY, BALL_R = 0.62, 0.76, 0.19
+BALL_SPRITE = [
+    "...WWWWW...",
+    "..WWBBBWW..",
+    ".WWWBBBWWW.",
+    "WWWWWWWWWWW",
+    "WWWWBBBWWWW",
+    "WWWBBBBBWWW",
+    "WBBWBBBWBBW",
+    "WBBWWWWWBBW",
+    ".WBWSSSWBW.",
+    "..WSSSSSW..",
+    "...WSSSW...",
+]
+BALL_COLORS = {
+    "W": (0xF2, 0xF4, 0xF6),
+    "S": (0xC6, 0xCE, 0xDA),
+    "B": (0x10, 0x12, 0x18),
+}
+
 
 def in_rounded_rect(u, v, x0, y0, x1, y1, r):
     if not (x0 <= u <= x1 and y0 <= v <= y1):
@@ -54,12 +78,26 @@ def lerp(a, b, t):
     return tuple(a[i] + (b[i] - a[i]) * t for i in range(3))
 
 
+def ball_sample(u, v):
+    n = len(BALL_SPRITE)
+    cell = 2 * BALL_R / n
+    col = math.floor((u - (BALL_CX - BALL_R)) / cell)
+    row = math.floor((v - (BALL_CY - BALL_R)) / cell)
+    if 0 <= row < n and 0 <= col < n:
+        return BALL_COLORS.get(BALL_SPRITE[row][col])
+    return None
+
+
 def sample(u, v):
     if in_rounded_rect(u, v, HEAD_X0, HEAD_Y0, HEAD_X1, HEAD_Y1, HEAD_RADIUS):
         t = ((u - HEAD_X0) + (v - HEAD_Y0)) / (2 * HEAD_W)
         col = lerp(HEAD_LIGHT, HEAD_DARK, t)
     else:
         col = BG
+
+    ball = ball_sample(u, v)
+    if ball is not None:
+        return ball
 
     d = min(dist_to_rect(u, v, *eye) for eye in EYES)
     if d == 0.0:
