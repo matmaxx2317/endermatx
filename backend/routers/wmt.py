@@ -92,10 +92,15 @@ def _upsert_fdorg_team(db: Session, team_data: dict) -> Optional[models.WmtTeam]
     tla = (team_data.get("tla") or "").strip().upper() or None
     if not tla:
         return None
-    team = db.query(models.WmtTeam).filter_by(tla=tla).first()
     name = team_data.get("name") or "Unknown"
     short_name = team_data.get("shortName") or name
     api_id = team_data.get("id")
+    team = db.query(models.WmtTeam).filter_by(tla=tla).first()
+    if not team and api_id:
+        # football-data.org kann die TLA eines Teams nachträglich ändern; die
+        # api_id ist der stabile Schlüssel. Ohne diesen Fallback würde ein
+        # Re-Insert die Unique-Constraint auf api_id verletzen.
+        team = db.query(models.WmtTeam).filter_by(api_id=api_id).first()
     if not team:
         team = models.WmtTeam(
             api_id=api_id,
@@ -109,10 +114,18 @@ def _upsert_fdorg_team(db: Session, team_data: dict) -> Optional[models.WmtTeam]
         db.flush()
     else:
         team.name = name
+        team.tla = tla
         if short_name:
             team.short_name = short_name
-        if api_id:
-            team.api_id = api_id
+        if api_id and team.api_id != api_id:
+            holder = db.query(models.WmtTeam).filter_by(api_id=api_id).first()
+            if holder is None:
+                team.api_id = api_id
+            else:
+                logger.warning(
+                    "WMT: api_id %s für %s bereits von Team #%s belegt — nicht übernommen",
+                    api_id, tla, holder.id,
+                )
     return team
 
 
