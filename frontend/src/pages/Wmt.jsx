@@ -977,7 +977,7 @@ export default function Wmt() {
             }}>
             {anyBusy ? '…' : '☰'}
           </button>
-          <span className="topbar-version">v3.10</span>
+          <span className="topbar-version">v3.11</span>
         </div>
       </div>
 
@@ -989,7 +989,10 @@ export default function Wmt() {
           <div
             onClick={e => e.stopPropagation()}
             style={{
-              position: 'fixed', top: 32, right: 0,
+              position: 'fixed', right: 0,
+              top: 'calc(32px + env(safe-area-inset-top, 0px))',
+              maxHeight: 'calc(100vh - 40px - env(safe-area-inset-top, 0px))',
+              overflowY: 'auto',
               width: 220, background: 'var(--surface)',
               border: '1px solid var(--border)',
               borderRight: 'none', borderTop: 'none',
