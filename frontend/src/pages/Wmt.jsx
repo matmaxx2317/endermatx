@@ -1832,6 +1832,25 @@ function RankingChart({ snapshots }) {
   )
 }
 
+// Kicktipp-Treffergüte eines Tipps gegen das Endergebnis — als dezente,
+// halbtransparente Overlays, damit der Text in beiden Themes lesbar bleibt.
+const TIP_OVERLAYS = {
+  exact:    'rgba(46, 204, 113, 0.22)',  // exaktes Ergebnis
+  diff:     'rgba(241, 196, 15, 0.20)',  // richtige Tordifferenz
+  tendency: 'rgba(230, 126, 34, 0.22)',  // nur Tendenz (Sieger) richtig
+  wrong:    'rgba(231, 76, 60, 0.20)',   // komplett daneben
+}
+
+function tipOverlay(m, t) {
+  if (m.status !== 'FINISHED' || m.score_home == null || m.score_away == null) return null
+  const sh = m.score_home, sa = m.score_away
+  const ph = t.pred_home_goals, pa = t.pred_away_goals
+  if (ph === sh && pa === sa) return TIP_OVERLAYS.exact
+  if (ph - pa === sh - sa) return TIP_OVERLAYS.diff
+  if (Math.sign(ph - pa) === Math.sign(sh - sa)) return TIP_OVERLAYS.tendency
+  return TIP_OVERLAYS.wrong
+}
+
 function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
   const matchById = {}
   for (const m of matches) matchById[m.id] = m
@@ -1899,9 +1918,13 @@ function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
               {tips.map(t => (
-                <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12 }}>
                   <span style={{ color: 'var(--text-secondary)' }}>{t.player_name}</span>
-                  <span style={{ color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>{t.pred_home_goals}:{t.pred_away_goals}</span>
+                  <span style={{
+                    color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums',
+                    background: tipOverlay(m, t) ?? 'transparent',
+                    borderRadius: 4, padding: '0 6px',
+                  }}>{t.pred_home_goals}:{t.pred_away_goals}</span>
                 </div>
               ))}
             </div>
