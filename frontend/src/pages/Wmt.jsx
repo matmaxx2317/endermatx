@@ -977,7 +977,7 @@ export default function Wmt() {
             }}>
             {anyBusy ? '…' : '☰'}
           </button>
-          <span className="topbar-version">v3.10</span>
+          <span className="topbar-version">v3.11</span>
         </div>
       </div>
 
@@ -1918,13 +1918,13 @@ function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
               {tips.map(t => (
-                <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12 }}>
+                <div key={t.id} style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12,
+                  background: tipOverlay(m, t) ?? 'transparent',
+                  borderRadius: 4, padding: '1px 6px', margin: '0 -6px',
+                }}>
                   <span style={{ color: 'var(--text-secondary)' }}>{t.player_name}</span>
-                  <span style={{
-                    color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums',
-                    background: tipOverlay(m, t) ?? 'transparent',
-                    borderRadius: 4, padding: '0 6px',
-                  }}>{t.pred_home_goals}:{t.pred_away_goals}</span>
+                  <span style={{ color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>{t.pred_home_goals}:{t.pred_away_goals}</span>
                 </div>
               ))}
             </div>
