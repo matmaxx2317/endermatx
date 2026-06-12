@@ -3,7 +3,8 @@
 
 Pure-stdlib renderer (no Pillow): draws the site's Enderman mascot head —
 dark gradient block with glowing magenta eyes on the page background colour —
-and writes one PNG per requested size. Run from the repo root:
+with a classic football in front of it, and writes one PNG per requested
+size. Run from the repo root:
 
     python3 scripts/generate_icons.py
 """
@@ -35,6 +36,25 @@ EYES = [
     (HEAD_X1 - EYE_INSET - EYE_W, EYE_Y0, HEAD_X1 - EYE_INSET, EYE_Y0 + EYE_H),
 ]
 
+# Football overlapping the lower right of the head.
+BALL_CX, BALL_CY, BALL_R = 0.62, 0.76, 0.185
+BALL_LIGHT = (0xF4, 0xF6, 0xF8)
+BALL_SHADE = (0x96, 0xA0, 0xB2)
+PATCH_LIGHT = (0x1C, 0x20, 0x2A)
+PATCH_DARK = (0x06, 0x08, 0x0E)
+BALL_OUTLINE = (0x20, 0x26, 0x32)
+# Central pentagon (one vertex up) + five rim patches beyond its edges.
+PENT_SECTOR = 2 * math.pi / 5
+BALL_PENTAGONS = [(BALL_CX, BALL_CY, 0.40 * BALL_R, -math.pi / 2)] + [
+    (
+        BALL_CX + 0.97 * BALL_R * math.cos(a),
+        BALL_CY + 0.97 * BALL_R * math.sin(a),
+        0.32 * BALL_R,
+        a + math.pi,
+    )
+    for a in (-math.pi / 2 + PENT_SECTOR / 2 + k * PENT_SECTOR for k in range(5))
+]
+
 
 def in_rounded_rect(u, v, x0, y0, x1, y1, r):
     if not (x0 <= u <= x1 and y0 <= v <= y1):
@@ -54,12 +74,42 @@ def lerp(a, b, t):
     return tuple(a[i] + (b[i] - a[i]) * t for i in range(3))
 
 
+def in_pentagon(u, v, cx, cy, radius, rot):
+    dx, dy = u - cx, v - cy
+    d = math.hypot(dx, dy)
+    if d > radius:
+        return False
+    apothem = radius * math.cos(math.pi / 5)
+    theta = (math.atan2(dy, dx) - rot) % PENT_SECTOR
+    return d <= apothem / math.cos(theta - PENT_SECTOR / 2)
+
+
+def ball_sample(u, v):
+    d = math.hypot(u - BALL_CX, v - BALL_CY) / BALL_R
+    if d > 1.0:
+        return None
+    # spherical shading: highlight towards the upper left
+    t = min(1.0, math.hypot(u - (BALL_CX - 0.35 * BALL_R), v - (BALL_CY - 0.35 * BALL_R)) / (1.5 * BALL_R))
+    t *= t
+    if any(in_pentagon(u, v, *p) for p in BALL_PENTAGONS):
+        col = lerp(PATCH_LIGHT, PATCH_DARK, t)
+    else:
+        col = lerp(BALL_LIGHT, BALL_SHADE, t)
+    if d > 0.92:  # thin dark rim so the ball separates from the head
+        col = lerp(col, BALL_OUTLINE, (d - 0.92) / 0.08)
+    return col
+
+
 def sample(u, v):
     if in_rounded_rect(u, v, HEAD_X0, HEAD_Y0, HEAD_X1, HEAD_Y1, HEAD_RADIUS):
         t = ((u - HEAD_X0) + (v - HEAD_Y0)) / (2 * HEAD_W)
         col = lerp(HEAD_LIGHT, HEAD_DARK, t)
     else:
         col = BG
+
+    ball = ball_sample(u, v)
+    if ball is not None:
+        return ball
 
     d = min(dist_to_rect(u, v, *eye) for eye in EYES)
     if d == 0.0:
