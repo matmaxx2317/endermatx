@@ -33,8 +33,10 @@ def _wmt_refresh() -> None:
     """Refresh WM 2026 data every 30 minutes."""
     db = SessionLocal()
     try:
-        n = _wmt_do_refresh(db)
-        if n:
+        n, err = _wmt_do_refresh(db)
+        if err:
+            logger.warning("WMT refresh: %s", err)
+        elif n:
             logger.info("WMT refresh: %d matches updated", n)
         else:
             logger.debug("WMT refresh: no changes")
