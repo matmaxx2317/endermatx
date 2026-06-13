@@ -12,6 +12,7 @@ import IdeaInbox from './pages/IdeaInbox'
 import StringTracker from './pages/StringTracker'
 import BpmCounter from './pages/BpmCounter'
 import SpotifyExplorer from './pages/SpotifyExplorer'
+import DrivingTracker from './pages/DrivingTracker'
 import BlockHero from './pages/BlockHero'
 import Wmt from './pages/Wmt'
 
@@ -37,6 +38,7 @@ export default function App() {
               <Route path="/str" element={<StringTracker />} />
               <Route path="/bpm" element={<BpmCounter />} />
               <Route path="/spt" element={<SpotifyExplorer />} />
+              <Route path="/drv" element={<DrivingTracker />} />
               <Route path="/block-hero" element={<BlockHero />} />
               <Route path="/wmt" element={<Wmt />} />
             </>

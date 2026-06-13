@@ -5,6 +5,7 @@ const TOOLS = [
   { path: '/bpm', label: '02', name: 'bpm', desc: 'bpm counter' },
   { path: '/spt', label: '03', name: 'spt', desc: 'spotify explorer' },
   { path: '/wmt', label: '04', name: 'wmt', desc: 'wm 2026 tipp-assistent' },
+  { path: '/drv', label: '05', name: 'drv', desc: 'driving time tracker' },
 ]
 
 export default function Personal() {
