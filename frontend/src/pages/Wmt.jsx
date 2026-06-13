@@ -977,7 +977,7 @@ export default function Wmt() {
             }}>
             {anyBusy ? '…' : '☰'}
           </button>
-          <span className="topbar-version">v3.16</span>
+          <span className="topbar-version">v3.17</span>
         </div>
       </div>
 
@@ -1876,11 +1876,18 @@ function RankingChart({ snapshots, matches }) {
           {players.map((p, pi) => {
             if (!selected.has(p)) return null
             const color = RANK_CHART_COLORS[pi % RANK_CHART_COLORS.length]
-            const pts = byPlayer[p]
-              .map((r, i) => (r != null ? `${xPos(gameCounts[i])},${yPos(r)}` : null))
+            const points = byPlayer[p]
+              .map((r, i) => (r != null ? { x: xPos(gameCounts[i]), y: yPos(r) } : null))
               .filter(Boolean)
-              .join(' ')
-            return <polyline key={p} points={pts} fill="none" stroke={color} strokeWidth={1.5} opacity={0.85} />
+            const pts = points.map(({ x, y }) => `${x},${y}`).join(' ')
+            return (
+              <g key={p}>
+                <polyline points={pts} fill="none" stroke={color} strokeWidth={1.5} opacity={0.85} />
+                {points.map((pt, i) => (
+                  <circle key={i} cx={pt.x} cy={pt.y} r={2.5} fill={color} />
+                ))}
+              </g>
+            )
           })}
         </svg>
       </div>
