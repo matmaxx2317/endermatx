@@ -977,7 +977,7 @@ export default function Wmt() {
             }}>
             {anyBusy ? '…' : '☰'}
           </button>
-          <span className="topbar-version">v3.18</span>
+          <span className="topbar-version">v3.19</span>
         </div>
       </div>
 
@@ -1784,9 +1784,16 @@ function RankingChart({ snapshots, matches }) {
     })
   }, [players.join(',')])
 
-  // Each snapshot represents a moment in time — either an exact `snapshot_time`
-  // (e.g. right after one match finished) or, if unset, the end of its `date`.
-  const effectiveTime = s => s.snapshot_time || `${s.date}T23:59:59Z`
+  // Each snapshot represents a moment in time — an exact `snapshot_time` if set,
+  // otherwise the earlier of "when it was imported" (captured_at) and "end of its
+  // date". This way a same-day import that happens before that day's later matches
+  // finish is positioned before those matches automatically, without the importer
+  // needing to know about per-match positioning.
+  const effectiveTime = s => {
+    if (s.snapshot_time) return s.snapshot_time
+    const dayEnd = `${s.date}T23:59:59Z`
+    return s.captured_at < dayEnd ? s.captured_at : dayEnd
+  }
   const dateCount = new Set(snapshots.map(s => s.date)).size
 
   if (dateCount < 2 || players.length === 0 || selected === null) return null

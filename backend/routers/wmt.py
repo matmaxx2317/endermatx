@@ -2561,6 +2561,7 @@ def list_ranking_snapshots(db: Session = Depends(get_db)):
             rank=r.rank,
             points=r.points,
             snapshot_time=r.snapshot_time.isoformat() + "Z" if r.snapshot_time else None,
+            captured_at=(r.captured_at.isoformat() if r.captured_at else f"{r.date.isoformat()}T23:59:59") + "Z",
         )
         for r in rows
     ]

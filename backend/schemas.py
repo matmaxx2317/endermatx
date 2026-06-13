@@ -317,6 +317,7 @@ class WmtRankingSnapshotOut(BaseModel):
     rank: int
     points: int
     snapshot_time: Optional[str] = None
+    captured_at: str
     model_config = {"from_attributes": True}
 
 
