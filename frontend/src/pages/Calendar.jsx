@@ -427,7 +427,7 @@ export default function Calendar() {
           <span className="topbar-title">cal</span>
         </div>
         <div className="topbar-right">
-          <span className="topbar-version">v4.9</span>
+          <span className="topbar-version">v4.10</span>
           <button className="btn btn-sm" onClick={() => setShowSettings(s => !s)}>
             {showSettings ? 'close' : 'settings'}
           </button>
@@ -543,9 +543,9 @@ export default function Calendar() {
       {/* Settings overlay — fixed below topbar, overlays the calendar */}
       {showSettings && (
         <div style={{
-          position: 'fixed', top: 32, left: 0, right: 0, zIndex: 40,
+          position: 'fixed', top: 'calc(32px + env(safe-area-inset-top, 0px))', left: 0, right: 0, zIndex: 40,
           background: 'var(--bg)', borderBottom: '1px solid var(--border)',
-          maxHeight: 'calc(100vh - 32px)', overflowY: 'auto',
+          maxHeight: 'calc(100vh - 32px - env(safe-area-inset-top, 0px))', overflowY: 'auto',
         }}>
           <div style={{ maxWidth: 900, margin: '0 auto', padding: '16px 16px' }}>
             <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 8, letterSpacing: '0.08em' }}>RANGE</div>
@@ -601,7 +601,7 @@ export default function Calendar() {
 
       {/* Fixed controls panel — chips, add button, and forms always in view */}
       <div ref={formPanelRef} style={{
-        position: 'fixed', top: 32, left: 0, right: 0, zIndex: 30,
+        position: 'fixed', top: 'calc(32px + env(safe-area-inset-top, 0px))', left: 0, right: 0, zIndex: 30,
         background: 'var(--bg)', borderBottom: '1px solid var(--border)',
       }}>
         <div style={{ maxWidth: 900, margin: '0 auto', padding: '10px 16px' }}>

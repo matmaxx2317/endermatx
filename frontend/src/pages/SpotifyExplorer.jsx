@@ -426,7 +426,7 @@ export default function SpotifyExplorer() {
           <span className="topbar-title">spt</span>
         </div>
         <div className="topbar-right">
-          <span className="topbar-version">v4.9</span>
+          <span className="topbar-version">v4.10</span>
         </div>
       </div>
       <div className="page">
@@ -436,7 +436,7 @@ export default function SpotifyExplorer() {
           /* ── Scan-all view ─────────────────────────────── */
           <>
             {/* Progress — sticky below topbar */}
-            <div style={{ position: 'sticky', top: 32, background: 'var(--bg)', zIndex: 10, paddingBottom: 12, borderBottom: '1px solid var(--border)', marginBottom: 4 }}>
+            <div style={{ position: 'sticky', top: 'calc(32px + env(safe-area-inset-top, 0px))', background: 'var(--bg)', zIndex: 10, paddingBottom: 12, borderBottom: '1px solid var(--border)', marginBottom: 4 }}>
               <div style={{ display: 'flex', gap: 32, paddingTop: 12, flexWrap: 'wrap' }}>
                 {[
                   { label: 'playlists done', value: scanProgress.playlistsDone },
