@@ -2517,9 +2517,16 @@ def import_ranking_snapshots(payload: schemas.WmtRankingSnapshotImportIn, db: Se
         except ValueError:
             skipped += 1
             continue
+        snapshot_time = None
+        if snap.snapshot_time:
+            try:
+                snapshot_time = datetime.fromisoformat(snap.snapshot_time.replace("Z", "+00:00")).replace(tzinfo=None)
+            except ValueError:
+                skipped += 1
+                continue
         existing = (
             db.query(models.WmtRankingSnapshot)
-            .filter_by(date=parsed, player_name=snap.player_name)
+            .filter_by(date=parsed, player_name=snap.player_name, snapshot_time=snapshot_time)
             .first()
         )
         if existing:
@@ -2532,6 +2539,7 @@ def import_ranking_snapshots(payload: schemas.WmtRankingSnapshotImportIn, db: Se
                 player_name=snap.player_name,
                 rank=snap.rank,
                 points=snap.points,
+                snapshot_time=snapshot_time,
             ))
         imported += 1
     db.commit()
@@ -2552,6 +2560,7 @@ def list_ranking_snapshots(db: Session = Depends(get_db)):
             player_name=r.player_name,
             rank=r.rank,
             points=r.points,
+            snapshot_time=r.snapshot_time.isoformat() + "Z" if r.snapshot_time else None,
         )
         for r in rows
     ]
