@@ -172,11 +172,15 @@ class WmtOpponentTip(Base):
 
 class WmtRankingSnapshot(Base):
     __tablename__ = "wmt_ranking_snapshots"
-    id          = Column(Integer, primary_key=True, autoincrement=True)
-    date        = Column(Date, nullable=False)
-    player_name = Column(String, nullable=False)
-    rank        = Column(Integer, nullable=False)
-    points      = Column(Integer, nullable=False)
-    captured_at = Column(DateTime, default=datetime.utcnow)
+    id            = Column(Integer, primary_key=True, autoincrement=True)
+    date          = Column(Date, nullable=False)
+    player_name   = Column(String, nullable=False)
+    rank          = Column(Integer, nullable=False)
+    points        = Column(Integer, nullable=False)
+    captured_at   = Column(DateTime, default=datetime.utcnow)
+    # Optional exact UTC moment this snapshot represents — lets multiple
+    # snapshots exist for the same `date` (e.g. one per match result),
+    # positioned precisely on the Rangverlauf x-axis. NULL means "end of day".
+    snapshot_time = Column(DateTime, nullable=True)
 
 

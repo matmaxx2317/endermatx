@@ -303,6 +303,7 @@ class WmtRankingSnapshotIn(BaseModel):
     player_name: str
     rank: int
     points: int
+    snapshot_time: Optional[str] = None
 
 
 class WmtRankingSnapshotImportIn(BaseModel):
@@ -315,6 +316,7 @@ class WmtRankingSnapshotOut(BaseModel):
     player_name: str
     rank: int
     points: int
+    snapshot_time: Optional[str] = None
     model_config = {"from_attributes": True}
 
 

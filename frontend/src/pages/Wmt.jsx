@@ -977,7 +977,7 @@ export default function Wmt() {
             }}>
             {anyBusy ? '…' : '☰'}
           </button>
-          <span className="topbar-version">v3.17</span>
+          <span className="topbar-version">v3.18</span>
         </div>
       </div>
 
@@ -1770,7 +1770,6 @@ const RANK_CHART_COLORS = [
 ]
 
 function RankingChart({ snapshots, matches }) {
-  const dates   = [...new Set(snapshots.map(s => s.date))].sort()
   const players = [...new Set(snapshots.map(s => s.player_name))].sort()
 
   const [selected, setSelected] = useState(null)
@@ -1785,18 +1784,22 @@ function RankingChart({ snapshots, matches }) {
     })
   }, [players.join(',')])
 
-  if (dates.length < 2 || players.length === 0 || selected === null) return null
+  // Each snapshot represents a moment in time — either an exact `snapshot_time`
+  // (e.g. right after one match finished) or, if unset, the end of its `date`.
+  const effectiveTime = s => s.snapshot_time || `${s.date}T23:59:59Z`
+  const dateCount = new Set(snapshots.map(s => s.date)).size
+
+  if (dateCount < 2 || players.length === 0 || selected === null) return null
 
   const totalMatches = matches.length
-  // Number of finished matches whose date is on/before a given snapshot date —
+  // Number of finished matches whose kickoff is on/before a given moment —
   // this turns the x-axis into "games played so far" instead of calendar days,
   // so rest days don't stretch the timeline.
-  const finishedDates = matches
+  const finishedTimes = matches
     .filter(m => m.status === 'FINISHED')
-    .map(m => m.utc_date.slice(0, 10))
+    .map(m => m.utc_date)
     .sort()
-  const gameCountAt = date => finishedDates.filter(d => d <= date).length
-  const gameCounts = dates.map(gameCountAt)
+  const gameCountAt = time => finishedTimes.filter(t => t <= time).length
 
   const maxRank = Math.max(...snapshots.map(s => s.rank))
   const H = 320
@@ -1809,9 +1812,10 @@ function RankingChart({ snapshots, matches }) {
   const yPos = rank => padT + ((rank - 1) / Math.max(1, maxRank - 1)) * plotH
 
   const byPlayer = {}
-  for (const p of players) byPlayer[p] = []
-  for (const s of snapshots) {
-    byPlayer[s.player_name][dates.indexOf(s.date)] = s.rank
+  for (const p of players) {
+    byPlayer[p] = snapshots
+      .filter(s => s.player_name === p)
+      .sort((a, b) => effectiveTime(a) < effectiveTime(b) ? -1 : 1)
   }
 
   const tickStep = Math.max(1, Math.ceil(totalMatches / 8))
@@ -1877,8 +1881,7 @@ function RankingChart({ snapshots, matches }) {
             if (!selected.has(p)) return null
             const color = RANK_CHART_COLORS[pi % RANK_CHART_COLORS.length]
             const points = byPlayer[p]
-              .map((r, i) => (r != null ? { x: xPos(gameCounts[i]), y: yPos(r) } : null))
-              .filter(Boolean)
+              .map(s => ({ x: xPos(gameCountAt(effectiveTime(s))), y: yPos(s.rank) }))
             const pts = points.map(({ x, y }) => `${x},${y}`).join(' ')
             return (
               <g key={p}>
