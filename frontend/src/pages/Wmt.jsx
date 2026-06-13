@@ -977,7 +977,7 @@ export default function Wmt() {
             }}>
             {anyBusy ? '…' : '☰'}
           </button>
-          <span className="topbar-version">v3.13</span>
+          <span className="topbar-version">v3.14</span>
         </div>
       </div>
 
@@ -1819,6 +1819,13 @@ function RankingChart({ snapshots, matches }) {
   for (let g = 0; g <= totalMatches; g += tickStep) ticks.push(g)
   if (ticks[ticks.length - 1] !== totalMatches) ticks.push(totalMatches)
 
+  // One vertical helper line + "HOME-AWAY" label per match, in chronological order.
+  const sortedMatches = [...matches].sort((a, b) => new Date(a.utc_date) - new Date(b.utc_date))
+  const matchMarkers = sortedMatches.map((m, i) => ({
+    x: xPos(i + 1),
+    label: `${m.home_team?.tla || '???'}-${m.away_team?.tla || '???'}`,
+  }))
+
   const togglePlayer = p => setSelected(prev => {
     const next = new Set(prev)
     if (next.has(p)) next.delete(p); else next.add(p)
@@ -1852,6 +1859,14 @@ function RankingChart({ snapshots, matches }) {
             <text key={g} x={xPos(g)} y={H - padB + 14} textAnchor="middle" fontSize={9} fill="var(--text-muted)">
               Spiel {g}
             </text>
+          ))}
+          {matchMarkers.map((mk, i) => (
+            <g key={i}>
+              <line x1={mk.x} y1={padT} x2={mk.x} y2={padT + plotH} stroke="var(--border)" strokeWidth={0.5} opacity={0.4} />
+              <text x={mk.x + 2} y={padT + plotH - 4} textAnchor="start" fontSize={7} fill="var(--text-faint)" transform={`rotate(-90 ${mk.x + 2} ${padT + plotH - 4})`}>
+                {mk.label}
+              </text>
+            </g>
           ))}
           {players.map((p, pi) => {
             if (!selected.has(p)) return null
