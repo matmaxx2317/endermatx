@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
+import { drv } from '../api'
 
 const DRIVE = '#2ecc71'
 const WAIT  = '#e8a33d'
@@ -14,65 +15,58 @@ function fmt(ms) {
 }
 
 export default function DrivingTracker() {
-  const [driveMs, setDriveMs]           = useState(0)
-  const [waitMs, setWaitMs]             = useState(0)
-  const [mode, setMode]                 = useState(null)   // 'drive' | 'wait' | null
-  const [active, setActive]             = useState(false)
-  const [alternations, setAlternations] = useState(0)
-  const [result, setResult]             = useState(null)   // { driveMs, waitMs, alternations }
-  const segStart                        = useRef(null)
-  const [, setTick]                     = useState(0)
+  const [ride, setRide]     = useState(null)   // active server ride, or null
+  const [result, setResult] = useState(null)   // finished-ride overlay data
+  const [, setTick]         = useState(0)
+  // baseline for local ticking: time we received `ride` + its segment elapsed
+  const base  = useRef({ t: 0, segMs: 0 })
+  const chain = useRef(Promise.resolve())       // serialises mutations in order
+
+  // store a server ride and capture the tick baseline from it
+  function apply(r) {
+    setRide(r && r.active ? r : null)
+    base.current = { t: Date.now(), segMs: r && r.active ? r.current_segment_ms : 0 }
+  }
+
+  async function refresh() {
+    try { apply(await drv.getActive()) } catch (e) { console.error(e) }
+  }
+
+  // run a mutation serialised after any in-flight one, preserving order
+  function run(fn) {
+    const next = chain.current.then(fn).catch(e => console.error(e))
+    chain.current = next.catch(() => {})
+    return next
+  }
+
+  // resume an in-progress ride on load, and resync whenever the app returns to view
+  useEffect(() => {
+    refresh()
+    function onVisible() { if (document.visibilityState === 'visible') refresh() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [])
 
   // tick to refresh the live timer while a ride is active
   useEffect(() => {
-    if (!active) return
+    if (!ride?.active) return
     const id = setInterval(() => setTick(t => t + 1), 200)
     return () => clearInterval(id)
-  }, [active])
+  }, [ride?.active])
 
-  // commit the elapsed time of the current segment into its accumulator
-  function flush() {
-    if (!active || !mode || segStart.current == null) return
-    const elapsed = Date.now() - segStart.current
-    if (mode === 'drive') setDriveMs(d => d + elapsed)
-    else                  setWaitMs(w => w + elapsed)
-    segStart.current = Date.now()
-  }
+  const start = () => run(async () => { setResult(null); apply(await drv.start()) })
+  const switchMode = next => run(async () => { if (ride?.active) apply(await drv.setMode(next)) })
+  const stop = () => run(async () => {
+    const r = await drv.stop()
+    setResult({ driveMs: r.drive_ms, waitMs: r.wait_ms, alternations: r.alternations })
+    apply(null)
+  })
 
-  function start() {
-    setDriveMs(0)
-    setWaitMs(0)
-    setAlternations(0)
-    setResult(null)
-    setMode('drive')          // a new ride always starts in drive mode
-    setActive(true)
-    segStart.current = Date.now()
-  }
-
-  function switchMode(next) {
-    if (!active) return
-    flush()
-    if (mode !== next) setAlternations(a => a + 1)
-    setMode(next)
-  }
-
-  function stop() {
-    if (!active) return
-    const elapsed = segStart.current != null ? Date.now() - segStart.current : 0
-    const finalDrive = driveMs + (mode === 'drive' ? elapsed : 0)
-    const finalWait  = waitMs  + (mode === 'wait'  ? elapsed : 0)
-    setDriveMs(finalDrive)
-    setWaitMs(finalWait)
-    setResult({ driveMs: finalDrive, waitMs: finalWait, alternations })
-    setActive(false)
-    setMode(null)
-    segStart.current = null
-  }
-
-  // live values (committed accumulator + the running segment)
-  const running = active && segStart.current != null
-  const liveDrive = driveMs + (running && mode === 'drive' ? Date.now() - segStart.current : 0)
-  const liveWait  = waitMs  + (running && mode === 'wait'  ? Date.now() - segStart.current : 0)
+  const active = !!ride?.active
+  const mode = ride?.mode
+  const segNow = active ? base.current.segMs + (Date.now() - base.current.t) : 0
+  const liveDrive = (ride?.drive_ms ?? 0) + (active && mode === 'drive' ? segNow : 0)
+  const liveWait  = (ride?.wait_ms  ?? 0) + (active && mode === 'wait'  ? segNow : 0)
 
   const timerBox = (label, value, accent, on) => (
     <div style={{
@@ -121,7 +115,7 @@ export default function DrivingTracker() {
           <span className="topbar-title">drv</span>
         </div>
         <div className="topbar-right">
-          <span className="topbar-version">v1.0</span>
+          <span className="topbar-version">v1.1</span>
         </div>
       </div>
 

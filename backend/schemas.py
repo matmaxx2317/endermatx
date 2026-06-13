@@ -330,3 +330,20 @@ class WmtStatusOut(BaseModel):
     md3_done: bool = False
     rd32_done: bool = False
 
+
+# ── drv ───────────────────────────────────────────────────────────────────────
+
+class DrvModeIn(BaseModel):
+    mode: str = Field(..., pattern=r'^(drive|wait)$')
+
+class DrvRideOut(BaseModel):
+    id: int
+    active: bool
+    mode: Optional[str]
+    drive_ms: int
+    wait_ms: int
+    alternations: int
+    current_segment_ms: int   # elapsed in the in-progress segment (0 if not active)
+    started_at: UtcDt
+    ended_at: UtcDtOpt
+
