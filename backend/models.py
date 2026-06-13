@@ -172,11 +172,33 @@ class WmtOpponentTip(Base):
 
 class WmtRankingSnapshot(Base):
     __tablename__ = "wmt_ranking_snapshots"
-    id          = Column(Integer, primary_key=True, autoincrement=True)
-    date        = Column(Date, nullable=False)
-    player_name = Column(String, nullable=False)
-    rank        = Column(Integer, nullable=False)
-    points      = Column(Integer, nullable=False)
-    captured_at = Column(DateTime, default=datetime.utcnow)
+    id            = Column(Integer, primary_key=True, autoincrement=True)
+    date          = Column(Date, nullable=False)
+    player_name   = Column(String, nullable=False)
+    rank          = Column(Integer, nullable=False)
+    points        = Column(Integer, nullable=False)
+    captured_at   = Column(DateTime, default=datetime.utcnow)
+    # Optional exact UTC moment this snapshot represents — lets multiple
+    # snapshots exist for the same `date` (e.g. one per match result),
+    # positioned precisely on the Rangverlauf x-axis. NULL means "end of day".
+    snapshot_time = Column(DateTime, nullable=True)
+
+
+# ── drv ────────────────────────────────────────────────────────────────────────
+
+class DrvRide(Base):
+    """A driving session. The active ride (ended_at IS NULL) is the source of
+    truth so timers survive the page being discarded (e.g. switching apps).
+    drive_ms/wait_ms hold committed time; the in-progress segment is computed
+    from seg_start on read."""
+    __tablename__ = "drv_rides"
+    id           = Column(BigInteger, primary_key=True, autoincrement=True)
+    started_at   = Column(DateTime, default=datetime.utcnow, nullable=False)
+    ended_at     = Column(DateTime, nullable=True)
+    drive_ms     = Column(BigInteger, nullable=False, default=0)
+    wait_ms      = Column(BigInteger, nullable=False, default=0)
+    mode         = Column(String, nullable=True)   # 'drive' | 'wait' | None
+    seg_start    = Column(DateTime, nullable=True)  # start of the current segment
+    alternations = Column(Integer, nullable=False, default=0)
 
 

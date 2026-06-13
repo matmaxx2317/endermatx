@@ -977,7 +977,7 @@ export default function Wmt() {
             }}>
             {anyBusy ? '…' : '☰'}
           </button>
-          <span className="topbar-version">v3.11</span>
+          <span className="topbar-version">v3.20</span>
         </div>
       </div>
 
@@ -1772,62 +1772,161 @@ const RANK_CHART_COLORS = [
   '#9b59b6','#e67e22','#1abc9c','#e91e63',
 ]
 
-function RankingChart({ snapshots }) {
-  const dates   = [...new Set(snapshots.map(s => s.date))].sort()
+function RankingChart({ snapshots, matches }) {
   const players = [...new Set(snapshots.map(s => s.player_name))].sort()
 
-  if (dates.length < 2 || players.length === 0) return null
+  const [selected, setSelected] = useState(null)
+  const [zoom, setZoom] = useState(1)
+
+  useEffect(() => {
+    setSelected(prev => {
+      if (prev === null) return new Set(players)
+      const next = new Set([...prev].filter(p => players.includes(p)))
+      for (const p of players) if (!prev.has(p)) next.add(p)
+      return next
+    })
+  }, [players.join(',')])
+
+  // Each snapshot represents a moment in time — an exact `snapshot_time` if set,
+  // otherwise the earlier of "when it was imported" (captured_at) and "end of its
+  // date". This way a same-day import that happens before that day's later matches
+  // finish is positioned before those matches automatically, without the importer
+  // needing to know about per-match positioning.
+  const effectiveTime = s => {
+    if (s.snapshot_time) return s.snapshot_time
+    const dayEnd = `${s.date}T23:59:59Z`
+    return s.captured_at < dayEnd ? s.captured_at : dayEnd
+  }
+  const dateCount = new Set(snapshots.map(s => s.date)).size
+
+  if (dateCount < 2 || players.length === 0 || selected === null) return null
+
+  const totalMatches = matches.length
+  // Number of finished matches whose kickoff is on/before a given moment —
+  // this turns the x-axis into "games played so far" instead of calendar days,
+  // so rest days don't stretch the timeline.
+  const finishedTimes = matches
+    .filter(m => m.status === 'FINISHED')
+    .map(m => m.utc_date)
+    .sort()
+  const gameCountAt = time => finishedTimes.filter(t => t <= time).length
 
   const maxRank = Math.max(...snapshots.map(s => s.rank))
-  const W = 680, H = 320
+  const H = 320
   const padL = 28, padR = 12, padT = 12, padB = 28
-  const plotW = W - padL - padR
+  const plotW = (680 - padL - padR) * zoom
   const plotH = H - padT - padB
+  const W = padL + plotW + padR
 
-  const xPos = i => padL + (dates.length === 1 ? plotW / 2 : (i / (dates.length - 1)) * plotW)
+  const xPos = games => padL + (totalMatches === 0 ? 0 : (games / totalMatches) * plotW)
   const yPos = rank => padT + ((rank - 1) / Math.max(1, maxRank - 1)) * plotH
 
   const byPlayer = {}
-  for (const p of players) byPlayer[p] = []
-  for (const s of snapshots) {
-    byPlayer[s.player_name][dates.indexOf(s.date)] = s.rank
+  for (const p of players) {
+    byPlayer[p] = snapshots
+      .filter(s => s.player_name === p)
+      .sort((a, b) => effectiveTime(a) < effectiveTime(b) ? -1 : 1)
   }
 
-  const labelStep = Math.max(1, Math.ceil(dates.length / 8))
+  const tickStep = Math.max(1, Math.ceil(totalMatches / 8))
+  const ticks = []
+  for (let g = 0; g <= totalMatches; g += tickStep) ticks.push(g)
+  if (ticks[ticks.length - 1] !== totalMatches) ticks.push(totalMatches)
+
+  // One vertical helper line + "HOME-AWAY" label per match, evenly spaced in
+  // chronological order so every match gets the same x-distance from its neighbours.
+  const sortedMatches = [...matches].sort((a, b) => new Date(a.utc_date) - new Date(b.utc_date))
+  const matchMarkers = sortedMatches.map((m, i) => ({
+    x: xPos(i + 1),
+    lineX: xPos(i + 1),
+    showLine: true,
+    label: `${m.home_team?.tla || '???'}-${m.away_team?.tla || '???'}`,
+  }))
+
+  const togglePlayer = p => setSelected(prev => {
+    const next = new Set(prev)
+    if (next.has(p)) next.delete(p); else next.add(p)
+    return next
+  })
 
   return (
-    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 16, overflowX: 'auto' }}>
-      <div style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 500, marginBottom: 10 }}>
-        Rangverlauf
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, gap: 10, flexWrap: 'wrap' }}>
+        <div style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 500 }}>
+          Rangverlauf
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Zoom</span>
+          <input
+            type="range" min={1} max={5} step={0.5} value={zoom}
+            onChange={e => setZoom(Number(e.target.value))}
+            style={{ width: 80 }}
+          />
+        </div>
       </div>
-      <svg width={W} height={H} style={{ display: 'block' }}>
-        {Array.from({ length: maxRank }, (_, i) => i + 1).map(r => (
-          <g key={r}>
-            <line x1={padL} y1={yPos(r)} x2={W - padR} y2={yPos(r)} stroke="var(--border)" strokeWidth={0.5} />
-            <text x={padL - 6} y={yPos(r) + 3} textAnchor="end" fontSize={9} fill="var(--text-muted)">{r}</text>
-          </g>
-        ))}
-        {dates.map((d, i) => (
-          (i === 0 || i === dates.length - 1 || i % labelStep === 0) && (
-            <text key={d} x={xPos(i)} y={H - padB + 14} textAnchor="middle" fontSize={9} fill="var(--text-muted)">
-              {new Date(d).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}
+      <div style={{ overflowX: 'auto' }}>
+        <svg width={W} height={H} style={{ display: 'block' }}>
+          {Array.from({ length: maxRank }, (_, i) => i + 1).map(r => (
+            <g key={r}>
+              <line x1={padL} y1={yPos(r)} x2={W - padR} y2={yPos(r)} stroke="var(--border)" strokeWidth={0.5} />
+              <text x={padL - 6} y={yPos(r) + 3} textAnchor="end" fontSize={9} fill="var(--text-muted)">{r}</text>
+            </g>
+          ))}
+          {ticks.map(g => (
+            <text key={g} x={xPos(g)} y={H - padB + 14} textAnchor="middle" fontSize={9} fill="var(--text-muted)">
+              Spiel {g}
             </text>
-          )
-        ))}
-        {players.map((p, pi) => {
-          const color = RANK_CHART_COLORS[pi % RANK_CHART_COLORS.length]
-          const pts = byPlayer[p]
-            .map((r, i) => (r != null ? `${xPos(i)},${yPos(r)}` : null))
-            .filter(Boolean)
-            .join(' ')
-          return <polyline key={p} points={pts} fill="none" stroke={color} strokeWidth={1.5} opacity={0.85} />
-        })}
-      </svg>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 14px', marginTop: 12 }}>
+          ))}
+          {matchMarkers.map((mk, i) => (
+            <g key={i}>
+              {mk.showLine && (
+                <line x1={mk.lineX} y1={padT} x2={mk.lineX} y2={padT + plotH} stroke="var(--border)" strokeWidth={0.5} opacity={0.4} />
+              )}
+              <text x={mk.x + 2} y={padT + plotH - 4} textAnchor="start" fontSize={7} fill="var(--text-faint)" transform={`rotate(-90 ${mk.x + 2} ${padT + plotH - 4})`}>
+                {mk.label}
+              </text>
+            </g>
+          ))}
+          {players.map((p, pi) => {
+            if (!selected.has(p)) return null
+            const color = RANK_CHART_COLORS[pi % RANK_CHART_COLORS.length]
+            const points = byPlayer[p]
+              .map(s => ({ x: xPos(gameCountAt(effectiveTime(s))), y: yPos(s.rank) }))
+            const pts = points.map(({ x, y }) => `${x},${y}`).join(' ')
+            return (
+              <g key={p}>
+                <polyline points={pts} fill="none" stroke={color} strokeWidth={1.5} opacity={0.85} />
+                {points.map((pt, i) => (
+                  <circle key={i} cx={pt.x} cy={pt.y} r={2.5} fill={color} />
+                ))}
+              </g>
+            )
+          })}
+        </svg>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
+        <button
+          onClick={() => setSelected(new Set(players))}
+          style={{ fontSize: 10, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-alt)', color: 'var(--text-secondary)', cursor: 'pointer' }}
+        >
+          Alle
+        </button>
+        <button
+          onClick={() => setSelected(new Set())}
+          style={{ fontSize: 10, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-alt)', color: 'var(--text-secondary)', cursor: 'pointer' }}
+        >
+          Keine
+        </button>
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 14px', marginTop: 10 }}>
         {players.map((p, pi) => (
-          <div key={p} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--text-secondary)' }}>
-            <span style={{ width: 10, height: 10, borderRadius: 2, background: RANK_CHART_COLORS[pi % RANK_CHART_COLORS.length], display: 'inline-block' }} />
-            {p}
+          <div
+            key={p}
+            onClick={() => togglePlayer(p)}
+            style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: selected.has(p) ? 'var(--text-secondary)' : 'var(--text-faint)', cursor: 'pointer', userSelect: 'none' }}
+          >
+            <span style={{ width: 10, height: 10, borderRadius: 2, background: RANK_CHART_COLORS[pi % RANK_CHART_COLORS.length], display: 'inline-block', opacity: selected.has(p) ? 1 : 0.3 }} />
+            <span style={{ textDecoration: selected.has(p) ? 'none' : 'line-through' }}>{p}</span>
           </div>
         ))}
       </div>
@@ -1864,14 +1963,15 @@ function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
     tipsByMatch[t.match_id].push(t)
   }
 
+  // Neueste Spiele zuerst — das jüngste steht direkt unter dem Ranking-Chart
   const matchIds = Object.keys(tipsByMatch)
     .map(Number)
     .filter(id => matchById[id])
-    .sort((a, b) => new Date(matchById[a].utc_date) - new Date(matchById[b].utc_date))
+    .sort((a, b) => new Date(matchById[b].utc_date) - new Date(matchById[a].utc_date))
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <RankingChart snapshots={rankingSnapshots} />
+      <RankingChart snapshots={rankingSnapshots} matches={matches} />
 
       {matchIds.length === 0 ? (
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 24, textAlign: 'center' }}>
@@ -1921,13 +2021,13 @@ function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
               {tips.map(t => (
-                <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12 }}>
+                <div key={t.id} style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12,
+                  background: tipOverlay(m, t) ?? 'transparent',
+                  borderRadius: 4, padding: '1px 6px', margin: '0 -6px',
+                }}>
                   <span style={{ color: 'var(--text-secondary)' }}>{t.player_name}</span>
-                  <span style={{
-                    color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums',
-                    background: tipOverlay(m, t) ?? 'transparent',
-                    borderRadius: 4, padding: '0 6px',
-                  }}>{t.pred_home_goals}:{t.pred_away_goals}</span>
+                  <span style={{ color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>{t.pred_home_goals}:{t.pred_away_goals}</span>
                 </div>
               ))}
             </div>

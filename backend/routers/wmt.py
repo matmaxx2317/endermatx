@@ -92,10 +92,15 @@ def _upsert_fdorg_team(db: Session, team_data: dict) -> Optional[models.WmtTeam]
     tla = (team_data.get("tla") or "").strip().upper() or None
     if not tla:
         return None
-    team = db.query(models.WmtTeam).filter_by(tla=tla).first()
     name = team_data.get("name") or "Unknown"
     short_name = team_data.get("shortName") or name
     api_id = team_data.get("id")
+    team = db.query(models.WmtTeam).filter_by(tla=tla).first()
+    if not team and api_id:
+        # football-data.org kann die TLA eines Teams nachträglich ändern; die
+        # api_id ist der stabile Schlüssel. Ohne diesen Fallback würde ein
+        # Re-Insert die Unique-Constraint auf api_id verletzen.
+        team = db.query(models.WmtTeam).filter_by(api_id=api_id).first()
     if not team:
         team = models.WmtTeam(
             api_id=api_id,
@@ -109,10 +114,18 @@ def _upsert_fdorg_team(db: Session, team_data: dict) -> Optional[models.WmtTeam]
         db.flush()
     else:
         team.name = name
+        team.tla = tla
         if short_name:
             team.short_name = short_name
-        if api_id:
-            team.api_id = api_id
+        if api_id and team.api_id != api_id:
+            holder = db.query(models.WmtTeam).filter_by(api_id=api_id).first()
+            if holder is None:
+                team.api_id = api_id
+            else:
+                logger.warning(
+                    "WMT: api_id %s für %s bereits von Team #%s belegt — nicht übernommen",
+                    api_id, tla, holder.id,
+                )
     return team
 
 
@@ -2504,9 +2517,16 @@ def import_ranking_snapshots(payload: schemas.WmtRankingSnapshotImportIn, db: Se
         except ValueError:
             skipped += 1
             continue
+        snapshot_time = None
+        if snap.snapshot_time:
+            try:
+                snapshot_time = datetime.fromisoformat(snap.snapshot_time.replace("Z", "+00:00")).replace(tzinfo=None)
+            except ValueError:
+                skipped += 1
+                continue
         existing = (
             db.query(models.WmtRankingSnapshot)
-            .filter_by(date=parsed, player_name=snap.player_name)
+            .filter_by(date=parsed, player_name=snap.player_name, snapshot_time=snapshot_time)
             .first()
         )
         if existing:
@@ -2519,6 +2539,7 @@ def import_ranking_snapshots(payload: schemas.WmtRankingSnapshotImportIn, db: Se
                 player_name=snap.player_name,
                 rank=snap.rank,
                 points=snap.points,
+                snapshot_time=snapshot_time,
             ))
         imported += 1
     db.commit()
@@ -2539,6 +2560,8 @@ def list_ranking_snapshots(db: Session = Depends(get_db)):
             player_name=r.player_name,
             rank=r.rank,
             points=r.points,
+            snapshot_time=r.snapshot_time.isoformat() + "Z" if r.snapshot_time else None,
+            captured_at=(r.captured_at.isoformat() if r.captured_at else f"{r.date.isoformat()}T23:59:59") + "Z",
         )
         for r in rows
     ]

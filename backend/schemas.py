@@ -303,6 +303,7 @@ class WmtRankingSnapshotIn(BaseModel):
     player_name: str
     rank: int
     points: int
+    snapshot_time: Optional[str] = None
 
 
 class WmtRankingSnapshotImportIn(BaseModel):
@@ -315,6 +316,8 @@ class WmtRankingSnapshotOut(BaseModel):
     player_name: str
     rank: int
     points: int
+    snapshot_time: Optional[str] = None
+    captured_at: str
     model_config = {"from_attributes": True}
 
 
@@ -327,4 +330,21 @@ class WmtStatusOut(BaseModel):
     md2_done: bool = False
     md3_done: bool = False
     rd32_done: bool = False
+
+
+# ── drv ───────────────────────────────────────────────────────────────────────
+
+class DrvModeIn(BaseModel):
+    mode: str = Field(..., pattern=r'^(drive|wait)$')
+
+class DrvRideOut(BaseModel):
+    id: int
+    active: bool
+    mode: Optional[str]
+    drive_ms: int
+    wait_ms: int
+    alternations: int
+    current_segment_ms: int   # elapsed in the in-progress segment (0 if not active)
+    started_at: UtcDt
+    ended_at: UtcDtOpt
 
