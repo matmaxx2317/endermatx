@@ -17,7 +17,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from .database import engine, Base, SessionLocal
 from .models import TtsEntry
-from .routers import tts, cal, idx, strings, bpm, scan, wmt
+from .routers import tts, cal, idx, strings, bpm, scan, wmt, drv
 from .routers.wmt import (
     do_refresh as _wmt_do_refresh,
     do_generate_summary as _wmt_do_summary,
@@ -181,6 +181,7 @@ app.include_router(strings.router, prefix="/api/str", tags=["str"])
 app.include_router(bpm.router,      prefix="/api/bpm",      tags=["bpm"])
 app.include_router(scan.router,     prefix="/api/bpm/scan", tags=["scan"])
 app.include_router(wmt.router,      prefix="/api/wmt",      tags=["wmt"])
+app.include_router(drv.router,      prefix="/api/drv",      tags=["drv"])
 
 FRONTEND_DIST = Path(__file__).parent.parent / "frontend" / "dist"
 GAMES_DIR = Path(__file__).parent.parent / "games"

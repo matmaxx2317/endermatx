@@ -92,3 +92,11 @@ export const wmt = {
   fakeAll: ()                => post('/wmt/debug/fake-all'),
 }
 
+// ── drv ───────────────────────────────────────────────────────
+export const drv = {
+  getActive: ()              => get('/drv/ride/active'),
+  start: ()                  => post('/drv/ride/start'),
+  setMode: (mode)            => post('/drv/ride/mode', { mode }),
+  stop: ()                   => post('/drv/ride/stop'),
+}
+
