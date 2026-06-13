@@ -2,7 +2,8 @@
 
 Live meeting capture for Claude Code: start a meeting, drop notes/facts/decisions/action
 items as it runs, get a structured wrap-up when you're done. Notes are stored as one
-markdown file per meeting under `~/meeting-notes/`.
+markdown file per meeting under `meeting-notes/` **in the repo**, and each meeting is
+published as its own branch + pull request on wrap-up.
 
 ## Use it
 
@@ -10,7 +11,8 @@ markdown file per meeting under `~/meeting-notes/`.
 - **Capture:** just type notes as they come — each line is filed into Notes / Facts /
   Decisions / Action items automatically.
 - **Finish:** `meeting done` → you get a summary + consolidated action items in chat,
-  and the full record saved to `~/meeting-notes/`.
+  the full record saved to `meeting-notes/`, and a dedicated branch + PR opened for it
+  (`meeting-notes/YYYY-MM-DD-HHMM-<slug>`).
 
 ## Install it at work (global)
 
@@ -23,4 +25,5 @@ cp .claude/skills/meeting/SKILL.md ~/.claude/skills/meeting/SKILL.md
 ```
 
 After that, `/meeting` is available in every Claude Code session on that machine.
-Notes always land in `~/meeting-notes/` regardless of which repo you're in.
+In any git repo, notes land in that repo's `meeting-notes/` and wrap-up opens a branch + PR;
+outside a git repo it falls back to `~/meeting-notes/` and skips the PR step.

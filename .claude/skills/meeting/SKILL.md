@@ -9,15 +9,19 @@ A lightweight, stateful note-taker for live meetings. The user runs three phases
 
 ## Where notes live
 
-All meetings are stored as markdown under `~/meeting-notes/`. One file per meeting:
+Meetings are stored as markdown **inside the current repository**, under a `meeting-notes/`
+directory at the repo root. One file per meeting:
 
 ```
-~/meeting-notes/YYYY-MM-DD-HHMM-<slug>.md
+<repo-root>/meeting-notes/YYYY-MM-DD-HHMM-<slug>.md
 ```
 
+- Resolve `<repo-root>` with `git rev-parse --show-toplevel`. Create `meeting-notes/` there if it does not exist (`mkdir -p`).
+- **Fallback (no git repo):** if `git rev-parse` fails (the session is not inside a git repository), fall back to `~/meeting-notes/` and skip the branch/PR steps in Phase 3 — there is nowhere to push.
 - `<slug>` = the meeting title, lowercased, spaces → hyphens, non-alphanumerics stripped (e.g. "Q3 Roadmap Sync" → `q3-roadmap-sync`).
-- Create the `~/meeting-notes/` directory if it does not exist (`mkdir -p`).
-- **Remember the active file path for the whole session.** If you are ever unsure which file is active (e.g. after a long gap), list `~/meeting-notes/` sorted by modification time and Read the newest file before continuing — never start a second file for the same meeting.
+- **Remember the active file path for the whole session.** If you are ever unsure which file is active (e.g. after a long gap), list the `meeting-notes/` directory sorted by modification time and Read the newest file before continuing — never start a second file for the same meeting.
+
+Keeping notes in-repo means every meeting record is versioned and, on wrap-up, lands in a pull request (see Phase 3) so it survives beyond this ephemeral session.
 
 ## Phase 1 — Start
 
@@ -82,12 +86,31 @@ Trigger: "meeting done", "wrap up", "end meeting", "/meeting done".
 <anything unresolved or flagged "?".>
 ```
 
-3. Then post the **same wrap-up in chat** so the user can copy/paste it into email or a tracker immediately. Lead with the action items, since those are what people act on.
-4. End with the file path so they know where the full record lives.
+3. **Publish the record as a pull request** (skip this whole step only in the no-git fallback). The goal is one branch + one PR per meeting, containing just this meeting's notes file:
+   1. Find the default branch (usually `main`): `git remote show origin | grep 'HEAD branch'`, or assume `main`.
+   2. Create a dedicated branch off the up-to-date default branch so the PR contains only the meeting note:
+      ```bash
+      git fetch origin <default>
+      git checkout -b meeting-notes/YYYY-MM-DD-HHMM-<slug> origin/<default>
+      ```
+      The notes file is untracked, so it carries over to the new branch. If the checkout fails (e.g. conflicting tracked changes in the working tree), fall back to branching off the current HEAD: `git checkout -b meeting-notes/YYYY-MM-DD-HHMM-<slug>`.
+   3. Stage **only** the meeting note (never `git add -A` — don't sweep in unrelated work) and commit:
+      ```bash
+      git add meeting-notes/YYYY-MM-DD-HHMM-<slug>.md
+      git commit -m "Add meeting notes: <Title> (YYYY-MM-DD)"
+      ```
+   4. Push with upstream tracking, retrying on network errors with exponential backoff (2s, 4s, 8s, 16s):
+      ```bash
+      git push -u origin meeting-notes/YYYY-MM-DD-HHMM-<slug>
+      ```
+   5. Open a PR against the default branch. Prefer the GitHub MCP tool `create_pull_request` (title = `Meeting notes: <Title> (YYYY-MM-DD)`, body = the wrap-up summary + action items). If no GitHub MCP/`gh` access is available, push anyway and tell the user the branch is ready and they can open the PR manually.
+4. Then post the **same wrap-up in chat** so the user can copy/paste it into email or a tracker immediately. Lead with the action items, since those are what people act on.
+5. End with the file path **and the PR link** (or the branch name if the PR couldn't be created automatically) so they know where the full record lives.
 
 ## Conventions
 
 - Times and dates are the user's **local** time. Get the real current time (`date`) rather than guessing.
-- One meeting = one file. Multiple meetings the same day get distinct `HHMM` prefixes and slugs.
-- Never delete past meeting files. To review history, list/Read under `~/meeting-notes/`.
+- One meeting = one file = one branch = one PR. Multiple meetings the same day get distinct `HHMM` prefixes and slugs (and therefore distinct branches).
+- Never delete past meeting files. To review history, list/Read under `<repo-root>/meeting-notes/`.
+- During capture (Phase 2) the notes file stays uncommitted in the working tree on whatever branch is checked out — only Phase 3 creates the branch, commit, and PR. This keeps note-taking fast and non-disruptive to any other work in progress.
 - If the user asks mid-session for "what do we have so far", Read the file and give a quick interim summary without changing Status.
