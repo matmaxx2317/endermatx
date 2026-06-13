@@ -977,7 +977,7 @@ export default function Wmt() {
             }}>
             {anyBusy ? '…' : '☰'}
           </button>
-          <span className="topbar-version">v3.11</span>
+          <span className="topbar-version">v3.12</span>
         </div>
       </div>
 
@@ -1769,11 +1769,22 @@ const RANK_CHART_COLORS = [
   '#9b59b6','#e67e22','#1abc9c','#e91e63',
 ]
 
-function RankingChart({ snapshots }) {
+function RankingChart({ snapshots, matches }) {
   const dates   = [...new Set(snapshots.map(s => s.date))].sort()
   const players = [...new Set(snapshots.map(s => s.player_name))].sort()
 
   if (dates.length < 2 || players.length === 0) return null
+
+  const totalMatches = matches.length
+  // Number of finished matches whose date is on/before a given snapshot date —
+  // this turns the x-axis into "games played so far" instead of calendar days,
+  // so rest days don't stretch the timeline.
+  const finishedDates = matches
+    .filter(m => m.status === 'FINISHED')
+    .map(m => m.utc_date.slice(0, 10))
+    .sort()
+  const gameCountAt = date => finishedDates.filter(d => d <= date).length
+  const gameCounts = dates.map(gameCountAt)
 
   const maxRank = Math.max(...snapshots.map(s => s.rank))
   const W = 680, H = 320
@@ -1781,7 +1792,7 @@ function RankingChart({ snapshots }) {
   const plotW = W - padL - padR
   const plotH = H - padT - padB
 
-  const xPos = i => padL + (dates.length === 1 ? plotW / 2 : (i / (dates.length - 1)) * plotW)
+  const xPos = games => padL + (totalMatches === 0 ? 0 : (games / totalMatches) * plotW)
   const yPos = rank => padT + ((rank - 1) / Math.max(1, maxRank - 1)) * plotH
 
   const byPlayer = {}
@@ -1790,7 +1801,10 @@ function RankingChart({ snapshots }) {
     byPlayer[s.player_name][dates.indexOf(s.date)] = s.rank
   }
 
-  const labelStep = Math.max(1, Math.ceil(dates.length / 8))
+  const tickStep = Math.max(1, Math.ceil(totalMatches / 8))
+  const ticks = []
+  for (let g = 0; g <= totalMatches; g += tickStep) ticks.push(g)
+  if (ticks[ticks.length - 1] !== totalMatches) ticks.push(totalMatches)
 
   return (
     <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 16, overflowX: 'auto' }}>
@@ -1804,17 +1818,15 @@ function RankingChart({ snapshots }) {
             <text x={padL - 6} y={yPos(r) + 3} textAnchor="end" fontSize={9} fill="var(--text-muted)">{r}</text>
           </g>
         ))}
-        {dates.map((d, i) => (
-          (i === 0 || i === dates.length - 1 || i % labelStep === 0) && (
-            <text key={d} x={xPos(i)} y={H - padB + 14} textAnchor="middle" fontSize={9} fill="var(--text-muted)">
-              {new Date(d).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}
-            </text>
-          )
+        {ticks.map(g => (
+          <text key={g} x={xPos(g)} y={H - padB + 14} textAnchor="middle" fontSize={9} fill="var(--text-muted)">
+            Spiel {g}
+          </text>
         ))}
         {players.map((p, pi) => {
           const color = RANK_CHART_COLORS[pi % RANK_CHART_COLORS.length]
           const pts = byPlayer[p]
-            .map((r, i) => (r != null ? `${xPos(i)},${yPos(r)}` : null))
+            .map((r, i) => (r != null ? `${xPos(gameCounts[i])},${yPos(r)}` : null))
             .filter(Boolean)
             .join(' ')
           return <polyline key={p} points={pts} fill="none" stroke={color} strokeWidth={1.5} opacity={0.85} />
@@ -1869,7 +1881,7 @@ function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <RankingChart snapshots={rankingSnapshots} />
+      <RankingChart snapshots={rankingSnapshots} matches={matches} />
 
       {matchIds.length === 0 ? (
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 24, textAlign: 'center' }}>
