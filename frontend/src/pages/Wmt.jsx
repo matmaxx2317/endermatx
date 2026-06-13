@@ -977,7 +977,7 @@ export default function Wmt() {
             }}>
             {anyBusy ? '…' : '☰'}
           </button>
-          <span className="topbar-version">v3.14</span>
+          <span className="topbar-version">v3.15</span>
         </div>
       </div>
 
@@ -1819,12 +1819,26 @@ function RankingChart({ snapshots, matches }) {
   for (let g = 0; g <= totalMatches; g += tickStep) ticks.push(g)
   if (ticks[ticks.length - 1] !== totalMatches) ticks.push(totalMatches)
 
-  // One vertical helper line + "HOME-AWAY" label per match, in chronological order.
+  // One vertical helper line + "HOME-AWAY" label per match, positioned using the same
+  // "games played so far" x-metric as the rank data points so they line up. Matches
+  // played on the same calendar day (simultaneous kickoffs) share an x and are offset
+  // sideways so their labels don't fully overlap.
   const sortedMatches = [...matches].sort((a, b) => new Date(a.utc_date) - new Date(b.utc_date))
-  const matchMarkers = sortedMatches.map((m, i) => ({
-    x: xPos(i + 1),
-    label: `${m.home_team?.tla || '???'}-${m.away_team?.tla || '???'}`,
-  }))
+  const dayGroups = {}
+  for (const m of sortedMatches) {
+    const day = m.utc_date.slice(0, 10)
+    if (!dayGroups[day]) dayGroups[day] = []
+    dayGroups[day].push(m)
+  }
+  const matchMarkers = Object.entries(dayGroups).flatMap(([day, ms]) => {
+    const x = xPos(gameCountAt(day))
+    return ms.map((m, j) => ({
+      x: x + j * 6,
+      lineX: x,
+      showLine: j === 0,
+      label: `${m.home_team?.tla || '???'}-${m.away_team?.tla || '???'}`,
+    }))
+  })
 
   const togglePlayer = p => setSelected(prev => {
     const next = new Set(prev)
@@ -1862,7 +1876,9 @@ function RankingChart({ snapshots, matches }) {
           ))}
           {matchMarkers.map((mk, i) => (
             <g key={i}>
-              <line x1={mk.x} y1={padT} x2={mk.x} y2={padT + plotH} stroke="var(--border)" strokeWidth={0.5} opacity={0.4} />
+              {mk.showLine && (
+                <line x1={mk.lineX} y1={padT} x2={mk.lineX} y2={padT + plotH} stroke="var(--border)" strokeWidth={0.5} opacity={0.4} />
+              )}
               <text x={mk.x + 2} y={padT + plotH - 4} textAnchor="start" fontSize={7} fill="var(--text-faint)" transform={`rotate(-90 ${mk.x + 2} ${padT + plotH - 4})`}>
                 {mk.label}
               </text>
