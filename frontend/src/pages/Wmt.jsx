@@ -977,7 +977,7 @@ export default function Wmt() {
             }}>
             {anyBusy ? '…' : '☰'}
           </button>
-          <span className="topbar-version">v3.12</span>
+          <span className="topbar-version">v3.13</span>
         </div>
       </div>
 
@@ -1773,7 +1773,19 @@ function RankingChart({ snapshots, matches }) {
   const dates   = [...new Set(snapshots.map(s => s.date))].sort()
   const players = [...new Set(snapshots.map(s => s.player_name))].sort()
 
-  if (dates.length < 2 || players.length === 0) return null
+  const [selected, setSelected] = useState(null)
+  const [zoom, setZoom] = useState(1)
+
+  useEffect(() => {
+    setSelected(prev => {
+      if (prev === null) return new Set(players)
+      const next = new Set([...prev].filter(p => players.includes(p)))
+      for (const p of players) if (!prev.has(p)) next.add(p)
+      return next
+    })
+  }, [players.join(',')])
+
+  if (dates.length < 2 || players.length === 0 || selected === null) return null
 
   const totalMatches = matches.length
   // Number of finished matches whose date is on/before a given snapshot date —
@@ -1787,10 +1799,11 @@ function RankingChart({ snapshots, matches }) {
   const gameCounts = dates.map(gameCountAt)
 
   const maxRank = Math.max(...snapshots.map(s => s.rank))
-  const W = 680, H = 320
+  const H = 320
   const padL = 28, padR = 12, padT = 12, padB = 28
-  const plotW = W - padL - padR
+  const plotW = (680 - padL - padR) * zoom
   const plotH = H - padT - padB
+  const W = padL + plotW + padR
 
   const xPos = games => padL + (totalMatches === 0 ? 0 : (games / totalMatches) * plotW)
   const yPos = rank => padT + ((rank - 1) / Math.max(1, maxRank - 1)) * plotH
@@ -1806,37 +1819,74 @@ function RankingChart({ snapshots, matches }) {
   for (let g = 0; g <= totalMatches; g += tickStep) ticks.push(g)
   if (ticks[ticks.length - 1] !== totalMatches) ticks.push(totalMatches)
 
+  const togglePlayer = p => setSelected(prev => {
+    const next = new Set(prev)
+    if (next.has(p)) next.delete(p); else next.add(p)
+    return next
+  })
+
   return (
-    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 16, overflowX: 'auto' }}>
-      <div style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 500, marginBottom: 10 }}>
-        Rangverlauf
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, gap: 10, flexWrap: 'wrap' }}>
+        <div style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 500 }}>
+          Rangverlauf
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Zoom</span>
+          <input
+            type="range" min={1} max={5} step={0.5} value={zoom}
+            onChange={e => setZoom(Number(e.target.value))}
+            style={{ width: 80 }}
+          />
+        </div>
       </div>
-      <svg width={W} height={H} style={{ display: 'block' }}>
-        {Array.from({ length: maxRank }, (_, i) => i + 1).map(r => (
-          <g key={r}>
-            <line x1={padL} y1={yPos(r)} x2={W - padR} y2={yPos(r)} stroke="var(--border)" strokeWidth={0.5} />
-            <text x={padL - 6} y={yPos(r) + 3} textAnchor="end" fontSize={9} fill="var(--text-muted)">{r}</text>
-          </g>
-        ))}
-        {ticks.map(g => (
-          <text key={g} x={xPos(g)} y={H - padB + 14} textAnchor="middle" fontSize={9} fill="var(--text-muted)">
-            Spiel {g}
-          </text>
-        ))}
-        {players.map((p, pi) => {
-          const color = RANK_CHART_COLORS[pi % RANK_CHART_COLORS.length]
-          const pts = byPlayer[p]
-            .map((r, i) => (r != null ? `${xPos(gameCounts[i])},${yPos(r)}` : null))
-            .filter(Boolean)
-            .join(' ')
-          return <polyline key={p} points={pts} fill="none" stroke={color} strokeWidth={1.5} opacity={0.85} />
-        })}
-      </svg>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 14px', marginTop: 12 }}>
+      <div style={{ overflowX: 'auto' }}>
+        <svg width={W} height={H} style={{ display: 'block' }}>
+          {Array.from({ length: maxRank }, (_, i) => i + 1).map(r => (
+            <g key={r}>
+              <line x1={padL} y1={yPos(r)} x2={W - padR} y2={yPos(r)} stroke="var(--border)" strokeWidth={0.5} />
+              <text x={padL - 6} y={yPos(r) + 3} textAnchor="end" fontSize={9} fill="var(--text-muted)">{r}</text>
+            </g>
+          ))}
+          {ticks.map(g => (
+            <text key={g} x={xPos(g)} y={H - padB + 14} textAnchor="middle" fontSize={9} fill="var(--text-muted)">
+              Spiel {g}
+            </text>
+          ))}
+          {players.map((p, pi) => {
+            if (!selected.has(p)) return null
+            const color = RANK_CHART_COLORS[pi % RANK_CHART_COLORS.length]
+            const pts = byPlayer[p]
+              .map((r, i) => (r != null ? `${xPos(gameCounts[i])},${yPos(r)}` : null))
+              .filter(Boolean)
+              .join(' ')
+            return <polyline key={p} points={pts} fill="none" stroke={color} strokeWidth={1.5} opacity={0.85} />
+          })}
+        </svg>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
+        <button
+          onClick={() => setSelected(new Set(players))}
+          style={{ fontSize: 10, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-alt)', color: 'var(--text-secondary)', cursor: 'pointer' }}
+        >
+          Alle
+        </button>
+        <button
+          onClick={() => setSelected(new Set())}
+          style={{ fontSize: 10, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-alt)', color: 'var(--text-secondary)', cursor: 'pointer' }}
+        >
+          Keine
+        </button>
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 14px', marginTop: 10 }}>
         {players.map((p, pi) => (
-          <div key={p} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--text-secondary)' }}>
-            <span style={{ width: 10, height: 10, borderRadius: 2, background: RANK_CHART_COLORS[pi % RANK_CHART_COLORS.length], display: 'inline-block' }} />
-            {p}
+          <div
+            key={p}
+            onClick={() => togglePlayer(p)}
+            style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: selected.has(p) ? 'var(--text-secondary)' : 'var(--text-faint)', cursor: 'pointer', userSelect: 'none' }}
+          >
+            <span style={{ width: 10, height: 10, borderRadius: 2, background: RANK_CHART_COLORS[pi % RANK_CHART_COLORS.length], display: 'inline-block', opacity: selected.has(p) ? 1 : 0.3 }} />
+            <span style={{ textDecoration: selected.has(p) ? 'none' : 'line-through' }}>{p}</span>
           </div>
         ))}
       </div>
