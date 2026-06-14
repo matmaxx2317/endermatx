@@ -997,7 +997,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v3.23</span>
+          <span className="topbar-version">v3.24</span>
         </div>
       </div>
 
@@ -2063,12 +2063,16 @@ function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
       {matchIds.length > 0 && <TipLegend />}
 
       {matchIds.length === 0 ? (
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 24, textAlign: 'center' }}>
-          <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Noch keine Tipps der Mitspieler importiert.</div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
-            Sobald die Tipps in der Tipprunde sichtbar sind, können Screenshots zum Import übergeben werden.
+        // Opponents-only mirror: don't leak the screenshot-import workflow —
+        // just show nothing until tips exist (e.g. during a Railway deploy).
+        wmtOnly ? null : (
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 24, textAlign: 'center' }}>
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Noch keine Tipps der Mitspieler importiert.</div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
+              Sobald die Tipps in der Tipprunde sichtbar sind, können Screenshots zum Import übergeben werden.
+            </div>
           </div>
-        </div>
+        )
       ) : matchIds.map(mid => {
         const m = matchById[mid]
         const tips = tipsByMatch[mid]
