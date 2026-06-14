@@ -491,7 +491,7 @@ export default function Wmt() {
   const [rankingSnapshots, setRankingSnapshots] = useState([])
   const [summaries, setSummaries]       = useState([])
   const [bonus, setBonus]               = useState(null)
-  const [view, setView]                 = useState('spieltage')
+  const [view, setView]                 = useState(isWmtOnlyDomain() ? 'konkurrenz' : 'spieltage')
   const [selectedKey, setSelectedKey]   = useState(null)
   const [loading, setLoading]           = useState(true)
   const [refreshing, setRefreshing]     = useState(false)
@@ -514,6 +514,11 @@ export default function Wmt() {
   const [logs, setLogs]                   = useState([])
   const [menuOpen, setMenuOpen]         = useState(false)
   const logRef                          = useRef(null)
+
+  // matthiasweigel.com is a stripped-down mirror for Tipprunde opponents:
+  // it shows only the Konkurrenz view (rank chart + everyone's tips), no
+  // burger menu, no tabs, no import/log noise.
+  const wmtOnly = isWmtOnlyDomain()
 
   const addLog = useCallback((text, level = 'info') => {
     setLogs(prev => [...prev, { ts: Date.now(), text, level }])
@@ -563,6 +568,20 @@ export default function Wmt() {
   useEffect(() => {
     async function startup() {
       setLoading(true)
+
+      // Opponents-only mirror: just load the data the Konkurrenz view needs,
+      // skip the status check and all import logging.
+      if (wmtOnly) {
+        try {
+          await loadAll()
+        } catch (e) {
+          console.error(e)
+        } finally {
+          setLoading(false)
+        }
+        return
+      }
+
       setView('import')
       try {
         const status = await wmt.getStatus()
@@ -608,7 +627,7 @@ export default function Wmt() {
       }
     }
     startup()
-  }, [addLog, loadAll])
+  }, [addLog, loadAll, wmtOnly])
 
   async function handleClear() {
     if (!window.confirm('Alle WMT-Daten löschen? (Teams, Spiele, Prognosen, Faktoren, Konkurrenz-Tipps, Morgenberichte, Bonus)')) return
@@ -952,7 +971,6 @@ export default function Wmt() {
   const currentMatches = selectedKey !== null ? (grouped[selectedKey] ?? []) : []
 
   const hasData = matches.length > 0
-  const wmtOnly = isWmtOnlyDomain()
 
   return (
     <div>
@@ -965,24 +983,26 @@ export default function Wmt() {
           <span className="topbar-title">wmt</span>
         </div>
         <div className="topbar-right">
-          <button
-            onClick={() => setMenuOpen(o => !o)}
-            style={{
-              background: menuOpen ? 'var(--border)' : 'none',
-              border: menuOpen ? '1px solid var(--border-hover)' : '1px solid transparent',
-              color: anyBusy ? '#4d6fa0' : 'var(--text-secondary)',
-              fontSize: 14, cursor: 'pointer', marginRight: 10,
-              fontFamily: 'inherit', borderRadius: 4,
-              padding: '2px 6px', lineHeight: 1,
-            }}>
-            {anyBusy ? '…' : '☰'}
-          </button>
-          <span className="topbar-version">v3.20</span>
+          {!wmtOnly && (
+            <button
+              onClick={() => setMenuOpen(o => !o)}
+              style={{
+                background: menuOpen ? 'var(--border)' : 'none',
+                border: menuOpen ? '1px solid var(--border-hover)' : '1px solid transparent',
+                color: anyBusy ? '#4d6fa0' : 'var(--text-secondary)',
+                fontSize: 14, cursor: 'pointer', marginRight: 10,
+                fontFamily: 'inherit', borderRadius: 4,
+                padding: '2px 6px', lineHeight: 1,
+              }}>
+              {anyBusy ? '…' : '☰'}
+            </button>
+          )}
+          <span className="topbar-version">v3.21</span>
         </div>
       </div>
 
       {/* burger menu overlay */}
-      {menuOpen && (
+      {!wmtOnly && menuOpen && (
         <div
           onClick={() => setMenuOpen(false)}
           style={{ position: 'fixed', inset: 0, zIndex: 100 }}>
@@ -1101,7 +1121,8 @@ export default function Wmt() {
       )}
 
       <div className="page">
-        {/* view tabs */}
+        {/* view tabs (hidden on the opponents-only mirror) */}
+        {!wmtOnly && (
         <div style={{ display: 'flex', gap: 6, marginBottom: 20, flexWrap: 'wrap' }}>
           {[
             ['import', 'Import'],
@@ -1125,9 +1146,12 @@ export default function Wmt() {
             </button>
           ))}
         </div>
+        )}
 
         {loading && view !== 'import' && (
-          <div style={{ color: 'var(--text-dim)', fontSize: 12 }}>…</div>
+          <div style={{ color: 'var(--text-dim)', fontSize: 12 }}>
+            {wmtOnly ? 'Daten werden geladen…' : '…'}
+          </div>
         )}
 
         {/* ── Import view ────────────────────────────────────────────────── */}
