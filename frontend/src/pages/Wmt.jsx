@@ -997,7 +997,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v3.22</span>
+          <span className="topbar-version">v3.23</span>
         </div>
       </div>
 
@@ -2038,6 +2038,9 @@ function TipLegend() {
 }
 
 function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
+  // On the opponents-only mirror the ELO tip is hidden so fellow players
+  // don't see the model's prediction for past games.
+  const wmtOnly = isWmtOnlyDomain()
   const matchById = {}
   for (const m of matches) matchById[m.id] = m
 
@@ -2094,7 +2097,7 @@ function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
               </div>
             </div>
 
-            {p && (
+            {!wmtOnly && p && (
               <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 10 }}>
                 ELO-Tipp: {bestTip(p, m.stage !== 'GROUP_STAGE').join(':')}
                 {' '}({Math.round(p.home_win_prob * 100)}% / {Math.round(p.draw_prob * 100)}% / {Math.round(p.away_win_prob * 100)}%)
