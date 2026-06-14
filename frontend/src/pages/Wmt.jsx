@@ -1887,21 +1887,53 @@ function RankingChart({ snapshots, matches }) {
               </text>
             </g>
           ))}
-          {players.map((p, pi) => {
-            if (!selected.has(p)) return null
-            const color = RANK_CHART_COLORS[pi % RANK_CHART_COLORS.length]
-            const points = byPlayer[p]
-              .map(s => ({ x: xPos(gameCountAt(effectiveTime(s))), y: yPos(s.rank) }))
-            const pts = points.map(({ x, y }) => `${x},${y}`).join(' ')
-            return (
-              <g key={p}>
-                <polyline points={pts} fill="none" stroke={color} strokeWidth={1.5} opacity={0.85} />
-                {points.map((pt, i) => (
-                  <circle key={i} cx={pt.x} cy={pt.y} r={2.5} fill={color} />
-                ))}
-              </g>
-            )
-          })}
+          {(() => {
+            const rawPoints = {}
+            for (const p of players) {
+              if (!selected.has(p)) continue
+              rawPoints[p] = byPlayer[p]
+                .map(s => ({ x: xPos(gameCountAt(effectiveTime(s))), y: yPos(s.rank) }))
+            }
+
+            // Players whose line passes through the exact same point at the
+            // same moment are nudged into a small parallel band, Mario-Party
+            // style, instead of drawing one indistinguishable stacked line.
+            const tieGroups = {}
+            for (const p of players) {
+              const pts = rawPoints[p]
+              if (!pts) continue
+              for (const pt of pts) {
+                const key = `${pt.x.toFixed(1)},${pt.y.toFixed(1)}`
+                if (!tieGroups[key]) tieGroups[key] = []
+                tieGroups[key].push(p)
+              }
+            }
+
+            const rowHeight = plotH / Math.max(1, maxRank - 1)
+            const offsetUnit = 2.5
+
+            return players.map((p, pi) => {
+              if (!selected.has(p)) return null
+              const color = RANK_CHART_COLORS[pi % RANK_CHART_COLORS.length]
+              const points = rawPoints[p].map(pt => {
+                const group = tieGroups[`${pt.x.toFixed(1)},${pt.y.toFixed(1)}`]
+                const size = group.length
+                const idx = group.indexOf(p)
+                const spread = Math.min((size - 1) * offsetUnit, rowHeight * 0.8)
+                const step = size > 1 ? spread / (size - 1) : 0
+                return { x: pt.x, y: pt.y + (idx - (size - 1) / 2) * step }
+              })
+              const pts = points.map(({ x, y }) => `${x},${y}`).join(' ')
+              return (
+                <g key={p}>
+                  <polyline points={pts} fill="none" stroke={color} strokeWidth={1.5} opacity={0.85} />
+                  {points.map((pt, i) => (
+                    <circle key={i} cx={pt.x} cy={pt.y} r={2.5} fill={color} />
+                  ))}
+                </g>
+              )
+            })
+          })()}
         </svg>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
