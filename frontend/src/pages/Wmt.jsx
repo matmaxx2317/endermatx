@@ -997,7 +997,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v3.21</span>
+          <span className="topbar-version">v3.22</span>
         </div>
       </div>
 
@@ -1800,7 +1800,7 @@ function RankingChart({ snapshots, matches }) {
   const players = [...new Set(snapshots.map(s => s.player_name))].sort()
 
   const [selected, setSelected] = useState(null)
-  const [zoom, setZoom] = useState(1)
+  const [zoom, setZoom] = useState(5)
 
   useEffect(() => {
     setSelected(prev => {
@@ -1965,13 +1965,13 @@ function RankingChart({ snapshots, matches }) {
           onClick={() => setSelected(new Set(players))}
           style={{ fontSize: 10, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-alt)', color: 'var(--text-secondary)', cursor: 'pointer' }}
         >
-          Alle
+          Alle einblenden
         </button>
         <button
           onClick={() => setSelected(new Set())}
           style={{ fontSize: 10, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-alt)', color: 'var(--text-secondary)', cursor: 'pointer' }}
         >
-          Keine
+          Alle ausblenden
         </button>
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 14px', marginTop: 10 }}>
@@ -1985,6 +1985,9 @@ function RankingChart({ snapshots, matches }) {
             <span style={{ textDecoration: selected.has(p) ? 'none' : 'line-through' }}>{p}</span>
           </div>
         ))}
+      </div>
+      <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 8 }}>
+        Auf einen Namen tippen blendet seine Linie im Diagramm ein oder aus.
       </div>
     </div>
   )
@@ -2009,6 +2012,31 @@ function tipOverlay(m, t) {
   return TIP_OVERLAYS.wrong
 }
 
+// Erklärt die Treffergüte-Farben der gespielten Spiele unter dem Rangverlauf.
+function TipLegend() {
+  const items = [
+    [TIP_OVERLAYS.exact,    'Exaktes Ergebnis (4 Pkt)'],
+    [TIP_OVERLAYS.diff,     'Richtige Tordifferenz (3 Pkt)'],
+    [TIP_OVERLAYS.tendency, 'Richtige Tendenz (2 Pkt)'],
+    [TIP_OVERLAYS.wrong,    'Daneben (0 Pkt)'],
+  ]
+  return (
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 16px' }}>
+      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8 }}>
+        Farbcodierung der Tipps gespielter Spiele
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px' }}>
+        {items.map(([color, label]) => (
+          <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-secondary)' }}>
+            <span style={{ width: 14, height: 14, borderRadius: 3, background: color, border: '1px solid var(--border)', flexShrink: 0 }} />
+            {label}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
   const matchById = {}
   for (const m of matches) matchById[m.id] = m
@@ -2028,6 +2056,8 @@ function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <RankingChart snapshots={rankingSnapshots} matches={matches} />
+
+      {matchIds.length > 0 && <TipLegend />}
 
       {matchIds.length === 0 ? (
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 24, textAlign: 'center' }}>
