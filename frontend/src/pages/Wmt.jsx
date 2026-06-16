@@ -997,7 +997,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v3.24</span>
+          <span className="topbar-version">v3.25</span>
         </div>
       </div>
 
@@ -1960,16 +1960,16 @@ function RankingChart({ snapshots, matches }) {
           })()}
         </svg>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 6, marginTop: 12 }}>
         <button
           onClick={() => setSelected(new Set(players))}
-          style={{ fontSize: 10, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-alt)', color: 'var(--text-secondary)', cursor: 'pointer' }}
+          style={{ flex: 1, fontSize: 10, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-alt)', color: 'var(--text-secondary)', cursor: 'pointer' }}
         >
           Alle einblenden
         </button>
         <button
           onClick={() => setSelected(new Set())}
-          style={{ fontSize: 10, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-alt)', color: 'var(--text-secondary)', cursor: 'pointer' }}
+          style={{ flex: 1, fontSize: 10, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-alt)', color: 'var(--text-secondary)', cursor: 'pointer' }}
         >
           Alle ausblenden
         </button>
@@ -2002,36 +2002,102 @@ const TIP_OVERLAYS = {
   wrong:    'rgba(128, 128, 128, 0.25)', // Grau — komplett daneben
 }
 
-function tipOverlay(m, t) {
+// Treffergüte-Kategorien in absteigender Wertigkeit: key, Label, Kicktipp-Punkte.
+const TIP_CATEGORIES = [
+  ['exact',    'Exakt',     4],
+  ['diff',     'Differenz', 3],
+  ['tendency', 'Tendenz',   2],
+  ['wrong',    'Falsch',    0],
+]
+
+// Kicktipp-Treffergüte eines Tipps gegen das Endergebnis.
+function classifyTip(m, t) {
   if (m.status !== 'FINISHED' || m.score_home == null || m.score_away == null) return null
   const sh = m.score_home, sa = m.score_away
   const ph = t.pred_home_goals, pa = t.pred_away_goals
-  if (ph === sh && pa === sa) return TIP_OVERLAYS.exact
-  if (ph - pa === sh - sa) return TIP_OVERLAYS.diff
-  if (Math.sign(ph - pa) === Math.sign(sh - sa)) return TIP_OVERLAYS.tendency
-  return TIP_OVERLAYS.wrong
+  if (ph === sh && pa === sa) return 'exact'
+  if (ph - pa === sh - sa) return 'diff'
+  if (Math.sign(ph - pa) === Math.sign(sh - sa)) return 'tendency'
+  return 'wrong'
 }
 
-// Erklärt die Treffergüte-Farben der gespielten Spiele unter dem Rangverlauf.
-function TipLegend() {
-  const items = [
-    [TIP_OVERLAYS.exact,    'Exaktes Ergebnis (4 Pkt)'],
-    [TIP_OVERLAYS.diff,     'Richtige Tordifferenz (3 Pkt)'],
-    [TIP_OVERLAYS.tendency, 'Richtige Tendenz (2 Pkt)'],
-    [TIP_OVERLAYS.wrong,    'Daneben (0 Pkt)'],
-  ]
+function tipOverlay(m, t) {
+  const cat = classifyTip(m, t)
+  return cat ? TIP_OVERLAYS[cat] : null
+}
+
+// Kompakte einzeilige Farb-Legende, die in jeder Spielkarte steht.
+function TipLegendInline() {
   return (
-    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 16px' }}>
-      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8 }}>
-        Farbcodierung der Tipps gespielter Spiele
-      </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px' }}>
-        {items.map(([color, label]) => (
-          <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-secondary)' }}>
-            <span style={{ width: 14, height: 14, borderRadius: 3, background: color, border: '1px solid var(--border)', flexShrink: 0 }} />
-            {label}
-          </div>
-        ))}
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px', fontSize: 10, color: 'var(--text-muted)', marginBottom: 8 }}>
+      {TIP_CATEGORIES.map(([key, label]) => (
+        <span key={key} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ width: 10, height: 10, borderRadius: 2, background: TIP_OVERLAYS[key], border: '1px solid var(--border)', flexShrink: 0 }} />
+          {label}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+// Trefferbilanz aller Mitspieler — eine Zeile pro Spieler, sortiert nach Punkten.
+function TipSummaryTable({ matches, opponentTips }) {
+  const matchById = {}
+  for (const m of matches) matchById[m.id] = m
+
+  const stats = {}
+  for (const t of opponentTips) {
+    const m = matchById[t.match_id]
+    if (!m) continue
+    const cat = classifyTip(m, t)
+    if (!cat) continue
+    if (!stats[t.player_name]) stats[t.player_name] = { exact: 0, diff: 0, tendency: 0, wrong: 0 }
+    stats[t.player_name][cat]++
+  }
+
+  const rows = Object.entries(stats).map(([player, s]) => ({
+    player,
+    ...s,
+    points: TIP_CATEGORIES.reduce((sum, [key, , pts]) => sum + s[key] * pts, 0),
+  }))
+  if (rows.length === 0) return null
+  rows.sort((a, b) => b.points - a.points || b.exact - a.exact || a.player.localeCompare(b.player))
+
+  const th = { fontSize: 10, color: 'var(--text-dim)', fontWeight: 400, padding: '0 8px 6px 0', whiteSpace: 'nowrap', textAlign: 'right' }
+  const td = { fontSize: 12, padding: '5px 8px 5px 0', textAlign: 'right', color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }
+
+  return (
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 16px' }}>
+      <div style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 500, marginBottom: 10 }}>Trefferbilanz</div>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr>
+              <th style={{ ...th, textAlign: 'left' }}>Spieler</th>
+              {TIP_CATEGORIES.map(([key, label]) => (
+                <th key={key} style={th}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ width: 9, height: 9, borderRadius: 2, background: TIP_OVERLAYS[key], border: '1px solid var(--border)', flexShrink: 0 }} />
+                    {label}
+                  </span>
+                </th>
+              ))}
+              <th style={th}>Pkt</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(r => (
+              <tr key={r.player} style={{ borderTop: '1px solid var(--border)' }}>
+                <td style={{ ...td, textAlign: 'left' }}>{r.player}</td>
+                <td style={td}>{r.exact}</td>
+                <td style={td}>{r.diff}</td>
+                <td style={td}>{r.tendency}</td>
+                <td style={td}>{r.wrong}</td>
+                <td style={{ ...td, color: 'var(--text-primary)', fontWeight: 500 }}>{r.points}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   )
@@ -2060,7 +2126,7 @@ function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <RankingChart snapshots={rankingSnapshots} matches={matches} />
 
-      {matchIds.length > 0 && <TipLegend />}
+      <TipSummaryTable matches={matches} opponentTips={opponentTips} />
 
       {matchIds.length === 0 ? (
         // Opponents-only mirror: don't leak the screenshot-import workflow —
@@ -2111,6 +2177,8 @@ function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8 }}>
               Tipp-Verteilung: {tally.home}× Heimsieg · {tally.draw}× Unentschieden · {tally.away}× Auswärtssieg
             </div>
+
+            {m.status === 'FINISHED' && <TipLegendInline />}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
               {tips.map(t => (
