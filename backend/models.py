@@ -202,3 +202,16 @@ class DrvRide(Base):
     alternations = Column(Integer, nullable=False, default=0)
 
 
+# ── scheduler log ───────────────────────────────────────────────────────────────
+
+class SchedulerLog(Base):
+    """One row per scheduler run. Records when the job ran (ran_at), what it did
+    (result), and the next run time it computed for itself (next_run_at)."""
+    __tablename__ = "scheduler_logs"
+    id          = Column(BigInteger, primary_key=True, autoincrement=True)
+    ran_at      = Column(DateTime, default=datetime.utcnow, nullable=False)
+    job         = Column(String, nullable=False, default="wmt_refresh")
+    result      = Column(String, nullable=False)
+    next_run_at = Column(DateTime, nullable=True)
+
+

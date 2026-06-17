@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { ThemeProvider } from './context/ThemeContext'
 import ThemeToggle from './components/ThemeToggle'
 import BackToTop from './components/BackToTop'
-import { isWmtOnlyDomain } from './domain'
+import { isWmtOnlyDomain, isUpdateLogDomain } from './domain'
 import Home from './pages/Home'
 import Productivity from './pages/Productivity'
 import Personal from './pages/Personal'
@@ -16,9 +16,11 @@ import SpotifyExplorer from './pages/SpotifyExplorer'
 import DrivingTracker from './pages/DrivingTracker'
 import BlockHero from './pages/BlockHero'
 import Wmt from './pages/Wmt'
+import UpdateLog from './pages/UpdateLog'
 
 export default function App() {
   const wmtOnly = isWmtOnlyDomain()
+  const updateLog = isUpdateLogDomain()
 
   return (
     <ThemeProvider>
@@ -43,6 +45,7 @@ export default function App() {
               <Route path="/drv" element={<DrivingTracker />} />
               <Route path="/block-hero" element={<BlockHero />} />
               <Route path="/wmt" element={<Wmt />} />
+              {updateLog && <Route path="/update-log" element={<UpdateLog />} />}
             </>
           )}
         </Routes>

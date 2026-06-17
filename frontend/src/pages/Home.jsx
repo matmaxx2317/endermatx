@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { isUpdateLogDomain } from '../domain'
 
 function fmtDeployTime(iso) {
   const d = new Date(iso)
@@ -47,6 +48,11 @@ export default function Home() {
             ? <a href={deployUrl} target="_blank" rel="noopener noreferrer">{deployLabel}</a>
             : <span>{deployLabel}</span>
           }
+        </div>
+      )}
+      {isUpdateLogDomain() && (
+        <div className="landing-deploy">
+          <Link to="/update-log">update log</Link>
         </div>
       )}
     </div>
