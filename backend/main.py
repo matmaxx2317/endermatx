@@ -9,6 +9,7 @@ _startup_time = datetime.now(timezone.utc)
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.date import DateTrigger
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -16,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from .database import engine, Base, SessionLocal
-from .models import TtsEntry
+from .models import TtsEntry, WmtMatch
 from .routers import tts, cal, idx, strings, bpm, scan, wmt, drv
 from .routers.wmt import (
     do_refresh as _wmt_do_refresh,
@@ -28,9 +29,68 @@ logger = logging.getLogger(__name__)
 
 db_ready = False
 
+# The WMT refresh job reschedules itself after every run (see _reschedule_wmt),
+# so it needs a handle on the scheduler and a stable job id.
+scheduler: AsyncIOScheduler | None = None
+WMT_REFRESH_JOB_ID = "wmt_refresh"
+
+# Adaptive-scheduling tunables (all UTC-naive timedeltas).
+_WMT_MATCH_DURATION = timedelta(minutes=120)  # 90 + half-time + stoppage + slack
+_WMT_POST_BUFFER    = timedelta(minutes=5)    # wake this long after a match's end
+_WMT_LIVE_POLL      = timedelta(minutes=10)   # re-check cadence for a match that should be over but isn't FINISHED yet
+_WMT_MIN_DELAY      = timedelta(minutes=5)    # never fire sooner than this
+_WMT_IDLE           = timedelta(hours=6)      # rest-day nap / safety re-eval cap
+_WMT_FALLBACK       = timedelta(minutes=30)   # if next-run computation itself errors
+
+
+def _compute_next_wmt_run(db, now: datetime | None = None) -> datetime:
+    """Decide when the WMT refresh job should next fire (UTC-naive).
+
+    Wakes ~5 min after the next match's expected end; polls every 10 min while a
+    match that should already be over hasn't been marked FINISHED yet (extra
+    time, penalties, API lag); naps for 6 h when nothing is upcoming. The result
+    is always clamped to [now + 5 min, now + 6 h]."""
+    now = now or datetime.utcnow()
+    unfinished = db.query(WmtMatch).filter(WmtMatch.status != "FINISHED").all()
+    if not unfinished:
+        target = now + _WMT_IDLE
+    else:
+        expected_ends = [m.utc_date + _WMT_MATCH_DURATION + _WMT_POST_BUFFER
+                         for m in unfinished]
+        if any(t <= now for t in expected_ends):
+            # at least one match should already be over but isn't FINISHED —
+            # poll soon to catch the lagging result before moving on.
+            target = now + _WMT_LIVE_POLL
+        else:
+            target = min(expected_ends)
+    return max(now + _WMT_MIN_DELAY, min(target, now + _WMT_IDLE))
+
+
+def _reschedule_wmt(db) -> None:
+    """Re-arm the WMT refresh job for its next adaptive run time."""
+    if scheduler is None:
+        return
+    try:
+        next_run = _compute_next_wmt_run(db)
+    except Exception as exc:
+        logger.error("WMT next-run computation failed: %s — falling back to %s",
+                     exc, _WMT_FALLBACK)
+        next_run = datetime.utcnow() + _WMT_FALLBACK
+    try:
+        scheduler.add_job(
+            _wmt_refresh,
+            DateTrigger(run_date=next_run),
+            id=WMT_REFRESH_JOB_ID,
+            replace_existing=True,
+            misfire_grace_time=3600,
+        )
+        logger.info("WMT refresh: next run at %s UTC", next_run.strftime("%Y-%m-%d %H:%M"))
+    except Exception as exc:
+        logger.error("WMT reschedule failed: %s", exc)
+
 
 def _wmt_refresh() -> None:
-    """Refresh WM 2026 data every 30 minutes."""
+    """Refresh WM 2026 data, then adaptively re-arm the next run."""
     db = SessionLocal()
     try:
         n, err = _wmt_do_refresh(db)
@@ -44,7 +104,11 @@ def _wmt_refresh() -> None:
         logger.error("WMT refresh failed: %s", exc)
         db.rollback()
     finally:
-        db.close()
+        # Always re-arm — even on error — so the loop can never die.
+        try:
+            _reschedule_wmt(db)
+        finally:
+            db.close()
 
 
 def _wmt_morning_summary() -> None:
@@ -119,16 +183,21 @@ async def lifespan(app: FastAPI):
     if not db_ready:
         logger.error("DB init failed after 5 attempts — running without DB")
 
-    scheduler = AsyncIOScheduler()
+    global scheduler
+    scheduler = AsyncIOScheduler(timezone="utc")
     scheduler.add_job(
         _close_open_tts_entries,
         CronTrigger(hour=23, minute=0),
         misfire_grace_time=3600,
     )
+    # WMT refresh is a self-rescheduling one-shot: it runs shortly after startup,
+    # then re-arms itself (see _reschedule_wmt) to wake ~5 min after the next
+    # match ends instead of polling on a fixed interval.
     scheduler.add_job(
         _wmt_refresh,
-        "interval",
-        minutes=30,
+        DateTrigger(run_date=datetime.utcnow() + timedelta(seconds=15)),
+        id=WMT_REFRESH_JOB_ID,
+        replace_existing=True,
         misfire_grace_time=3600,
     )
     scheduler.add_job(
@@ -142,8 +211,8 @@ async def lifespan(app: FastAPI):
         misfire_grace_time=3600,
     )
     scheduler.start()
-    logger.info("Scheduler started — TTS EOD at 23:00, WMT refresh every 30 min, "
-                "WMT summary at 04:30, WMT news factors at 07:30")
+    logger.info("Scheduler started — TTS EOD at 23:00, WMT refresh adaptive "
+                "(~5 min after each match), WMT summary at 04:30, WMT news factors at 07:30")
 
     yield
 
