@@ -206,7 +206,10 @@ async def lifespan(app: FastAPI):
         logger.error("DB init failed after 5 attempts — running without DB")
 
     global scheduler
-    scheduler = AsyncIOScheduler(timezone="utc")
+    # Pass a tzinfo object, not "utc"/"UTC": APScheduler resolves timezone
+    # strings via zoneinfo, which raises ZoneInfoNotFoundError on containers
+    # without the IANA tz database. timezone.utc avoids that lookup entirely.
+    scheduler = AsyncIOScheduler(timezone=timezone.utc)
     scheduler.add_job(
         _close_open_tts_entries,
         CronTrigger(hour=23, minute=0),
