@@ -17,8 +17,8 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from .database import engine, Base, SessionLocal
-from .models import TtsEntry, WmtMatch
-from .routers import tts, cal, idx, strings, bpm, scan, wmt, drv
+from .models import TtsEntry, WmtMatch, SchedulerLog
+from .routers import tts, cal, idx, strings, bpm, scan, wmt, drv, log
 from .routers.wmt import (
     do_refresh as _wmt_do_refresh,
     do_generate_summary as _wmt_do_summary,
@@ -66,48 +66,70 @@ def _compute_next_wmt_run(db, now: datetime | None = None) -> datetime:
     return max(now + _WMT_MIN_DELAY, min(target, now + _WMT_IDLE))
 
 
-def _reschedule_wmt(db) -> None:
-    """Re-arm the WMT refresh job for its next adaptive run time."""
-    if scheduler is None:
-        return
+def _reschedule_wmt(db) -> datetime:
+    """Re-arm the WMT refresh job for its next adaptive run; return that time."""
     try:
         next_run = _compute_next_wmt_run(db)
     except Exception as exc:
         logger.error("WMT next-run computation failed: %s — falling back to %s",
                      exc, _WMT_FALLBACK)
         next_run = datetime.utcnow() + _WMT_FALLBACK
+    if scheduler is not None:
+        try:
+            scheduler.add_job(
+                _wmt_refresh,
+                DateTrigger(run_date=next_run),
+                id=WMT_REFRESH_JOB_ID,
+                replace_existing=True,
+                misfire_grace_time=3600,
+            )
+            logger.info("WMT refresh: next run at %s UTC", next_run.strftime("%Y-%m-%d %H:%M"))
+        except Exception as exc:
+            logger.error("WMT reschedule failed: %s", exc)
+    return next_run
+
+
+def _write_scheduler_log(db, result: str, next_run: datetime | None) -> None:
+    """Record one scheduler-run row (best effort — never raises)."""
     try:
-        scheduler.add_job(
-            _wmt_refresh,
-            DateTrigger(run_date=next_run),
-            id=WMT_REFRESH_JOB_ID,
-            replace_existing=True,
-            misfire_grace_time=3600,
-        )
-        logger.info("WMT refresh: next run at %s UTC", next_run.strftime("%Y-%m-%d %H:%M"))
+        db.add(SchedulerLog(
+            ran_at=datetime.utcnow(),
+            job=WMT_REFRESH_JOB_ID,
+            result=result,
+            next_run_at=next_run,
+        ))
+        db.commit()
     except Exception as exc:
-        logger.error("WMT reschedule failed: %s", exc)
+        logger.error("Scheduler log write failed: %s", exc)
+        db.rollback()
 
 
 def _wmt_refresh() -> None:
-    """Refresh WM 2026 data, then adaptively re-arm the next run."""
+    """Refresh WM 2026 data, then adaptively re-arm the next run and log it."""
     db = SessionLocal()
+    result = "unknown"
     try:
         n, err = _wmt_do_refresh(db)
         if err:
+            result = f"error: {err}"
             logger.warning("WMT refresh: %s", err)
         elif n:
+            result = f"{n} match{'es' if n != 1 else ''} updated"
             logger.info("WMT refresh: %d matches updated", n)
         else:
+            result = "no changes"
             logger.debug("WMT refresh: no changes")
     except Exception as exc:
+        result = f"exception: {type(exc).__name__}: {str(exc)[:200]}"
         logger.error("WMT refresh failed: %s", exc)
         db.rollback()
     finally:
-        # Always re-arm — even on error — so the loop can never die.
+        # Always re-arm and log — even on error — so the loop can never die.
+        next_run = None
         try:
-            _reschedule_wmt(db)
+            next_run = _reschedule_wmt(db)
         finally:
+            _write_scheduler_log(db, result, next_run)
             db.close()
 
 
@@ -251,6 +273,7 @@ app.include_router(bpm.router,      prefix="/api/bpm",      tags=["bpm"])
 app.include_router(scan.router,     prefix="/api/bpm/scan", tags=["scan"])
 app.include_router(wmt.router,      prefix="/api/wmt",      tags=["wmt"])
 app.include_router(drv.router,      prefix="/api/drv",      tags=["drv"])
+app.include_router(log.router,      prefix="/api/log",      tags=["log"])
 
 FRONTEND_DIST = Path(__file__).parent.parent / "frontend" / "dist"
 GAMES_DIR = Path(__file__).parent.parent / "games"
