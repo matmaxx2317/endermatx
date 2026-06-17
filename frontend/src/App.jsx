@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { ThemeProvider } from './context/ThemeContext'
 import ThemeToggle from './components/ThemeToggle'
+import BackToTop from './components/BackToTop'
 import { isWmtOnlyDomain } from './domain'
 import Home from './pages/Home'
 import Productivity from './pages/Productivity'
@@ -22,6 +23,7 @@ export default function App() {
   return (
     <ThemeProvider>
       <ThemeToggle />
+      <BackToTop />
       <BrowserRouter>
         <Routes>
           {wmtOnly ? (
