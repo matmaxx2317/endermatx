@@ -6,8 +6,8 @@ export function isWmtOnlyDomain() {
   return WMT_ONLY_HOSTS.includes(window.location.hostname)
 }
 
-// The update log (scheduler run history) is only exposed on mitmachen.org.
-const UPDATE_LOG_HOSTS = ['mitmachen.org', 'www.mitmachen.org']
+// The update log (scheduler run history) is only exposed on matmaxx.org.
+const UPDATE_LOG_HOSTS = ['matmaxx.org', 'www.matmaxx.org']
 
 export function isUpdateLogDomain() {
   return UPDATE_LOG_HOSTS.includes(window.location.hostname)
