@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { isUpdateLogDomain } from '../domain'
 
 function fmtDeployTime(iso) {
   const d = new Date(iso)
@@ -41,13 +40,6 @@ export default function Home() {
             <div className="nav-card-arrow">→</div>
           </Link>
         ))}
-        {isUpdateLogDomain() && (
-          <Link to="/update-log" className="nav-card">
-            <div className="nav-card-label">sys</div>
-            <div className="nav-card-name">update log</div>
-            <div className="nav-card-arrow">→</div>
-          </Link>
-        )}
       </nav>
       {deployLabel && (
         <div className="landing-deploy">
