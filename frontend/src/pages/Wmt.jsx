@@ -998,7 +998,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v3.31</span>
+          <span className="topbar-version">v3.32</span>
         </div>
       </div>
 
@@ -1807,6 +1807,33 @@ function RankingChart({ snapshots, matches }) {
   const [selected, setSelected] = useState(null)
   const [zoom, setZoom] = useState(5)
 
+  // The chart stretches to fill the remaining viewport height (handy on mobile,
+  // where vertical space is the constraint). We measure where the plot area
+  // starts and how tall the legend/controls below it are, then give the rest of
+  // the screen to the SVG — clamped so it never collapses on tiny screens.
+  const scrollRef = useRef(null)
+  const belowRef = useRef(null)
+  const [svgH, setSvgH] = useState(440)
+
+  useEffect(() => {
+    const recompute = () => {
+      const sc = scrollRef.current
+      if (!sc) return
+      const top = sc.getBoundingClientRect().top
+      const below = belowRef.current ? belowRef.current.offsetHeight : 0
+      // 16 = card's bottom padding, 16 = breathing room above the viewport edge.
+      const avail = window.innerHeight - top - below - 16 - 16
+      setSvgH(Math.max(320, avail))
+    }
+    recompute()
+    window.addEventListener('resize', recompute)
+    window.addEventListener('orientationchange', recompute)
+    return () => {
+      window.removeEventListener('resize', recompute)
+      window.removeEventListener('orientationchange', recompute)
+    }
+  }, [players.join(',')])
+
   useEffect(() => {
     setSelected(prev => {
       if (prev === null) return new Set(players)
@@ -1846,7 +1873,7 @@ function RankingChart({ snapshots, matches }) {
   const gameCountAt = time => finishedTimes.filter(t => t <= time).length
 
   const maxRank = Math.max(...snapshots.map(s => s.rank))
-  const H = 340
+  const H = svgH
   // padR leaves room for the player-name labels to the right of each line's
   // last point; padB leaves room for the vertical match labels below the chart.
   const padL = 28, padR = 76, padT = 12, padB = 46
@@ -1898,7 +1925,7 @@ function RankingChart({ snapshots, matches }) {
           />
         </div>
       </div>
-      <div style={{ overflowX: 'auto' }}>
+      <div ref={scrollRef} style={{ overflowX: 'auto' }}>
         <svg width={W} height={H} style={{ display: 'block' }}>
           {Array.from({ length: maxRank }, (_, i) => i + 1).map(r => (
             <g key={r}>
@@ -1996,6 +2023,7 @@ function RankingChart({ snapshots, matches }) {
           })()}
         </svg>
       </div>
+      <div ref={belowRef}>
       <div style={{ display: 'flex', gap: 6, marginTop: 12 }}>
         <button
           onClick={() => setSelected(new Set(players))}
@@ -2024,6 +2052,7 @@ function RankingChart({ snapshots, matches }) {
       </div>
       <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 8 }}>
         Auf einen Namen tippen blendet seine Linie im Diagramm ein oder aus.
+      </div>
       </div>
     </div>
   )
