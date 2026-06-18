@@ -1831,6 +1831,11 @@ function RankingChart({ snapshots, matches }) {
   if (dateCount < 2 || players.length === 0 || selected === null) return null
 
   const totalMatches = matches.length
+  // A few empty slots after the final match so the line for the day after the
+  // final (positioned at game count = totalMatches) doesn't sit at the very
+  // right edge — that trailing room is where the final player-name labels land.
+  const EXTRA_SLOTS = 8
+  const axisMax = totalMatches + EXTRA_SLOTS
   // Number of finished matches whose kickoff is on/before a given moment —
   // this turns the x-axis into "games played so far" instead of calendar days,
   // so rest days don't stretch the timeline.
@@ -1849,7 +1854,7 @@ function RankingChart({ snapshots, matches }) {
   const plotH = H - padT - padB
   const W = padL + plotW + padR
 
-  const xPos = games => padL + (totalMatches === 0 ? 0 : (games / totalMatches) * plotW)
+  const xPos = games => padL + (axisMax === 0 ? 0 : (games / axisMax) * plotW)
   const yPos = rank => padT + ((rank - 1) / Math.max(1, maxRank - 1)) * plotH
 
   const byPlayer = {}
