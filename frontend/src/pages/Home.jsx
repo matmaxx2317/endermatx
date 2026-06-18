@@ -41,6 +41,13 @@ export default function Home() {
             <div className="nav-card-arrow">→</div>
           </Link>
         ))}
+        {isUpdateLogDomain() && (
+          <Link to="/update-log" className="nav-card">
+            <div className="nav-card-label">sys</div>
+            <div className="nav-card-name">update log</div>
+            <div className="nav-card-arrow">→</div>
+          </Link>
+        )}
       </nav>
       {deployLabel && (
         <div className="landing-deploy">
@@ -48,11 +55,6 @@ export default function Home() {
             ? <a href={deployUrl} target="_blank" rel="noopener noreferrer">{deployLabel}</a>
             : <span>{deployLabel}</span>
           }
-        </div>
-      )}
-      {isUpdateLogDomain() && (
-        <div className="landing-deploy">
-          <Link to="/update-log">update log</Link>
         </div>
       )}
     </div>
