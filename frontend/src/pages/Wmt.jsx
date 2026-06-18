@@ -998,7 +998,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v3.28</span>
+          <span className="topbar-version">v3.29</span>
         </div>
       </div>
 
@@ -1831,6 +1831,11 @@ function RankingChart({ snapshots, matches }) {
   if (dateCount < 2 || players.length === 0 || selected === null) return null
 
   const totalMatches = matches.length
+  // A few empty slots after the final match so the line for the day after the
+  // final (positioned at game count = totalMatches) doesn't sit at the very
+  // right edge — that trailing room is where the final player-name labels land.
+  const EXTRA_SLOTS = 8
+  const axisMax = totalMatches + EXTRA_SLOTS
   // Number of finished matches whose kickoff is on/before a given moment —
   // this turns the x-axis into "games played so far" instead of calendar days,
   // so rest days don't stretch the timeline.
@@ -1841,13 +1846,15 @@ function RankingChart({ snapshots, matches }) {
   const gameCountAt = time => finishedTimes.filter(t => t <= time).length
 
   const maxRank = Math.max(...snapshots.map(s => s.rank))
-  const H = 320
-  const padL = 28, padR = 12, padT = 12, padB = 28
+  const H = 340
+  // padR leaves room for the player-name labels to the right of each line's
+  // last point; padB leaves room for the vertical match labels below the chart.
+  const padL = 28, padR = 76, padT = 12, padB = 46
   const plotW = (680 - padL - padR) * zoom
   const plotH = H - padT - padB
   const W = padL + plotW + padR
 
-  const xPos = games => padL + (totalMatches === 0 ? 0 : (games / totalMatches) * plotW)
+  const xPos = games => padL + (axisMax === 0 ? 0 : (games / axisMax) * plotW)
   const yPos = rank => padT + ((rank - 1) / Math.max(1, maxRank - 1)) * plotH
 
   const byPlayer = {}
@@ -1856,11 +1863,6 @@ function RankingChart({ snapshots, matches }) {
       .filter(s => s.player_name === p)
       .sort((a, b) => effectiveTime(a) < effectiveTime(b) ? -1 : 1)
   }
-
-  const tickStep = Math.max(1, Math.ceil(totalMatches / 8))
-  const ticks = []
-  for (let g = 0; g <= totalMatches; g += tickStep) ticks.push(g)
-  if (ticks[ticks.length - 1] !== totalMatches) ticks.push(totalMatches)
 
   // One vertical helper line + "HOME-AWAY" label per match, evenly spaced in
   // chronological order so every match gets the same x-distance from its neighbours.
@@ -1901,17 +1903,12 @@ function RankingChart({ snapshots, matches }) {
               <text x={padL - 6} y={yPos(r) + 3} textAnchor="end" fontSize={9} fill="var(--text-muted)">{r}</text>
             </g>
           ))}
-          {ticks.map(g => (
-            <text key={g} x={xPos(g)} y={H - padB + 14} textAnchor="middle" fontSize={9} fill="var(--text-muted)">
-              Spiel {g}
-            </text>
-          ))}
           {matchMarkers.map((mk, i) => (
             <g key={i}>
               {mk.showLine && (
                 <line x1={mk.lineX} y1={padT} x2={mk.lineX} y2={padT + plotH} stroke="var(--border)" strokeWidth={0.5} opacity={0.4} />
               )}
-              <text x={mk.x + 2} y={padT + plotH - 4} textAnchor="start" fontSize={7} fill="var(--text-faint)" transform={`rotate(-90 ${mk.x + 2} ${padT + plotH - 4})`}>
+              <text x={mk.x} y={padT + plotH + 4} textAnchor="end" fontSize={7} fill="var(--text-faint)" transform={`rotate(-90 ${mk.x} ${padT + plotH + 4})`}>
                 {mk.label}
               </text>
             </g>
@@ -1941,7 +1938,7 @@ function RankingChart({ snapshots, matches }) {
             const rowHeight = plotH / Math.max(1, maxRank - 1)
             const offsetUnit = 2.5
 
-            return players.map((p, pi) => {
+            const lines = players.map((p, pi) => {
               if (!selected.has(p)) return null
               const color = RANK_CHART_COLORS[pi % RANK_CHART_COLORS.length]
               const points = rawPoints[p].map(pt => {
@@ -1962,6 +1959,37 @@ function RankingChart({ snapshots, matches }) {
                 </g>
               )
             })
+
+            // Name label to the right of each line's last point. Players who
+            // share the same final rank are merged into one comma-separated
+            // label so the names sit side by side on one line instead of
+            // stacking on top of each other. Rendered in neutral text colour
+            // (not the player's line colour) so it stays legible in both themes.
+            const endGroups = {}
+            for (const p of players) {
+              if (!selected.has(p)) continue
+              const pts = rawPoints[p]
+              if (!pts || pts.length === 0) continue
+              const last = pts[pts.length - 1]
+              const key = `${last.x.toFixed(1)},${last.y.toFixed(1)}`
+              if (!endGroups[key]) endGroups[key] = { x: last.x, y: last.y, names: [] }
+              endGroups[key].names.push(p)
+            }
+            const labels = Object.values(endGroups).map((g, i) => (
+              <text
+                key={`label-${i}`}
+                x={g.x + 8}
+                y={g.y + 3}
+                textAnchor="start"
+                fontSize={9}
+                fontWeight={500}
+                fill="var(--text-primary)"
+              >
+                {g.names.join(', ')}
+              </text>
+            ))
+
+            return [...lines, ...labels]
           })()}
         </svg>
       </div>
