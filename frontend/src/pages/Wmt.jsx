@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { wmt } from '../api'
-import { isWmtOnlyDomain } from '../domain'
+import { isWmtOnlyDomain, isUpdateLogDomain } from '../domain'
+import UpdateLogList from '../components/UpdateLogList'
 
 // ── constants & helpers ───────────────────────────────────────────────────────
 
@@ -997,7 +998,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v3.25</span>
+          <span className="topbar-version">v3.26</span>
         </div>
       </div>
 
@@ -1131,6 +1132,7 @@ export default function Wmt() {
             ['konkurrenz', 'Konkurrenz'],
             ['bonus', 'Bonus-Tipps'],
             ['zusammenfassung', 'Morgenberichte'],
+            ...(isUpdateLogDomain() ? [['updatelog', 'Update-Log']] : []),
           ].map(([key, label]) => (
             <button
               key={key}
@@ -1148,11 +1150,14 @@ export default function Wmt() {
         </div>
         )}
 
-        {loading && view !== 'import' && (
+        {loading && view !== 'import' && view !== 'updatelog' && (
           <div style={{ color: 'var(--text-dim)', fontSize: 12 }}>
             {wmtOnly ? 'Daten werden geladen…' : '…'}
           </div>
         )}
+
+        {/* ── Update-Log view (matmaxx.org only) ─────────────────────────── */}
+        {view === 'updatelog' && <UpdateLogList />}
 
         {/* ── Import view ────────────────────────────────────────────────── */}
         {view === 'import' && (
