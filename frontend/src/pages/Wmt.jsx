@@ -998,7 +998,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v3.32</span>
+          <span className="topbar-version">v3.33</span>
         </div>
       </div>
 
@@ -1821,16 +1821,31 @@ function RankingChart({ snapshots, matches }) {
       if (!sc) return
       const top = sc.getBoundingClientRect().top
       const below = belowRef.current ? belowRef.current.offsetHeight : 0
-      // 16 = card's bottom padding, 16 = breathing room above the viewport edge.
-      const avail = window.innerHeight - top - below - 16 - 16
+      // Size against the *visual* viewport (window.visualViewport), which
+      // excludes mobile browser chrome like the URL bar and bottom toolbar —
+      // window.innerHeight includes that area, which pushed the legend behind
+      // the back button / address bar. 16 = card's bottom padding; 36 =
+      // clearance so the clickable legend stays clear of browser chrome and
+      // the iOS home indicator.
+      const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight
+      const avail = vh - top - below - 16 - 36
       setSvgH(Math.max(320, avail))
     }
     recompute()
     window.addEventListener('resize', recompute)
     window.addEventListener('orientationchange', recompute)
+    const vv = window.visualViewport
+    if (vv) {
+      vv.addEventListener('resize', recompute)
+      vv.addEventListener('scroll', recompute)
+    }
     return () => {
       window.removeEventListener('resize', recompute)
       window.removeEventListener('orientationchange', recompute)
+      if (vv) {
+        vv.removeEventListener('resize', recompute)
+        vv.removeEventListener('scroll', recompute)
+      }
     }
   }, [players.join(',')])
 
