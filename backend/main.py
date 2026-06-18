@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from .database import engine, Base, SessionLocal
-from .models import TtsEntry, WmtMatch, SchedulerLog
+from .models import TtsEntry, WmtMatch, WmtTeam, SchedulerLog
 from .routers import tts, cal, idx, strings, bpm, scan, wmt, drv, log
 from .routers.wmt import (
     do_refresh as _wmt_do_refresh,
@@ -43,37 +43,65 @@ _WMT_IDLE           = timedelta(hours=6)      # rest-day nap / safety re-eval ca
 _WMT_FALLBACK       = timedelta(minutes=30)   # if next-run computation itself errors
 
 
-def _compute_next_wmt_run(db, now: datetime | None = None) -> datetime:
-    """Decide when the WMT refresh job should next fire (UTC-naive).
+def _match_label(db, m) -> str:
+    """Short 'HOME-AWAY' label (TLAs) for a match, for log reasons."""
+    ids = [i for i in (m.home_team_id, m.away_team_id) if i is not None]
+    teams = {t.id: t for t in db.query(WmtTeam).filter(WmtTeam.id.in_(ids)).all()} if ids else {}
+
+    def tla(tid):
+        t = teams.get(tid)
+        if not t:
+            return "?"
+        return t.tla or t.short_name or t.name or "?"
+
+    return f"{tla(m.home_team_id)}-{tla(m.away_team_id)}"
+
+
+def _compute_next_wmt_run(db, now: datetime | None = None) -> tuple[datetime, str]:
+    """Decide when the WMT refresh job should next fire, and why (UTC-naive).
 
     Wakes ~5 min after the next match's expected end; polls every 10 min while a
     match that should already be over hasn't been marked FINISHED yet (extra
     time, penalties, API lag); naps for 6 h when nothing is upcoming. The result
-    is always clamped to [now + 5 min, now + 6 h]."""
+    is always clamped to [now + 5 min, now + 6 h]. Returns (next_run, reason)."""
     now = now or datetime.utcnow()
     unfinished = db.query(WmtMatch).filter(WmtMatch.status != "FINISHED").all()
     if not unfinished:
         target = now + _WMT_IDLE
+        reason = "no upcoming matches"
     else:
-        expected_ends = [m.utc_date + _WMT_MATCH_DURATION + _WMT_POST_BUFFER
-                         for m in unfinished]
-        if any(t <= now for t in expected_ends):
-            # at least one match should already be over but isn't FINISHED —
-            # poll soon to catch the lagging result before moving on.
+        # each unfinished match paired with its expected end, earliest first
+        ends = sorted(
+            ((m.utc_date + _WMT_MATCH_DURATION + _WMT_POST_BUFFER, m) for m in unfinished),
+            key=lambda x: x[0],
+        )
+        overdue = [(t, m) for t, m in ends if t <= now]
+        if overdue:
+            # match should already be over but isn't FINISHED — poll soon to
+            # catch the lagging result before moving on.
+            _, m = overdue[0]
             target = now + _WMT_LIVE_POLL
+            reason = f"{_match_label(db, m)} not finished yet"
         else:
-            target = min(expected_ends)
-    return max(now + _WMT_MIN_DELAY, min(target, now + _WMT_IDLE))
+            target, m = ends[0]
+            reason = f"end of {_match_label(db, m)}"
+
+    clamped = max(now + _WMT_MIN_DELAY, min(target, now + _WMT_IDLE))
+    if clamped < target:
+        # earliest event is >6 h out — nap and re-evaluate then
+        reason = f"{reason} (>6h away, re-check)"
+    return clamped, reason
 
 
-def _reschedule_wmt(db) -> datetime:
-    """Re-arm the WMT refresh job for its next adaptive run; return that time."""
+def _reschedule_wmt(db) -> tuple[datetime, str]:
+    """Re-arm the WMT refresh job for its next adaptive run; return (time, reason)."""
     try:
-        next_run = _compute_next_wmt_run(db)
+        next_run, reason = _compute_next_wmt_run(db)
     except Exception as exc:
         logger.error("WMT next-run computation failed: %s — falling back to %s",
                      exc, _WMT_FALLBACK)
         next_run = datetime.utcnow() + _WMT_FALLBACK
+        reason = "computation error, retry in 30 min"
     if scheduler is not None:
         try:
             scheduler.add_job(
@@ -83,13 +111,15 @@ def _reschedule_wmt(db) -> datetime:
                 replace_existing=True,
                 misfire_grace_time=3600,
             )
-            logger.info("WMT refresh: next run at %s UTC", next_run.strftime("%Y-%m-%d %H:%M"))
+            logger.info("WMT refresh: next run at %s UTC (%s)",
+                        next_run.strftime("%Y-%m-%d %H:%M"), reason)
         except Exception as exc:
             logger.error("WMT reschedule failed: %s", exc)
-    return next_run
+    return next_run, reason
 
 
-def _write_scheduler_log(db, result: str, next_run: datetime | None) -> None:
+def _write_scheduler_log(db, result: str, next_run: datetime | None,
+                         next_run_reason: str | None) -> None:
     """Record one scheduler-run row (best effort — never raises)."""
     try:
         db.add(SchedulerLog(
@@ -97,6 +127,7 @@ def _write_scheduler_log(db, result: str, next_run: datetime | None) -> None:
             job=WMT_REFRESH_JOB_ID,
             result=result,
             next_run_at=next_run,
+            next_run_reason=next_run_reason,
         ))
         db.commit()
     except Exception as exc:
@@ -125,11 +156,11 @@ def _wmt_refresh() -> None:
         db.rollback()
     finally:
         # Always re-arm and log — even on error — so the loop can never die.
-        next_run = None
+        next_run, reason = None, None
         try:
-            next_run = _reschedule_wmt(db)
+            next_run, reason = _reschedule_wmt(db)
         finally:
-            _write_scheduler_log(db, result, next_run)
+            _write_scheduler_log(db, result, next_run, reason)
             db.close()
 
 

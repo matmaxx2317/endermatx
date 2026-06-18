@@ -84,6 +84,7 @@ export default function UpdateLog() {
                 </div>
                 <div style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>
                   nächster Lauf: {fmt(r.next_run_at)}
+                  {r.next_run_reason ? ` (${r.next_run_reason})` : ''}
                 </div>
               </div>
             ))}

@@ -357,6 +357,7 @@ class SchedulerLogOut(BaseModel):
     job: str
     result: str
     next_run_at: UtcDtOpt
+    next_run_reason: Optional[str] = None
 
     class Config:
         from_attributes = True
