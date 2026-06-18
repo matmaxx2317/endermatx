@@ -14,8 +14,8 @@ function fmt(iso) {
 function resultColor(result, theme) {
   const light = theme === 'light'
   if (/^error|^exception/i.test(result)) return light ? '#c0392b' : '#ff6b6b'
-  if (/updated/i.test(result)) return light ? '#1a7a3e' : '#7effa0'
-  return 'var(--text-secondary)'
+  if (/^no changes$|^unknown$/i.test(result)) return 'var(--text-secondary)'
+  return light ? '#1a7a3e' : '#7effa0'   // an actual update (named match(es) or count)
 }
 
 // Scheduler run log, newest first. Self-contained (fetches on mount), so it can

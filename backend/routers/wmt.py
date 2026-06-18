@@ -573,16 +573,26 @@ def _apply_elo_and_predictions(
     db.commit()
 
 
-def _do_refresh_fdorg(db: Session) -> tuple[int, str]:
-    """WM 2026-Spielplan von football-data.org laden (alle 104 Spiele)."""
+def _match_short_label(home, away) -> str:
+    """'HOME-AWAY' label from team TLAs (falls back to short_name/name)."""
+    def tla(t):
+        return (t.tla or t.short_name or t.name) if t else "?"
+    return f"{tla(home)}-{tla(away)}"
+
+
+def _do_refresh_fdorg(db: Session) -> tuple[list[str], str]:
+    """WM 2026-Spielplan von football-data.org laden (alle 104 Spiele).
+
+    Returns (updated_match_labels, error). Newly-finished matches carry their
+    score (e.g. 'UZB-COL 1:0'); newly-added matches carry just the pairing."""
     matches_data, err = _fetch_fdorg_matches(WC2026_COMP_CODE)
     if err:
         logger.warning("WMT football-data.org %s: %s", WC2026_COMP_CODE, err)
-        return 0, f"football-data.org: {err}"
+        return [], f"football-data.org: {err}"
     if not matches_data:
-        return 0, "football-data.org: Keine Spiele zurückgegeben"
+        return [], "football-data.org: Keine Spiele zurückgegeben"
 
-    updated = 0
+    updated_labels: list[str] = []
     newly_finished: list[models.WmtMatch] = []
 
     for m in matches_data:
@@ -631,7 +641,7 @@ def _do_refresh_fdorg(db: Session) -> tuple[int, str]:
             )
             db.add(match)
             db.flush()
-            updated += 1
+            updated_labels.append(_match_short_label(home_team, away_team))
         else:
             was_finished = match.status == "FINISHED"
             match.status = status
@@ -645,27 +655,30 @@ def _do_refresh_fdorg(db: Session) -> tuple[int, str]:
                     match.score_home = score_home
                     match.score_away = score_away
                     newly_finished.append(match)
-                    updated += 1
+                    updated_labels.append(
+                        f"{_match_short_label(home_team, away_team)} {score_home}:{score_away}")
                 else:
                     match.score_home = score_home
                     match.score_away = score_away
 
     db.commit()
     _apply_elo_and_predictions(db, newly_finished)
-    return updated, ""
+    return updated_labels, ""
 
 
-def _do_refresh_openligadb(db: Session) -> tuple[int, str]:
-    """WM 2026-Spielplan von openligadb laden (Fallback, nur 1. Spieltag)."""
+def _do_refresh_openligadb(db: Session) -> tuple[list[str], str]:
+    """WM 2026-Spielplan von openligadb laden (Fallback, nur 1. Spieltag).
+
+    Returns (updated_match_labels, error) like _do_refresh_fdorg."""
     matches_data, err = _fetch_openligadb(WM2026_LEAGUE)
     if err:
         logger.warning("WMT openligadb %s: %s", WM2026_LEAGUE, err)
-        return 0, f"openligadb '{WM2026_LEAGUE}': {err}"
+        return [], f"openligadb '{WM2026_LEAGUE}': {err}"
     if not matches_data:
-        return 0, f"openligadb: Keine Spiele in Liga '{WM2026_LEAGUE}' — Liga möglicherweise noch nicht angelegt"
+        return [], f"openligadb: Keine Spiele in Liga '{WM2026_LEAGUE}' — Liga möglicherweise noch nicht angelegt"
 
     total_received = len(matches_data)
-    updated = 0
+    updated_labels: list[str] = []
     skipped_no_id = 0
     newly_finished: list[models.WmtMatch] = []
 
@@ -705,7 +718,7 @@ def _do_refresh_openligadb(db: Session) -> tuple[int, str]:
             )
             db.add(match)
             db.flush()
-            updated += 1
+            updated_labels.append(_match_short_label(home_team, away_team))
         else:
             was_finished = match.status == "FINISHED"
             match.status = status
@@ -719,7 +732,8 @@ def _do_refresh_openligadb(db: Session) -> tuple[int, str]:
                     match.score_home = score_home
                     match.score_away = score_away
                     newly_finished.append(match)
-                    updated += 1
+                    updated_labels.append(
+                        f"{_match_short_label(home_team, away_team)} {score_home}:{score_away}")
                 else:
                     match.score_home = score_home
                     match.score_away = score_away
@@ -727,13 +741,13 @@ def _do_refresh_openligadb(db: Session) -> tuple[int, str]:
     db.commit()
     _apply_elo_and_predictions(db, newly_finished)
 
-    if updated == 0 and total_received > 0 and skipped_no_id == total_received:
+    if not updated_labels and total_received > 0 and skipped_no_id == total_received:
         first_keys = list(matches_data[0].keys())[:6]
-        return 0, (
+        return [], (
             f"openligadb: {total_received} Objekte empfangen, 0 eingefügt "
             f"(alle matchIDs fehlend — Felder: {first_keys})"
         )
-    return updated, ""
+    return updated_labels, ""
 
 
 # Refresh läuft alle 30 min per Scheduler UND manuell per Button. Seit echte
@@ -742,14 +756,14 @@ def _do_refresh_openligadb(db: Session) -> tuple[int, str]:
 _refresh_lock = threading.Lock()
 
 
-def do_refresh(db: Session) -> tuple[int, str]:
+def do_refresh(db: Session) -> tuple[list[str], str]:
     """
     WM 2026-Spielplan laden: football-data.org (alle 104 Spiele) wenn API-Key gesetzt,
     sonst openligadb (Fallback, nur erster Spieltag).
-    Returns (updated_count, error_message).
+    Returns (updated_match_labels, error_message).
     """
     if not _refresh_lock.acquire(blocking=False):
-        return 0, "Eine Aktualisierung läuft bereits — bitte gleich erneut versuchen."
+        return [], "Eine Aktualisierung läuft bereits — bitte gleich erneut versuchen."
     try:
         if FOOTBALL_API_KEY:
             return _do_refresh_fdorg(db)
@@ -2589,7 +2603,7 @@ def list_summaries(db: Session = Depends(get_db)):
 @router.post("/refresh", response_model=schemas.WmtRefreshOut)
 def manual_refresh(db: Session = Depends(get_db)):
     try:
-        n, err_msg = do_refresh(db)
+        labels, err_msg = do_refresh(db)
     except Exception as exc:
         # Ein unbehandelter Fehler würde als nacktes 500 enden und im Frontend
         # nur "Fehler beim Refresh" anzeigen — Ursache stattdessen sichtbar machen.
@@ -2601,8 +2615,10 @@ def manual_refresh(db: Session = Depends(get_db)):
         )
     if err_msg:
         return schemas.WmtRefreshOut(message=err_msg, updated=0)
+    n = len(labels)
+    detail = f": {', '.join(labels)}" if 0 < n <= 6 else ""
     return schemas.WmtRefreshOut(
-        message=f"Aktualisierung abgeschlossen. {n} Spiel{'e' if n != 1 else ''} neu/aktualisiert.",
+        message=f"Aktualisierung abgeschlossen. {n} Spiel{'e' if n != 1 else ''} neu/aktualisiert{detail}.",
         updated=n,
     )
 

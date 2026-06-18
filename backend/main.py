@@ -140,13 +140,15 @@ def _wmt_refresh() -> None:
     db = SessionLocal()
     result = "unknown"
     try:
-        n, err = _wmt_do_refresh(db)
+        labels, err = _wmt_do_refresh(db)
         if err:
             result = f"error: {err}"
             logger.warning("WMT refresh: %s", err)
-        elif n:
-            result = f"{n} match{'es' if n != 1 else ''} updated"
-            logger.info("WMT refresh: %d matches updated", n)
+        elif labels:
+            n = len(labels)
+            # name the matches when few; fall back to a count for bulk loads
+            result = ", ".join(labels) if n <= 6 else f"{n} matches updated"
+            logger.info("WMT refresh: %s", result)
         else:
             result = "no changes"
             logger.debug("WMT refresh: no changes")
