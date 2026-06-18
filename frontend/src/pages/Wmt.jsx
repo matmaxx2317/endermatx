@@ -998,7 +998,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v3.29</span>
+          <span className="topbar-version">v3.30</span>
         </div>
       </div>
 
@@ -1853,9 +1853,12 @@ function RankingChart({ snapshots, matches }) {
   const plotW = (680 - padL - padR) * zoom
   const plotH = H - padT - padB
   const W = padL + plotW + padR
+  // Small breathing room between the lowest rank and the x-axis so the bottom
+  // line/labels don't sit flush against the match labels below.
+  const bottomGap = 14
 
   const xPos = games => padL + (axisMax === 0 ? 0 : (games / axisMax) * plotW)
-  const yPos = rank => padT + ((rank - 1) / Math.max(1, maxRank - 1)) * plotH
+  const yPos = rank => padT + ((rank - 1) / Math.max(1, maxRank - 1)) * (plotH - bottomGap)
 
   const byPlayer = {}
   for (const p of players) {
