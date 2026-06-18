@@ -35,21 +35,23 @@ container; you need a sharper hook inside it.
 |--------|------------------------|
 | **iPhone vs. "real camera"** angle | Built-in curiosity gap; people share "shot on a phone?!" content |
 | **Local-place photography** (your city/region) | Local hashtags + geotags = warm, reachable audience; locals share and tag |
-| **People/portraits on iPhone** | Faces stop the scroll harder than anything; emotion gets shared |
+| **Landscape on iPhone** | Highly saveable (travel/wallpaper-worthy); strong "wow" share-rate |
+| **Street photography** | Story, mood, and "decisive moment" content gets shared and discussed |
 | **Edit/technique breakdowns** | "How I shot/edited this" is the single most-saved/shared photo format |
 
-**Recommendation:** combine **a strong subject you already own (portraits,
-events, location work) + the iPhone-only constraint + teaching the process**.
-That triad (expertise + relatable gear + value) is the highest-reach
-combination for a photographer who isn't selling anything. Lead with
-**portraits/people and location photography** — faces and atmosphere out-reach
-most other subjects, and they're the deepest part of your background.
+**Recommendation:** combine **landscape + street photography + the iPhone-only
+constraint + teaching the process**. That triad (expertise + relatable gear +
+value) is the highest-reach combination for a photographer who isn't selling
+anything. Lead with **landscape and street** — landscapes are wallpaper-worthy
+and get *saved*, street work carries mood and story that gets *shared and
+discussed*, and both pair naturally with local geotags for warm local
+discovery.
 
 **Deliverables for this step:**
 - Account handle: clear, searchable, no numbers/underscores if avoidable.
 - Bio: `What you shoot · The constraint (📱 iPhone only) · Where · One CTA`.
-  Example: `Portraits & places — shot only on iPhone 17 Pro · [City] · New post every Tue/Fri`.
-- Profile photo: a recognisable crop of your best work or a clean face shot.
+  Example: `Landscape & street — shot only on iPhone 17 Pro · [City] · New post every Tue/Fri`.
+- Profile photo: a recognisable crop of your best work or a clean signature frame.
 - A consistent **visual identity**: pick an editing signature (a LUT/preset,
   a colour grade) so the grid reads as one body of work at a glance.
 
@@ -128,19 +130,19 @@ Stack **all** of these on every relevant post — they're free:
 
 1. **SEO the account.** Instagram is now a search engine. Put real keywords in:
    - Your **name field** (not handle): e.g. "iPhone Photography · [City]".
-   - The **first line of captions** in plain language ("iPhone portrait
-     photography in [City]").
+   - The **first line of captions** in plain language ("iPhone street &
+     landscape photography in [City]").
    - **On-screen Reel text** (it's read by search/recommendations).
 2. **Hashtags:** 3–8, mixed sizes. A couple of big (#iphonephotography), a
    couple mid (#shotoniphone17), a couple **small/local/niche** (#[city]photographer,
-   #[city]portraits). Small tags are where a new account actually ranks.
+   #[city]streets, #[region]landscape). Small tags are where a new account actually ranks.
 3. **Geotags / location tags** — always. Local discovery is your warmest source
    of *real* (not vanity) followers and the people most likely to share.
 4. **Tag relevant accounts** when legitimately relevant — the person/venue/brand
    you photographed, repost/feature pages (#shotoniphone style hubs). Features
    from larger pages are the single biggest organic spike available.
 5. **Collabs (the "Collab" feature):** co-author a post with another creator,
-   a model, an event organiser, a local business — it lands on *both* audiences' feeds
+   a fellow photographer, a local tourism/city page, a local business — it lands on *both* audiences' feeds
    and counts engagement for both. This is the most underused free reach lever.
 
 ---
