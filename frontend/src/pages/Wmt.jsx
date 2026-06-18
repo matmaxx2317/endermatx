@@ -998,7 +998,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v3.27</span>
+          <span className="topbar-version">v3.28</span>
         </div>
       </div>
 
