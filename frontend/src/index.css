@@ -1089,3 +1089,22 @@ input, textarea, select {
   border-color: var(--border-hover);
   background: var(--surface-alt);
 }
+
+/* WMT loading sun — full-screen rotating sun overlay shown on the
+   opponents-only mirror (matthiasweigel.com) while data loads. */
+.wmt-loading-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--overlay-bg);
+  z-index: 150;
+}
+.wmt-sun-spin {
+  animation: wmt-sun-spin 9s linear infinite;
+  transform-origin: 50% 50%;
+}
+@keyframes wmt-sun-spin {
+  to { transform: rotate(360deg); }
+}

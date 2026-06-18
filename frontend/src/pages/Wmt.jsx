@@ -998,7 +998,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v3.34</span>
+          <span className="topbar-version">v3.35</span>
         </div>
       </div>
 
@@ -1151,9 +1151,26 @@ export default function Wmt() {
         )}
 
         {loading && view !== 'import' && view !== 'updatelog' && (
-          <div style={{ color: 'var(--text-dim)', fontSize: 12 }}>
-            {wmtOnly ? 'Daten werden geladen…' : '…'}
-          </div>
+          wmtOnly ? (
+            <div className="wmt-loading-overlay" role="status" aria-label="Daten werden geladen">
+              <svg className="wmt-sun-spin" width="96" height="96" viewBox="-50 -50 100 100">
+                <circle cx="0" cy="0" r="20" fill="#ffb300" />
+                {Array.from({ length: 12 }).map((_, i) => {
+                  const a = (i * 30) * Math.PI / 180
+                  return (
+                    <line
+                      key={i}
+                      x1={Math.cos(a) * 28} y1={Math.sin(a) * 28}
+                      x2={Math.cos(a) * 42} y2={Math.sin(a) * 42}
+                      stroke="#f5a623" strokeWidth="5" strokeLinecap="round"
+                    />
+                  )
+                })}
+              </svg>
+            </div>
+          ) : (
+            <div style={{ color: 'var(--text-dim)', fontSize: 12 }}>…</div>
+          )
         )}
 
         {/* ── Update-Log view (matmaxx.org only) ─────────────────────────── */}
