@@ -998,7 +998,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v3.30</span>
+          <span className="topbar-version">v3.31</span>
         </div>
       </div>
 
@@ -2099,8 +2099,8 @@ function TipSummaryTable({ matches, opponentTips }) {
   if (rows.length === 0) return null
   rows.sort((a, b) => b.points - a.points || b.exact - a.exact || a.player.localeCompare(b.player))
 
-  const th = { fontSize: 10, color: 'var(--text-dim)', fontWeight: 400, padding: '0 8px 6px 0', whiteSpace: 'nowrap', textAlign: 'right' }
-  const td = { fontSize: 12, padding: '5px 8px 5px 0', textAlign: 'right', color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }
+  const th = { fontSize: 10, color: 'var(--text-dim)', fontWeight: 400, padding: '0 8px 6px 0', whiteSpace: 'nowrap', textAlign: 'left' }
+  const td = { fontSize: 12, padding: '5px 8px 5px 0', textAlign: 'left', color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }
 
   return (
     <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 16px' }}>
