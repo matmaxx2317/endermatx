@@ -998,7 +998,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v3.33</span>
+          <span className="topbar-version">v3.34</span>
         </div>
       </div>
 
@@ -1832,20 +1832,21 @@ function RankingChart({ snapshots, matches }) {
       setSvgH(Math.max(320, avail))
     }
     recompute()
-    window.addEventListener('resize', recompute)
-    window.addEventListener('orientationchange', recompute)
-    const vv = window.visualViewport
-    if (vv) {
-      vv.addEventListener('resize', recompute)
-      vv.addEventListener('scroll', recompute)
+    // Only re-fit when the viewport *width* changes (real resize / rotation).
+    // We deliberately ignore height-only changes: on mobile the URL bar
+    // collapses/expands while scrolling, and recomputing then made the chart
+    // stretch on every scroll frame and wrecked the scroll feel.
+    let lastWidth = window.innerWidth
+    const onResize = () => {
+      if (window.innerWidth === lastWidth) return
+      lastWidth = window.innerWidth
+      recompute()
     }
+    window.addEventListener('resize', onResize)
+    window.addEventListener('orientationchange', recompute)
     return () => {
-      window.removeEventListener('resize', recompute)
+      window.removeEventListener('resize', onResize)
       window.removeEventListener('orientationchange', recompute)
-      if (vv) {
-        vv.removeEventListener('resize', recompute)
-        vv.removeEventListener('scroll', recompute)
-      }
     }
   }, [players.join(',')])
 
