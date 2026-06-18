@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { log } from '../api'
+import { useTheme } from '../context/ThemeContext'
 
 function fmt(iso) {
   if (!iso) return '—'
@@ -8,15 +9,19 @@ function fmt(iso) {
   return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
 }
 
-function resultColor(result) {
-  if (/^error|^exception/i.test(result)) return '#ff6b6b'
-  if (/updated/i.test(result)) return '#7effa0'
+// Theme-aware status colours: the bright dark-mode green/red are illegible on
+// the light theme's white cards, so use darker shades there.
+function resultColor(result, theme) {
+  const light = theme === 'light'
+  if (/^error|^exception/i.test(result)) return light ? '#c0392b' : '#ff6b6b'
+  if (/updated/i.test(result)) return light ? '#1a7a3e' : '#7effa0'
   return 'var(--text-secondary)'
 }
 
 // Scheduler run log, newest first. Self-contained (fetches on mount), so it can
 // be dropped into any container — currently the WMT "Update-Log" tab.
 export default function UpdateLogList() {
+  const { theme }         = useTheme()
   const [rows, setRows]   = useState(null)   // null = loading
   const [error, setError] = useState(null)
 
@@ -68,7 +73,7 @@ export default function UpdateLogList() {
                 <span style={{ color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: 500 }}>
                   {fmt(r.ran_at)}
                 </span>
-                <span style={{ color: resultColor(r.result), fontSize: '0.8rem', textAlign: 'right' }}>
+                <span style={{ color: resultColor(r.result, theme), fontSize: '0.8rem', textAlign: 'right' }}>
                   {r.result}
                 </span>
               </div>
