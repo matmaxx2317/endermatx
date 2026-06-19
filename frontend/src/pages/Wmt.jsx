@@ -998,7 +998,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v3.45</span>
+          <span className="topbar-version">v3.46</span>
         </div>
       </div>
 
@@ -2554,11 +2554,14 @@ function TwinsHeatmap({ opponentTips }) {
     return common === 0 ? null : { rate: same / common, common }
   }
 
-  // Green → yellow → red heat scale; red marks the highest similarity.
+  // Green → yellow → red heat scale; red marks the highest similarity. The
+  // input is biased upward (pow < 1) so the green band stays small and most
+  // cells read yellow → red.
   const heat = t => {
+    const b = Math.pow(t, 0.55)
     const stops = [[46, 204, 113], [241, 196, 15], [231, 76, 60]] // grün, gelb, rot
-    const seg = t < 0.5 ? 0 : 1
-    const f = t < 0.5 ? t / 0.5 : (t - 0.5) / 0.5
+    const seg = b < 0.5 ? 0 : 1
+    const f = b < 0.5 ? b / 0.5 : (b - 0.5) / 0.5
     const c0 = stops[seg], c1 = stops[seg + 1]
     const ch = i => Math.round(c0[i] + (c1[i] - c0[i]) * f)
     return `rgb(${ch(0)}, ${ch(1)}, ${ch(2)})`
