@@ -998,7 +998,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v3.39</span>
+          <span className="topbar-version">v3.40</span>
         </div>
       </div>
 
@@ -2584,7 +2584,6 @@ function TwinsHeatmap({ opponentTips }) {
   }
 
   const cell = { width: 34, height: 24, fontSize: 10, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }
-  const abbr = p => p.length > 4 ? p.slice(0, 4) : p
 
   return (
     <StatCard title="Tipp-Zwillinge" hint="Anteil gemeinsam getippter Spiele mit identischem Ergebnis-Tipp. Kräftiger = tippt ähnlicher.">
@@ -2594,7 +2593,9 @@ function TwinsHeatmap({ opponentTips }) {
             <tr>
               <th style={{ position: 'sticky', left: 0, background: 'var(--surface)' }} />
               {players.map(p => (
-                <th key={p} title={p} style={{ ...cell, fontSize: 9, color: 'var(--text-dim)', fontWeight: 400, paddingBottom: 4 }}>{abbr(p)}</th>
+                <th key={p} title={p} style={{ width: cell.width, verticalAlign: 'bottom', padding: '0 0 6px', fontWeight: 400 }}>
+                  <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: 10, color: 'var(--text-dim)', whiteSpace: 'nowrap', margin: '0 auto' }}>{p}</div>
+                </th>
               ))}
             </tr>
           </thead>
