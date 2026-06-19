@@ -998,7 +998,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v3.41</span>
+          <span className="topbar-version">v3.42</span>
         </div>
       </div>
 
@@ -2583,7 +2583,11 @@ function TwinsHeatmap({ opponentTips }) {
     return common === 0 ? null : { rate: same / common, common }
   }
 
-  const cell = { width: 26, height: 26, fontSize: 9, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }
+  // Fixed square size for every matrix cell. We force the square with an inner
+  // flex div (table-cell `height` isn't reliably honored under border-collapse,
+  // which made the grid render as flat rectangles).
+  const SIZE = 24
+  const square = extra => ({ width: SIZE, height: SIZE, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontVariantNumeric: 'tabular-nums', ...extra })
 
   return (
     <StatCard title="Tipp-Zwillinge" hint="Anteil gemeinsam getippter Spiele mit identischem Ergebnis-Tipp. Kräftiger = tippt ähnlicher.">
@@ -2593,7 +2597,7 @@ function TwinsHeatmap({ opponentTips }) {
             <tr>
               <th style={{ position: 'sticky', left: 0, background: 'var(--surface)' }} />
               {players.map(p => (
-                <th key={p} title={p} style={{ width: cell.width, verticalAlign: 'bottom', padding: '0 0 6px', fontWeight: 400 }}>
+                <th key={p} title={p} style={{ width: SIZE, verticalAlign: 'bottom', padding: '0 0 6px', fontWeight: 400 }}>
                   <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: 10, color: 'var(--text-dim)', whiteSpace: 'nowrap', margin: '0 auto' }}>{p}</div>
                 </th>
               ))}
@@ -2604,12 +2608,13 @@ function TwinsHeatmap({ opponentTips }) {
               <tr key={a}>
                 <td style={{ position: 'sticky', left: 0, background: 'var(--surface)', fontSize: 12, color: 'var(--text-secondary)', padding: '2px 8px 2px 0', whiteSpace: 'nowrap' }}>{a}</td>
                 {players.map(b => {
-                  if (a === b) return <td key={b} style={{ ...cell, background: 'var(--surface-alt)' }} />
+                  if (a === b) return <td key={b} style={{ padding: 0 }}><div style={square({ background: 'var(--surface-alt)' })} /></td>
                   const s = sim(a, b)
                   return (
-                    <td key={b} title={s ? `${a} ↔ ${b}: ${Math.round(s.rate * 100)}% von ${s.common} Spielen` : 'keine gemeinsamen Spiele'}
-                      style={{ ...cell, color: s && s.rate > 0.5 ? 'var(--text-primary)' : 'var(--text-secondary)', background: s ? `rgba(110, 130, 255, ${0.12 + 0.7 * s.rate})` : 'transparent' }}>
-                      {s ? Math.round(s.rate * 100) : '–'}
+                    <td key={b} style={{ padding: 0 }} title={s ? `${a} ↔ ${b}: ${Math.round(s.rate * 100)}% von ${s.common} Spielen` : 'keine gemeinsamen Spiele'}>
+                      <div style={square({ color: s && s.rate > 0.5 ? 'var(--text-primary)' : 'var(--text-secondary)', background: s ? `rgba(110, 130, 255, ${0.12 + 0.7 * s.rate})` : 'transparent' })}>
+                        {s ? Math.round(s.rate * 100) : '–'}
+                      </div>
                     </td>
                   )
                 })}
