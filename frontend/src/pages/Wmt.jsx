@@ -998,7 +998,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v3.44</span>
+          <span className="topbar-version">v3.45</span>
         </div>
       </div>
 
@@ -2489,41 +2489,6 @@ function HitQualityBars({ matches, opponentTips }) {
   )
 }
 
-// ── 3. Form (per-player daily-points sparkline) ───────────────────────────
-function FormSparklines({ matches, opponentTips }) {
-  const { days, players, pts } = dailyPointsMatrix(matches, opponentTips)
-  if (days.length < 2 || players.length === 0) return null
-
-  const totals = players.map(p => ({ p, total: days.reduce((a, d) => a + pts[p][d], 0) }))
-    .sort((a, b) => b.total - a.total || a.p.localeCompare(b.p))
-  const maxDay = Math.max(1, ...players.flatMap(p => days.map(d => pts[p][d])))
-
-  const w = Math.max(120, days.length * 16), h = 30, pad = 3
-  const xs = i => pad + (days.length === 1 ? 0 : (i / (days.length - 1)) * (w - 2 * pad))
-  const ys = v => h - pad - (v / maxDay) * (h - 2 * pad)
-
-  return (
-    <StatCard title="Form" hint="Punkte pro Spieltag im Zeitverlauf — wer läuft heiß, wer ist eingebrochen.">
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {totals.map(({ p, total }) => {
-          const color = playerColor(players, p)
-          const line = days.map((d, i) => `${xs(i)},${ys(pts[p][d])}`).join(' ')
-          return (
-            <div key={p} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 12, color: 'var(--text-secondary)', width: 96, flexShrink: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p}</span>
-              <svg width={w} height={h} style={{ flexShrink: 0 }}>
-                <polyline points={line} fill="none" stroke={color} strokeWidth={1.5} />
-                {days.map((d, i) => <circle key={i} cx={xs(i)} cy={ys(pts[p][d])} r={1.8} fill={color} />)}
-              </svg>
-              <span style={{ fontSize: 12, color: 'var(--text-primary)', fontWeight: 500, width: 34, textAlign: 'right', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{total}</span>
-            </div>
-          )
-        })}
-      </div>
-    </StatCard>
-  )
-}
-
 // ── 4. Punkte pro Spieltag (heatmap) ──────────────────────────────────────
 function PointsPerDayHeatmap({ matches, opponentTips }) {
   const { days, players, pts } = dailyPointsMatrix(matches, opponentTips)
@@ -2798,7 +2763,6 @@ function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
 
       <PointsGapChart snapshots={rankingSnapshots} matches={matches} />
       <HitQualityBars matches={matches} opponentTips={opponentTips} />
-      <FormSparklines matches={matches} opponentTips={opponentTips} />
       <PointsPerDayHeatmap matches={matches} opponentTips={opponentTips} />
       <TwinsHeatmap opponentTips={opponentTips} />
       <RiskProfile opponentTips={opponentTips} />
