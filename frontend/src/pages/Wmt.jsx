@@ -998,7 +998,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v3.37</span>
+          <span className="topbar-version">v3.38</span>
         </div>
       </div>
 
@@ -2202,30 +2202,37 @@ function TipSummaryTable({ matches, opponentTips }) {
 }
 
 // Calendar-day key (YYYY-MM-DD) in US local time. The 2026 WC is hosted in
-// the US/Mexico/Canada; we anchor "day" to US Eastern (the final is in NY/NJ).
-// Change this single zone if a different US timezone is preferred.
-const US_TIME_ZONE = 'America/New_York'
+// the US/Mexico/Canada; we anchor "day" to US Pacific. With Pacific the whole
+// German 18:00→06:00 broadcast window maps onto one calendar day (≈09:00–21:00
+// PT, no midnight crossing) — including the latest west-coast kickoffs, which
+// at 21:00 PT are 06:00 German the next morning but still the same PT day.
+const US_TIME_ZONE = 'America/Los_Angeles'
 const usDayKey = d => new Intl.DateTimeFormat('en-CA', { timeZone: US_TIME_ZONE }).format(d)
 
 const CATEGORY_BY_KEY = Object.fromEntries(TIP_CATEGORIES.map(([key, label, pts]) => [key, { label, pts }]))
 
 // Tagessieger / Tagesverlierer — best and worst scorer among the imported
-// opponent tips on the *current* US-Eastern calendar day, with the tips that
-// got them there. Hidden on rest days / before any of the day's matches finish.
+// opponent tips on the most recent match day (the latest US-Pacific calendar
+// day that has any finished match), with the tips that got them there. So the
+// day's winner keeps showing until the next match day produces results. Hidden
+// only when no match has finished yet at all.
 function DayWinnerLoserCard({ matches, opponentTips }) {
-  const todayKey = usDayKey(new Date())
-  const todaysMatches = matches.filter(
-    m => m.status === 'FINISHED' && usDayKey(new Date(m.utc_date)) === todayKey
-  )
-  if (todaysMatches.length === 0) return null
+  const finished = matches.filter(m => m.status === 'FINISHED')
+  if (finished.length === 0) return null
 
-  const todayMatchIds = new Set(todaysMatches.map(m => m.id))
+  // Most recent match day = the largest (latest) Pacific day key among finished
+  // matches; string compare works because keys are zero-padded YYYY-MM-DD.
+  const dayKeys = finished.map(m => usDayKey(new Date(m.utc_date))).sort()
+  const targetKey = dayKeys[dayKeys.length - 1]
+
+  const dayMatches = finished.filter(m => usDayKey(new Date(m.utc_date)) === targetKey)
+  const dayMatchIds = new Set(dayMatches.map(m => m.id))
   const matchById = {}
-  for (const m of todaysMatches) matchById[m.id] = m
+  for (const m of dayMatches) matchById[m.id] = m
 
   const byPlayer = {}
   for (const t of opponentTips) {
-    if (!todayMatchIds.has(t.match_id)) continue
+    if (!dayMatchIds.has(t.match_id)) continue
     const m = matchById[t.match_id]
     const cat = classifyTip(m, t)
     if (!cat) continue
@@ -2241,9 +2248,9 @@ function DayWinnerLoserCard({ matches, opponentTips }) {
   const winner = rows[0]
   const loser = rows.length > 1 ? rows[rows.length - 1] : null
 
-  const dateLabel = new Intl.DateTimeFormat('de-DE', {
-    timeZone: US_TIME_ZONE, day: '2-digit', month: '2-digit', year: 'numeric',
-  }).format(new Date())
+  // targetKey is YYYY-MM-DD (Pacific) — format it directly, no timezone reparse.
+  const [yy, mm, dd] = targetKey.split('-')
+  const dateLabel = `${dd}.${mm}.${yy}`
 
   const renderTips = entry => {
     const tips = [...entry.tips].sort((a, b) => new Date(a.match.utc_date) - new Date(b.match.utc_date))
