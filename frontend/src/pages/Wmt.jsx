@@ -998,7 +998,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v3.38</span>
+          <span className="topbar-version">v3.39</span>
         </div>
       </div>
 
@@ -2302,6 +2302,450 @@ function DayWinnerLoserCard({ matches, opponentTips }) {
   )
 }
 
+// ── Shared helpers for the Konkurrenz stat cards ──────────────────────────
+const dayKeyOf = m => usDayKey(new Date(m.utc_date))
+const finishedScored = matches =>
+  matches.filter(m => m.status === 'FINISHED' && m.score_home != null && m.score_away != null)
+// Stable per-player colour (alphabetical index) so a player keeps the same
+// colour across every stat card.
+const playerColor = (players, p) => {
+  const i = players.indexOf(p)
+  return RANK_CHART_COLORS[(i < 0 ? 0 : i) % RANK_CHART_COLORS.length]
+}
+const ddmm = key => { const [, m, d] = key.split('-'); return `${d}.${m}.` }
+
+// Points each player scored on each finished match day.
+function dailyPointsMatrix(matches, opponentTips) {
+  const fin = finishedScored(matches)
+  const byId = {}
+  for (const m of fin) byId[m.id] = m
+  const days = [...new Set(fin.map(dayKeyOf))].sort()
+  const players = [...new Set(opponentTips.filter(t => byId[t.match_id]).map(t => t.player_name))].sort()
+  const pts = {}
+  for (const p of players) { pts[p] = {}; for (const d of days) pts[p][d] = 0 }
+  for (const t of opponentTips) {
+    const m = byId[t.match_id]
+    if (!m) continue
+    const cat = classifyTip(m, t)
+    if (!cat) continue
+    pts[t.player_name][dayKeyOf(m)] += CATEGORY_BY_KEY[cat].pts
+  }
+  return { days, players, pts }
+}
+
+// Card shell matching the other Konkurrenz cards.
+function StatCard({ title, hint, children }) {
+  return (
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 16px' }}>
+      <div style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 500, marginBottom: hint ? 4 : 12 }}>{title}</div>
+      {hint && <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 12 }}>{hint}</div>}
+      {children}
+    </div>
+  )
+}
+
+// ── 1. Punkte-Rückstand zum Spitzenreiter ─────────────────────────────────
+// Overlaid lines, y = points behind the leader, x = games played. The leader
+// rides along the top (gap 0); the spread shows whether it's a runaway or a
+// dogfight. Driven by the imported ranking snapshots.
+function PointsGapChart({ snapshots, matches }) {
+  const players = [...new Set(snapshots.map(s => s.player_name))].sort()
+  const dateCount = new Set(snapshots.map(s => s.date)).size
+  if (dateCount < 2 || players.length === 0) return null
+
+  const effectiveTime = s => {
+    if (s.snapshot_time) return s.snapshot_time
+    const end = `${s.date}T23:59:59Z`
+    return s.captured_at < end ? s.captured_at : end
+  }
+  const totalMatches = matches.length
+  const finishedTimes = matches.filter(m => m.status === 'FINISHED').map(m => m.utc_date).sort()
+  const gameCountAt = t => finishedTimes.filter(x => x <= t).length
+
+  const byPlayer = {}
+  for (const p of players) {
+    byPlayer[p] = snapshots.filter(s => s.player_name === p)
+      .sort((a, b) => effectiveTime(a) < effectiveTime(b) ? -1 : 1)
+  }
+  const latestPointsAt = (p, time) => {
+    let pts = null
+    for (const s of byPlayer[p]) { if (effectiveTime(s) <= time) pts = s.points; else break }
+    return pts
+  }
+
+  const series = {}
+  let maxGap = 1
+  for (const p of players) {
+    series[p] = byPlayer[p].map(s => {
+      const time = effectiveTime(s)
+      const leader = Math.max(...players.map(q => latestPointsAt(q, time)).filter(v => v != null))
+      const gap = leader - s.points
+      if (gap > maxGap) maxGap = gap
+      return { games: gameCountAt(time), gap }
+    })
+  }
+
+  const H = 240, padL = 34, padR = 84, padT = 12, padB = 22
+  const W = 700
+  const plotW = W - padL - padR, plotH = H - padT - padB
+  const axisMax = totalMatches + 8
+  const xPos = g => padL + (axisMax === 0 ? 0 : (g / axisMax) * plotW)
+  const yPos = gap => padT + (gap / maxGap) * plotH
+
+  const gridStep = Math.max(1, Math.ceil(maxGap / 5))
+  const gridLines = []
+  for (let g = 0; g <= maxGap; g += gridStep) gridLines.push(g)
+
+  const ends = {}
+  for (const p of players) {
+    const pts = series[p]
+    if (!pts.length) continue
+    const last = pts[pts.length - 1]
+    const key = `${xPos(last.games).toFixed(1)},${yPos(last.gap).toFixed(1)}`
+    if (!ends[key]) ends[key] = { x: xPos(last.games), y: yPos(last.gap), names: [] }
+    ends[key].names.push(p)
+  }
+
+  return (
+    <StatCard title="Punkte-Rückstand zum Spitzenreiter" hint="Abstand in Punkten zur Tabellenspitze über den Turnierverlauf — die Linie ganz oben führt.">
+      <div style={{ overflowX: 'auto' }}>
+        <svg width={W} height={H} style={{ display: 'block' }}>
+          {gridLines.map(g => (
+            <g key={g}>
+              <line x1={padL} y1={yPos(g)} x2={W - padR} y2={yPos(g)} stroke="var(--border)" strokeWidth={0.5} />
+              <text x={padL - 6} y={yPos(g) + 3} textAnchor="end" fontSize={9} fill="var(--text-muted)">{g}</text>
+            </g>
+          ))}
+          {players.map(p => {
+            const color = playerColor(players, p)
+            const pts = series[p].map(d => `${xPos(d.games)},${yPos(d.gap)}`).join(' ')
+            return (
+              <g key={p}>
+                <polyline points={pts} fill="none" stroke={color} strokeWidth={1.5} opacity={0.85} />
+                {series[p].map((d, i) => (
+                  <circle key={i} cx={xPos(d.games)} cy={yPos(d.gap)} r={2.5} fill={color} />
+                ))}
+              </g>
+            )
+          })}
+          {Object.values(ends).map((e, i) => (
+            <text key={i} x={e.x + 8} y={e.y + 3} textAnchor="start" fontSize={9} fontWeight={500} fill="var(--text-primary)">
+              {e.names.join(', ')}
+            </text>
+          ))}
+        </svg>
+      </div>
+    </StatCard>
+  )
+}
+
+// ── 2. Treffergüte (stacked bars) ─────────────────────────────────────────
+function HitQualityBars({ matches, opponentTips }) {
+  const byId = {}
+  for (const m of matches) byId[m.id] = m
+  const stat = {}
+  for (const t of opponentTips) {
+    const m = byId[t.match_id]
+    if (!m) continue
+    const cat = classifyTip(m, t)
+    if (!cat) continue
+    if (!stat[t.player_name]) stat[t.player_name] = { exact: 0, diff: 0, tendency: 0, wrong: 0 }
+    stat[t.player_name][cat]++
+  }
+  let rows = Object.entries(stat).map(([player, s]) => ({
+    player, ...s,
+    total: s.exact + s.diff + s.tendency + s.wrong,
+    points: TIP_CATEGORIES.reduce((a, [k, , p]) => a + s[k] * p, 0),
+  })).filter(r => r.total > 0)
+  if (!rows.length) return null
+  rows.sort((a, b) => b.points - a.points || a.player.localeCompare(b.player))
+
+  return (
+    <StatCard title="Treffergüte" hint="Anteil exakter Treffer, Tordifferenz, Tendenz und Fehltipps je Spieler.">
+      <TipLegendInline />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {rows.map(r => (
+          <div key={r.player} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 12, color: 'var(--text-secondary)', width: 96, flexShrink: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.player}</span>
+            <div style={{ flex: 1, display: 'flex', height: 16, borderRadius: 4, overflow: 'hidden', background: 'var(--surface-alt)' }}>
+              {TIP_CATEGORIES.map(([key]) => (
+                r[key] > 0 ? (
+                  <div key={key} title={`${CATEGORY_BY_KEY[key].label}: ${r[key]}`}
+                    style={{ width: `${(r[key] / r.total) * 100}%`, background: TIP_OVERLAYS[key] }} />
+                ) : null
+              ))}
+            </div>
+            <span style={{ fontSize: 12, color: 'var(--text-primary)', fontWeight: 500, width: 34, textAlign: 'right', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{r.points}</span>
+          </div>
+        ))}
+      </div>
+    </StatCard>
+  )
+}
+
+// ── 3. Form (per-player daily-points sparkline) ───────────────────────────
+function FormSparklines({ matches, opponentTips }) {
+  const { days, players, pts } = dailyPointsMatrix(matches, opponentTips)
+  if (days.length < 2 || players.length === 0) return null
+
+  const totals = players.map(p => ({ p, total: days.reduce((a, d) => a + pts[p][d], 0) }))
+    .sort((a, b) => b.total - a.total || a.p.localeCompare(b.p))
+  const maxDay = Math.max(1, ...players.flatMap(p => days.map(d => pts[p][d])))
+
+  const w = Math.max(120, days.length * 16), h = 30, pad = 3
+  const xs = i => pad + (days.length === 1 ? 0 : (i / (days.length - 1)) * (w - 2 * pad))
+  const ys = v => h - pad - (v / maxDay) * (h - 2 * pad)
+
+  return (
+    <StatCard title="Form" hint="Punkte pro Spieltag im Zeitverlauf — wer läuft heiß, wer ist eingebrochen.">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {totals.map(({ p, total }) => {
+          const color = playerColor(players, p)
+          const line = days.map((d, i) => `${xs(i)},${ys(pts[p][d])}`).join(' ')
+          return (
+            <div key={p} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 12, color: 'var(--text-secondary)', width: 96, flexShrink: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p}</span>
+              <svg width={w} height={h} style={{ flexShrink: 0 }}>
+                <polyline points={line} fill="none" stroke={color} strokeWidth={1.5} />
+                {days.map((d, i) => <circle key={i} cx={xs(i)} cy={ys(pts[p][d])} r={1.8} fill={color} />)}
+              </svg>
+              <span style={{ fontSize: 12, color: 'var(--text-primary)', fontWeight: 500, width: 34, textAlign: 'right', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{total}</span>
+            </div>
+          )
+        })}
+      </div>
+    </StatCard>
+  )
+}
+
+// ── 4. Punkte pro Spieltag (heatmap) ──────────────────────────────────────
+function PointsPerDayHeatmap({ matches, opponentTips }) {
+  const { days, players, pts } = dailyPointsMatrix(matches, opponentTips)
+  if (days.length === 0 || players.length === 0) return null
+
+  const order = players.map(p => ({ p, total: days.reduce((a, d) => a + pts[p][d], 0) }))
+    .sort((a, b) => b.total - a.total || a.p.localeCompare(b.p))
+  const maxDay = Math.max(1, ...players.flatMap(p => days.map(d => pts[p][d])))
+
+  const cell = { width: 30, height: 22, fontSize: 11, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }
+
+  return (
+    <StatCard title="Punkte pro Spieltag" hint="Punkteausbeute je Spieler und Spieltag — kräftigeres Grün = mehr Punkte.">
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ borderCollapse: 'collapse' }}>
+          <thead>
+            <tr>
+              <th style={{ position: 'sticky', left: 0, background: 'var(--surface)', textAlign: 'left', fontSize: 10, color: 'var(--text-dim)', fontWeight: 400, padding: '0 8px 6px 0', whiteSpace: 'nowrap' }}>Spieler</th>
+              {days.map(d => (
+                <th key={d} style={{ ...cell, fontSize: 9, color: 'var(--text-dim)', fontWeight: 400, paddingBottom: 6 }}>{ddmm(d)}</th>
+              ))}
+              <th style={{ ...cell, fontSize: 9, color: 'var(--text-dim)', fontWeight: 400, paddingBottom: 6 }}>Σ</th>
+            </tr>
+          </thead>
+          <tbody>
+            {order.map(({ p, total }) => (
+              <tr key={p}>
+                <td style={{ position: 'sticky', left: 0, background: 'var(--surface)', fontSize: 12, color: 'var(--text-secondary)', padding: '2px 8px 2px 0', whiteSpace: 'nowrap' }}>{p}</td>
+                {days.map(d => {
+                  const v = pts[p][d]
+                  return (
+                    <td key={d} style={{ ...cell, color: v > 0 ? 'var(--text-primary)' : 'var(--text-dim)', background: v > 0 ? `rgba(77, 138, 77, ${0.15 + 0.6 * (v / maxDay)})` : 'transparent', borderRadius: 4 }}>{v}</td>
+                  )
+                })}
+                <td style={{ ...cell, color: 'var(--text-primary)', fontWeight: 500 }}>{total}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </StatCard>
+  )
+}
+
+// ── 5. Tipp-Zwillinge (similarity heatmap) ────────────────────────────────
+// For every pair, the share of commonly-tipped matches where they picked the
+// exact same scoreline. Reveals who thinks alike and who's the contrarian.
+function TwinsHeatmap({ opponentTips }) {
+  const players = [...new Set(opponentTips.map(t => t.player_name))].sort()
+  if (players.length < 2) return null
+
+  const byPlayer = {}
+  for (const p of players) byPlayer[p] = {}
+  for (const t of opponentTips) byPlayer[t.player_name][t.match_id] = `${t.pred_home_goals}:${t.pred_away_goals}`
+
+  const sim = (a, b) => {
+    let common = 0, same = 0
+    for (const mid in byPlayer[a]) {
+      if (byPlayer[b][mid] == null) continue
+      common++
+      if (byPlayer[a][mid] === byPlayer[b][mid]) same++
+    }
+    return common === 0 ? null : { rate: same / common, common }
+  }
+
+  const cell = { width: 34, height: 24, fontSize: 10, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }
+  const abbr = p => p.length > 4 ? p.slice(0, 4) : p
+
+  return (
+    <StatCard title="Tipp-Zwillinge" hint="Anteil gemeinsam getippter Spiele mit identischem Ergebnis-Tipp. Kräftiger = tippt ähnlicher.">
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ borderCollapse: 'collapse' }}>
+          <thead>
+            <tr>
+              <th style={{ position: 'sticky', left: 0, background: 'var(--surface)' }} />
+              {players.map(p => (
+                <th key={p} title={p} style={{ ...cell, fontSize: 9, color: 'var(--text-dim)', fontWeight: 400, paddingBottom: 4 }}>{abbr(p)}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {players.map(a => (
+              <tr key={a}>
+                <td style={{ position: 'sticky', left: 0, background: 'var(--surface)', fontSize: 12, color: 'var(--text-secondary)', padding: '2px 8px 2px 0', whiteSpace: 'nowrap' }}>{a}</td>
+                {players.map(b => {
+                  if (a === b) return <td key={b} style={{ ...cell, background: 'var(--surface-alt)' }} />
+                  const s = sim(a, b)
+                  return (
+                    <td key={b} title={s ? `${a} ↔ ${b}: ${Math.round(s.rate * 100)}% von ${s.common} Spielen` : 'keine gemeinsamen Spiele'}
+                      style={{ ...cell, color: s && s.rate > 0.5 ? 'var(--text-primary)' : 'var(--text-secondary)', background: s ? `rgba(110, 130, 255, ${0.12 + 0.7 * s.rate})` : 'transparent' }}>
+                      {s ? Math.round(s.rate * 100) : '–'}
+                    </td>
+                  )
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </StatCard>
+  )
+}
+
+// ── 6. Risikoprofil ───────────────────────────────────────────────────────
+function RiskProfile({ opponentTips }) {
+  const stat = {}
+  for (const t of opponentTips) {
+    const s = stat[t.player_name] || (stat[t.player_name] = { n: 0, goals: 0, draws: 0, scores: {} })
+    s.n++
+    s.goals += t.pred_home_goals + t.pred_away_goals
+    if (t.pred_home_goals === t.pred_away_goals) s.draws++
+    const key = `${t.pred_home_goals}:${t.pred_away_goals}`
+    s.scores[key] = (s.scores[key] || 0) + 1
+  }
+  const rows = Object.entries(stat).filter(([, s]) => s.n > 0).map(([player, s]) => {
+    const fav = Object.entries(s.scores).sort((a, b) => b[1] - a[1])[0]
+    return { player, avg: s.goals / s.n, drawRate: s.draws / s.n, fav: fav[0], favCount: fav[1] }
+  })
+  if (!rows.length) return null
+  rows.sort((a, b) => b.avg - a.avg || a.player.localeCompare(b.player))
+
+  const th = { fontSize: 10, color: 'var(--text-dim)', fontWeight: 400, padding: '0 8px 6px 0', whiteSpace: 'nowrap', textAlign: 'left' }
+  const td = { fontSize: 12, padding: '5px 8px 5px 0', textAlign: 'left', color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }
+
+  return (
+    <StatCard title="Risikoprofil" hint="Ø getippte Tore (offensiv vs. vorsichtig), Remis-Quote und Lieblingstipp je Spieler.">
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr>
+              <th style={th}>Spieler</th>
+              <th style={th}>Ø Tore</th>
+              <th style={th}>Remis</th>
+              <th style={th}>Lieblingstipp</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(r => (
+              <tr key={r.player} style={{ borderTop: '1px solid var(--border)' }}>
+                <td style={{ ...td, color: 'var(--text-primary)' }}>{r.player}</td>
+                <td style={td}>{r.avg.toFixed(1)}</td>
+                <td style={td}>{Math.round(r.drawRate * 100)}%</td>
+                <td style={td}>{r.fav} <span style={{ color: 'var(--text-dim)' }}>×{r.favCount}</span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </StatCard>
+  )
+}
+
+// ── 7. Mut zum Risiko (Konsens-Abweichung) ────────────────────────────────
+// Per match the crowd has a majority tendency (Heim/Remis/Auswärts); a player
+// is "bold" when they tip against it. We report how often each player goes
+// against the grain — and, on finished matches, how often that boldness paid off.
+function BoldnessCard({ matches, opponentTips }) {
+  const byId = {}
+  for (const m of matches) byId[m.id] = m
+  const tendency = (h, a) => h > a ? 'H' : h < a ? 'A' : 'D'
+
+  const tipsByMatch = {}
+  for (const t of opponentTips) {
+    if (!tipsByMatch[t.match_id]) tipsByMatch[t.match_id] = []
+    tipsByMatch[t.match_id].push(t)
+  }
+
+  const majorityByMatch = {}
+  for (const mid in tipsByMatch) {
+    const counts = { H: 0, D: 0, A: 0 }
+    for (const t of tipsByMatch[mid]) counts[tendency(t.pred_home_goals, t.pred_away_goals)]++
+    majorityByMatch[mid] = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0]
+  }
+
+  const stat = {}
+  for (const t of opponentTips) {
+    const list = tipsByMatch[t.match_id]
+    if (!list || list.length < 2) continue // need a crowd to deviate from
+    const s = stat[t.player_name] || (stat[t.player_name] = { n: 0, bold: 0, boldFin: 0, boldHit: 0 })
+    s.n++
+    const mine = tendency(t.pred_home_goals, t.pred_away_goals)
+    const isBold = mine !== majorityByMatch[t.match_id]
+    if (isBold) {
+      s.bold++
+      const m = byId[t.match_id]
+      if (m && m.status === 'FINISHED' && m.score_home != null) {
+        s.boldFin++
+        if (tendency(m.score_home, m.score_away) === mine) s.boldHit++
+      }
+    }
+  }
+
+  const rows = Object.entries(stat).filter(([, s]) => s.n > 0).map(([player, s]) => ({
+    player, boldRate: s.bold / s.n, bold: s.bold,
+    payoff: s.boldFin > 0 ? s.boldHit / s.boldFin : null, boldFin: s.boldFin,
+  }))
+  if (!rows.length) return null
+  rows.sort((a, b) => b.boldRate - a.boldRate || a.player.localeCompare(b.player))
+
+  const th = { fontSize: 10, color: 'var(--text-dim)', fontWeight: 400, padding: '0 8px 6px 0', whiteSpace: 'nowrap', textAlign: 'left' }
+  const td = { fontSize: 12, padding: '5px 8px 5px 0', textAlign: 'left', color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }
+
+  return (
+    <StatCard title="Mut zum Risiko" hint="Anteil der Spiele, in denen ein Spieler gegen die Mehrheitstendenz tippt — und wie oft dieser Mut belohnt wurde.">
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr>
+              <th style={th}>Spieler</th>
+              <th style={th}>Mut</th>
+              <th style={th}>davon korrekt</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(r => (
+              <tr key={r.player} style={{ borderTop: '1px solid var(--border)' }}>
+                <td style={{ ...td, color: 'var(--text-primary)' }}>{r.player}</td>
+                <td style={td}>{Math.round(r.boldRate * 100)}% <span style={{ color: 'var(--text-dim)' }}>({r.bold})</span></td>
+                <td style={td}>{r.payoff == null ? '–' : <>{Math.round(r.payoff * 100)}% <span style={{ color: 'var(--text-dim)' }}>von {r.boldFin}</span></>}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </StatCard>
+  )
+}
+
 function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
   // On the opponents-only mirror the ELO tip is hidden so fellow players
   // don't see the model's prediction for past games.
@@ -2328,6 +2772,14 @@ function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
       <TipSummaryTable matches={matches} opponentTips={opponentTips} />
 
       <DayWinnerLoserCard matches={matches} opponentTips={opponentTips} />
+
+      <PointsGapChart snapshots={rankingSnapshots} matches={matches} />
+      <HitQualityBars matches={matches} opponentTips={opponentTips} />
+      <FormSparklines matches={matches} opponentTips={opponentTips} />
+      <PointsPerDayHeatmap matches={matches} opponentTips={opponentTips} />
+      <TwinsHeatmap opponentTips={opponentTips} />
+      <RiskProfile opponentTips={opponentTips} />
+      <BoldnessCard matches={matches} opponentTips={opponentTips} />
 
       {matchIds.length === 0 ? (
         // Opponents-only mirror: don't leak the screenshot-import workflow —
