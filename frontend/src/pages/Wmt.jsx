@@ -998,7 +998,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v3.40</span>
+          <span className="topbar-version">v3.41</span>
         </div>
       </div>
 
@@ -2583,7 +2583,7 @@ function TwinsHeatmap({ opponentTips }) {
     return common === 0 ? null : { rate: same / common, common }
   }
 
-  const cell = { width: 34, height: 24, fontSize: 10, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }
+  const cell = { width: 26, height: 26, fontSize: 9, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }
 
   return (
     <StatCard title="Tipp-Zwillinge" hint="Anteil gemeinsam getippter Spiele mit identischem Ergebnis-Tipp. Kräftiger = tippt ähnlicher.">
