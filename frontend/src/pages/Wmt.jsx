@@ -998,7 +998,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v3.46</span>
+          <span className="topbar-version">v3.47</span>
         </div>
       </div>
 
@@ -2391,7 +2391,7 @@ function PointsGapChart({ snapshots, matches }) {
     })
   }
 
-  const H = 240, padL = 34, padR = 84, padT = 12, padB = 22
+  const H = 320, padL = 34, padR = 84, padT = 12, padB = 22
   const W = 700
   const plotW = W - padL - padR, plotH = H - padT - padB
   const axisMax = totalMatches + 8
