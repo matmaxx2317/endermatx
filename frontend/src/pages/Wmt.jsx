@@ -998,7 +998,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v3.43</span>
+          <span className="topbar-version">v3.44</span>
         </div>
       </div>
 
@@ -1836,6 +1836,12 @@ function RankingChart({ snapshots, matches }) {
     const recompute = () => {
       const sc = scrollRef.current
       if (!sc) return
+      const vv = window.visualViewport
+      // When the page is pinch-zoomed (scale > 1) the visual viewport height and
+      // the layout-based getBoundingClientRect().top live in different reference
+      // frames, so the math below produces a garbage height that collapsed the
+      // chart. Skip re-fitting while zoomed and keep the last good height.
+      if (vv && vv.scale > 1.01) return
       const top = sc.getBoundingClientRect().top
       const below = belowRef.current ? belowRef.current.offsetHeight : 0
       // Size against the *visual* viewport (window.visualViewport), which
@@ -1844,9 +1850,9 @@ function RankingChart({ snapshots, matches }) {
       // the back button / address bar. 16 = card's bottom padding; 36 =
       // clearance so the clickable legend stays clear of browser chrome and
       // the iOS home indicator.
-      const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight
+      const vh = vv ? vv.height : window.innerHeight
       const avail = vh - top - below - 16 - 36
-      setSvgH(Math.max(320, avail))
+      setSvgH(Math.max(320, Math.min(1000, avail)))
     }
     recompute()
     // Only re-fit when the viewport *width* changes (real resize / rotation).
