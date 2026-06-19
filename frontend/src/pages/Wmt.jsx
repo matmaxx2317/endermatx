@@ -998,7 +998,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v3.36</span>
+          <span className="topbar-version">v3.37</span>
         </div>
       </div>
 
@@ -2201,6 +2201,100 @@ function TipSummaryTable({ matches, opponentTips }) {
   )
 }
 
+// Calendar-day key (YYYY-MM-DD) in US local time. The 2026 WC is hosted in
+// the US/Mexico/Canada; we anchor "day" to US Eastern (the final is in NY/NJ).
+// Change this single zone if a different US timezone is preferred.
+const US_TIME_ZONE = 'America/New_York'
+const usDayKey = d => new Intl.DateTimeFormat('en-CA', { timeZone: US_TIME_ZONE }).format(d)
+
+const CATEGORY_BY_KEY = Object.fromEntries(TIP_CATEGORIES.map(([key, label, pts]) => [key, { label, pts }]))
+
+// Tagessieger / Tagesverlierer — best and worst scorer among the imported
+// opponent tips on the *current* US-Eastern calendar day, with the tips that
+// got them there. Hidden on rest days / before any of the day's matches finish.
+function DayWinnerLoserCard({ matches, opponentTips }) {
+  const todayKey = usDayKey(new Date())
+  const todaysMatches = matches.filter(
+    m => m.status === 'FINISHED' && usDayKey(new Date(m.utc_date)) === todayKey
+  )
+  if (todaysMatches.length === 0) return null
+
+  const todayMatchIds = new Set(todaysMatches.map(m => m.id))
+  const matchById = {}
+  for (const m of todaysMatches) matchById[m.id] = m
+
+  const byPlayer = {}
+  for (const t of opponentTips) {
+    if (!todayMatchIds.has(t.match_id)) continue
+    const m = matchById[t.match_id]
+    const cat = classifyTip(m, t)
+    if (!cat) continue
+    if (!byPlayer[t.player_name]) byPlayer[t.player_name] = { points: 0, tips: [] }
+    byPlayer[t.player_name].points += CATEGORY_BY_KEY[cat].pts
+    byPlayer[t.player_name].tips.push({ match: m, tip: t, cat })
+  }
+
+  const rows = Object.entries(byPlayer).map(([player, d]) => ({ player, ...d }))
+  if (rows.length === 0) return null
+  rows.sort((a, b) => b.points - a.points || a.player.localeCompare(b.player))
+
+  const winner = rows[0]
+  const loser = rows.length > 1 ? rows[rows.length - 1] : null
+
+  const dateLabel = new Intl.DateTimeFormat('de-DE', {
+    timeZone: US_TIME_ZONE, day: '2-digit', month: '2-digit', year: 'numeric',
+  }).format(new Date())
+
+  const renderTips = entry => {
+    const tips = [...entry.tips].sort((a, b) => new Date(a.match.utc_date) - new Date(b.match.utc_date))
+    return (
+      <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {tips.map(({ match, tip, cat }) => (
+          <div key={match.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>
+            <span style={{ width: 9, height: 9, borderRadius: 2, background: TIP_OVERLAYS[cat], border: '1px solid var(--border)', flexShrink: 0 }} />
+            <span style={{ color: 'var(--text-secondary)', minWidth: 64 }}>
+              {match.home_team?.tla || '???'}–{match.away_team?.tla || '???'}
+            </span>
+            <span style={{ color: 'var(--text-muted)' }}>Tipp {tip.pred_home_goals}:{tip.pred_away_goals}</span>
+            <span style={{ color: 'var(--text-dim)' }}>Ergebnis {match.score_home}:{match.score_away}</span>
+            <span style={{ marginLeft: 'auto', color: 'var(--text-secondary)', fontWeight: 500 }}>+{CATEGORY_BY_KEY[cat].pts}</span>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  const section = (entry, label, accent) => (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
+        <span style={{ fontSize: 11, color: accent, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4 }}>{label}</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, marginTop: 2 }}>
+        <span style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 500 }}>{entry.player}</span>
+        <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500 }}>{entry.points} Pkt</span>
+      </div>
+      {renderTips(entry)}
+    </div>
+  )
+
+  return (
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 16px' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, marginBottom: 12 }}>
+        <div style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 500 }}>Tageswertung</div>
+        <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{dateLabel} · US-Zeit</div>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {section(winner, 'Tagessieger', '#4d8a4d')}
+        {loser && (
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+            {section(loser, 'Tagesverlierer', '#8a4d4d')}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
   // On the opponents-only mirror the ELO tip is hidden so fellow players
   // don't see the model's prediction for past games.
@@ -2225,6 +2319,8 @@ function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
       <RankingChart snapshots={rankingSnapshots} matches={matches} />
 
       <TipSummaryTable matches={matches} opponentTips={opponentTips} />
+
+      <DayWinnerLoserCard matches={matches} opponentTips={opponentTips} />
 
       {matchIds.length === 0 ? (
         // Opponents-only mirror: don't leak the screenshot-import workflow —
