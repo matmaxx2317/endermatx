@@ -998,7 +998,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v3.47</span>
+          <span className="topbar-version">v3.48</span>
         </div>
       </div>
 
@@ -2355,6 +2355,17 @@ function StatCard({ title, hint, children }) {
 // rides along the top (gap 0); the spread shows whether it's a runaway or a
 // dogfight. Driven by the imported ranking snapshots.
 function PointsGapChart({ snapshots, matches }) {
+  // Fill the card width instead of a fixed 700px (which forced horizontal
+  // scroll / shrink-to-fit and made the height change barely visible).
+  const wrapRef = useRef(null)
+  const [width, setWidth] = useState(680)
+  useEffect(() => {
+    const measure = () => { if (wrapRef.current) setWidth(Math.max(300, wrapRef.current.clientWidth)) }
+    measure()
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [snapshots.length])
+
   const players = [...new Set(snapshots.map(s => s.player_name))].sort()
   const dateCount = new Set(snapshots.map(s => s.date)).size
   if (dateCount < 2 || players.length === 0) return null
@@ -2391,8 +2402,8 @@ function PointsGapChart({ snapshots, matches }) {
     })
   }
 
-  const H = 320, padL = 34, padR = 84, padT = 12, padB = 22
-  const W = 700
+  const H = 360, padL = 34, padR = 84, padT = 12, padB = 22
+  const W = width
   const plotW = W - padL - padR, plotH = H - padT - padB
   const axisMax = totalMatches + 8
   const xPos = g => padL + (axisMax === 0 ? 0 : (g / axisMax) * plotW)
@@ -2414,7 +2425,7 @@ function PointsGapChart({ snapshots, matches }) {
 
   return (
     <StatCard title="Punkte-Rückstand zum Spitzenreiter" hint="Abstand in Punkten zur Tabellenspitze über den Turnierverlauf — die Linie ganz oben führt.">
-      <div style={{ overflowX: 'auto' }}>
+      <div ref={wrapRef} style={{ width: '100%' }}>
         <svg width={W} height={H} style={{ display: 'block' }}>
           {gridLines.map(g => (
             <g key={g}>
