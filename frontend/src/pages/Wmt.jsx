@@ -998,7 +998,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v3.42</span>
+          <span className="topbar-version">v3.43</span>
         </div>
       </div>
 
@@ -2583,46 +2583,57 @@ function TwinsHeatmap({ opponentTips }) {
     return common === 0 ? null : { rate: same / common, common }
   }
 
-  // Fixed square size for every matrix cell. We force the square with an inner
-  // flex div (table-cell `height` isn't reliably honored under border-collapse,
-  // which made the grid render as flat rectangles).
-  const SIZE = 24
-  const square = extra => ({ width: SIZE, height: SIZE, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontVariantNumeric: 'tabular-nums', ...extra })
+  // Green → yellow → red heat scale; red marks the highest similarity.
+  const heat = t => {
+    const stops = [[46, 204, 113], [241, 196, 15], [231, 76, 60]] // grün, gelb, rot
+    const seg = t < 0.5 ? 0 : 1
+    const f = t < 0.5 ? t / 0.5 : (t - 0.5) / 0.5
+    const c0 = stops[seg], c1 = stops[seg + 1]
+    const ch = i => Math.round(c0[i] + (c1[i] - c0[i]) * f)
+    return `rgb(${ch(0)}, ${ch(1)}, ${ch(2)})`
+  }
+
+  // The matrix fills 100% of the card width (table-layout: fixed) and every
+  // cell is forced square via aspect-ratio, so the whole grid fits the viewport
+  // horizontally and stays square regardless of player count.
+  const cellDiv = extra => ({ width: '100%', aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontVariantNumeric: 'tabular-nums', ...extra })
 
   return (
-    <StatCard title="Tipp-Zwillinge" hint="Anteil gemeinsam getippter Spiele mit identischem Ergebnis-Tipp. Kräftiger = tippt ähnlicher.">
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              <th style={{ position: 'sticky', left: 0, background: 'var(--surface)' }} />
-              {players.map(p => (
-                <th key={p} title={p} style={{ width: SIZE, verticalAlign: 'bottom', padding: '0 0 6px', fontWeight: 400 }}>
-                  <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: 10, color: 'var(--text-dim)', whiteSpace: 'nowrap', margin: '0 auto' }}>{p}</div>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {players.map(a => (
-              <tr key={a}>
-                <td style={{ position: 'sticky', left: 0, background: 'var(--surface)', fontSize: 12, color: 'var(--text-secondary)', padding: '2px 8px 2px 0', whiteSpace: 'nowrap' }}>{a}</td>
-                {players.map(b => {
-                  if (a === b) return <td key={b} style={{ padding: 0 }}><div style={square({ background: 'var(--surface-alt)' })} /></td>
-                  const s = sim(a, b)
-                  return (
-                    <td key={b} style={{ padding: 0 }} title={s ? `${a} ↔ ${b}: ${Math.round(s.rate * 100)}% von ${s.common} Spielen` : 'keine gemeinsamen Spiele'}>
-                      <div style={square({ color: s && s.rate > 0.5 ? 'var(--text-primary)' : 'var(--text-secondary)', background: s ? `rgba(110, 130, 255, ${0.12 + 0.7 * s.rate})` : 'transparent' })}>
-                        {s ? Math.round(s.rate * 100) : '–'}
-                      </div>
-                    </td>
-                  )
-                })}
-              </tr>
+    <StatCard title="Tipp-Zwillinge" hint="Anteil gemeinsam getippter Spiele mit identischem Ergebnis-Tipp. Grün → Gelb → Rot: Rot = tippt am ähnlichsten.">
+      <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse' }}>
+        <colgroup>
+          <col style={{ width: 84 }} />
+          {players.map(p => <col key={p} />)}
+        </colgroup>
+        <thead>
+          <tr>
+            <th />
+            {players.map(p => (
+              <th key={p} title={p} style={{ verticalAlign: 'bottom', padding: '0 0 6px', fontWeight: 400 }}>
+                <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: 10, color: 'var(--text-dim)', whiteSpace: 'nowrap', margin: '0 auto' }}>{p}</div>
+              </th>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </tr>
+        </thead>
+        <tbody>
+          {players.map(a => (
+            <tr key={a}>
+              <td style={{ fontSize: 11, color: 'var(--text-secondary)', padding: '0 6px 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a}</td>
+              {players.map(b => {
+                if (a === b) return <td key={b} style={{ padding: 0 }}><div style={cellDiv({ background: 'var(--surface-alt)' })} /></td>
+                const s = sim(a, b)
+                return (
+                  <td key={b} style={{ padding: 0 }} title={s ? `${a} ↔ ${b}: ${Math.round(s.rate * 100)}% von ${s.common} Spielen` : 'keine gemeinsamen Spiele'}>
+                    <div style={cellDiv({ color: s ? '#15202b' : 'var(--text-dim)', background: s ? heat(s.rate) : 'transparent' })}>
+                      {s ? Math.round(s.rate * 100) : '–'}
+                    </div>
+                  </td>
+                )
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </StatCard>
   )
 }
