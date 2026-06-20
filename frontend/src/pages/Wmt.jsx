@@ -1018,7 +1018,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v3.57</span>
+          <span className="topbar-version">v3.58</span>
         </div>
       </div>
 
@@ -2167,67 +2167,6 @@ function TipLegendInline() {
   )
 }
 
-// Trefferbilanz aller Mitspieler — eine Zeile pro Spieler, sortiert nach Punkten.
-function TipSummaryTable({ matches, opponentTips }) {
-  const matchById = {}
-  for (const m of matches) matchById[m.id] = m
-
-  const stats = {}
-  for (const t of opponentTips) {
-    const m = matchById[t.match_id]
-    if (!m) continue
-    const cat = classifyTip(m, t)
-    if (!cat) continue
-    if (!stats[t.player_name]) stats[t.player_name] = { exact: 0, diff: 0, tendency: 0, wrong: 0 }
-    stats[t.player_name][cat]++
-  }
-
-  const rows = Object.entries(stats).map(([player, s]) => ({
-    player,
-    ...s,
-    points: TIP_CATEGORIES.reduce((sum, [key, , pts]) => sum + s[key] * pts, 0),
-  }))
-  if (rows.length === 0) return null
-  rows.sort((a, b) => b.points - a.points || b.exact - a.exact || a.player.localeCompare(b.player))
-
-  const th = { fontSize: 10, color: 'var(--text-dim)', fontWeight: 400, padding: '0 8px 6px 0', whiteSpace: 'nowrap', textAlign: 'left' }
-  const td = { fontSize: 12, padding: '5px 8px 5px 0', textAlign: 'left', color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }
-
-  return (
-    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 16px' }}>
-      <div style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 500, marginBottom: 10 }}>Trefferbilanz</div>
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              <th style={{ ...th, textAlign: 'left' }}>Spieler</th>
-              {TIP_CATEGORIES.map(([key, label]) => (
-                <th key={key} style={th}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                    <span style={{ width: 9, height: 9, borderRadius: 2, background: TIP_OVERLAYS[key], border: '1px solid var(--border)', flexShrink: 0 }} />
-                    {label}
-                  </span>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(r => (
-              <tr key={r.player} style={{ borderTop: '1px solid var(--border)' }}>
-                <td style={{ ...td, textAlign: 'left' }}>{r.player}</td>
-                <td style={td}>{r.exact}</td>
-                <td style={td}>{r.diff}</td>
-                <td style={td}>{r.tendency}</td>
-                <td style={td}>{r.wrong}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  )
-}
-
 // Calendar-day key (YYYY-MM-DD) in US local time. The 2026 WC is hosted in
 // the US/Mexico/Canada; we anchor "day" to US Pacific. With Pacific the whole
 // German 18:00→06:00 broadcast window maps onto one calendar day (≈09:00–21:00
@@ -2532,7 +2471,7 @@ function PointsGapChart({ snapshots, matches }) {
 }
 
 // ── 2. Treffergüte (stacked bars) ─────────────────────────────────────────
-function HitQualityBars({ matches, opponentTips }) {
+function TrefferguteCard({ matches, opponentTips }) {
   const byId = {}
   for (const m of matches) byId[m.id] = m
   const stat = {}
@@ -2552,24 +2491,48 @@ function HitQualityBars({ matches, opponentTips }) {
   if (!rows.length) return null
   rows.sort((a, b) => b.points - a.points || a.player.localeCompare(b.player))
 
+  const num = { fontSize: 12, padding: '4px 6px', textAlign: 'center', color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }
+
   return (
-    <StatCard title="Treffergüte" hint="Anteil exakter Treffer, Tordifferenz, Tendenz und Fehltipps je Spieler.">
-      <TipLegendInline />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {rows.map(r => (
-          <div key={r.player} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 12, color: 'var(--text-secondary)', width: 96, flexShrink: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.player}</span>
-            <div style={{ flex: 1, display: 'flex', height: 16, borderRadius: 4, overflow: 'hidden', background: 'var(--surface-alt)' }}>
-              {TIP_CATEGORIES.map(([key]) => (
-                r[key] > 0 ? (
-                  <div key={key} title={`${CATEGORY_BY_KEY[key].label}: ${r[key]}`}
-                    style={{ width: `${(r[key] / r.total) * 100}%`, background: TIP_OVERLAYS[key] }} />
-                ) : null
+    <StatCard title="Treffergüte" hint="Exakte Treffer, Tordifferenz, Tendenz und Fehltipps je Spieler — als Zahl und als Verteilungsbalken.">
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr>
+              <th style={{ textAlign: 'left', fontSize: 10, color: 'var(--text-dim)', fontWeight: 400, padding: '0 8px 6px 0', verticalAlign: 'bottom', whiteSpace: 'nowrap' }}>Spieler</th>
+              {TIP_CATEGORIES.map(([key, label]) => (
+                <th key={key} style={{ verticalAlign: 'bottom', padding: '0 4px 6px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                    <span style={{ width: 10, height: 10, borderRadius: 2, background: TIP_OVERLAYS[key], border: '1px solid var(--border)', flexShrink: 0 }} />
+                    <span style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: 10, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>{label}</span>
+                  </div>
+                </th>
               ))}
-            </div>
-            <span style={{ fontSize: 12, color: 'var(--text-primary)', fontWeight: 500, width: 34, textAlign: 'right', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{r.points}</span>
-          </div>
-        ))}
+              <th style={{ width: '100%' }} />
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(r => (
+              <tr key={r.player} style={{ borderTop: '1px solid var(--border)' }}>
+                <td style={{ fontSize: 12, color: 'var(--text-primary)', padding: '4px 8px 4px 0', whiteSpace: 'nowrap' }}>{r.player}</td>
+                <td style={num}>{r.exact}</td>
+                <td style={num}>{r.diff}</td>
+                <td style={num}>{r.tendency}</td>
+                <td style={num}>{r.wrong}</td>
+                <td style={{ width: '100%', padding: '4px 0 4px 10px' }}>
+                  <div style={{ display: 'flex', height: 14, borderRadius: 4, overflow: 'hidden', background: 'var(--surface-alt)' }}>
+                    {TIP_CATEGORIES.map(([key]) => (
+                      r[key] > 0 ? (
+                        <div key={key} title={`${CATEGORY_BY_KEY[key].label}: ${r[key]}`}
+                          style={{ width: `${(r[key] / r.total) * 100}%`, background: TIP_OVERLAYS[key] }} />
+                      ) : null
+                    ))}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </StatCard>
   )
@@ -2883,9 +2846,7 @@ function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
 
       <DayWinnerLoserCard matches={matches} opponentTips={opponentTips} />
 
-      <HitQualityBars matches={matches} opponentTips={opponentTips} />
-
-      <TipSummaryTable matches={matches} opponentTips={opponentTips} />
+      <TrefferguteCard matches={matches} opponentTips={opponentTips} />
 
       <PointsPerDayHeatmap matches={matches} opponentTips={opponentTips} />
       <TwinsHeatmap opponentTips={opponentTips} />
