@@ -1018,7 +1018,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v3.60</span>
+          <span className="topbar-version">v3.61</span>
         </div>
       </div>
 
@@ -2834,9 +2834,9 @@ function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={equalButtonGrid(['Statistiken', 'Spielergebnisse'])}>
+      <div style={equalButtonGrid(['Statistiken', 'Einzelergebnisse'])}>
         {pill('stats', 'Statistiken')}
-        {pill('results', 'Spielergebnisse')}
+        {pill('results', 'Einzelergebnisse')}
       </div>
 
       {sub === 'stats' && (<>
@@ -2902,7 +2902,10 @@ function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
             )}
 
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8 }}>
-              Tipp-Verteilung: {tally.home}× Heimsieg · {tally.draw}× Unentschieden · {tally.away}× Auswärtssieg
+              Tipp-Verteilung:
+              <div>{tally.home}× Heimsieg</div>
+              <div>{tally.draw}× Unentschieden</div>
+              <div>{tally.away}× Auswärtssieg</div>
             </div>
 
             {m.status === 'FINISHED' && <TipLegendInline />}
