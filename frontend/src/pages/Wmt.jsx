@@ -51,6 +51,15 @@ function equalButtonGrid(labels) {
   return { display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(${minPx}px, 1fr))`, gap: 6 }
 }
 
+// Style for a clickable player-name legend: fixed-width aligned columns (so the
+// colour boxes line up vertically) sized to the longest name, left-aligned and
+// not stretched. Fewer columns per row than free-flow wrapping, but tidy.
+function legendGrid(players) {
+  const maxLen = players.reduce((m, p) => Math.max(m, p.length), 0)
+  const colPx = Math.max(96, maxLen * 7 + 30)
+  return { display: 'grid', gridTemplateColumns: `repeat(auto-fill, ${colPx}px)`, justifyItems: 'start', gap: '6px 14px', marginTop: 10 }
+}
+
 function formatDate(utcStr) {
   if (!utcStr) return ''
   const d = new Date(utcStr)
@@ -1008,7 +1017,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v3.54</span>
+          <span className="topbar-version">v3.56</span>
         </div>
       </div>
 
@@ -2090,7 +2099,7 @@ function RankingChart({ snapshots, matches }) {
           Alle ausblenden
         </button>
       </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 14px', marginTop: 10 }}>
+      <div style={legendGrid(players)}>
         {players.map((p, pi) => (
           <div
             key={p}
@@ -2502,7 +2511,7 @@ function PointsGapChart({ snapshots, matches }) {
           Alle ausblenden
         </button>
       </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 14px', marginTop: 10 }}>
+      <div style={legendGrid(players)}>
         {players.map(p => (
           <div
             key={p}
@@ -2869,13 +2878,14 @@ function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
       {sub === 'stats' && (<>
       <RankingChart snapshots={rankingSnapshots} matches={matches} />
 
+      <PointsGapChart snapshots={rankingSnapshots} matches={matches} />
+
+      <DayWinnerLoserCard matches={matches} opponentTips={opponentTips} />
+
       <HitQualityBars matches={matches} opponentTips={opponentTips} />
 
       <TipSummaryTable matches={matches} opponentTips={opponentTips} />
 
-      <DayWinnerLoserCard matches={matches} opponentTips={opponentTips} />
-
-      <PointsGapChart snapshots={rankingSnapshots} matches={matches} />
       <PointsPerDayHeatmap matches={matches} opponentTips={opponentTips} />
       <TwinsHeatmap opponentTips={opponentTips} />
       <RiskProfile opponentTips={opponentTips} />
