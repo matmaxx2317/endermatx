@@ -998,7 +998,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v3.51</span>
+          <span className="topbar-version">v3.52</span>
         </div>
       </div>
 
@@ -2766,6 +2766,23 @@ function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
   // On the opponents-only mirror the ELO tip is hidden so fellow players
   // don't see the model's prediction for past games.
   const wmtOnly = isWmtOnlyDomain()
+  // Two subpages (both shown on every domain): aggregate stats vs. the
+  // per-match tip results. Pills styled like the Spieltage stage selector.
+  const [sub, setSub] = useState('stats')
+  const pill = (key, label) => (
+    <button
+      key={key}
+      onClick={() => setSub(key)}
+      style={{
+        background: sub === key ? 'var(--border)' : 'none',
+        border: `1px solid ${sub === key ? 'var(--border-hover)' : 'var(--border)'}`,
+        color: sub === key ? 'var(--text-primary)' : 'var(--text-secondary)',
+        borderRadius: 6, padding: '4px 10px', fontSize: 11,
+        cursor: 'pointer', fontFamily: 'inherit',
+      }}>
+      {label}
+    </button>
+  )
   const matchById = {}
   for (const m of matches) matchById[m.id] = m
 
@@ -2783,6 +2800,12 @@ function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        {pill('stats', 'Statistiken')}
+        {pill('results', 'Spielergebnisse')}
+      </div>
+
+      {sub === 'stats' && (<>
       <RankingChart snapshots={rankingSnapshots} matches={matches} />
 
       <HitQualityBars matches={matches} opponentTips={opponentTips} />
@@ -2796,7 +2819,9 @@ function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
       <TwinsHeatmap opponentTips={opponentTips} />
       <RiskProfile opponentTips={opponentTips} />
       <BoldnessCard matches={matches} opponentTips={opponentTips} />
+      </>)}
 
+      {sub === 'results' && (<>
       {matchIds.length === 0 ? (
         // Opponents-only mirror: don't leak the screenshot-import workflow —
         // just show nothing until tips exist (e.g. during a Railway deploy).
@@ -2864,6 +2889,7 @@ function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
           </div>
         )
       })}
+      </>)}
     </div>
   )
 }
