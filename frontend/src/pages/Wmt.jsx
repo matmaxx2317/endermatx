@@ -998,7 +998,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v3.49</span>
+          <span className="topbar-version">v3.50</span>
         </div>
       </div>
 
@@ -2357,6 +2357,7 @@ function PointsGapChart({ snapshots, matches }) {
   // scroll / shrink-to-fit and made the height change barely visible).
   const wrapRef = useRef(null)
   const [width, setWidth] = useState(680)
+  const [zoom, setZoom] = useState(1)
   useEffect(() => {
     const measure = () => { if (wrapRef.current) setWidth(Math.max(300, wrapRef.current.clientWidth)) }
     measure()
@@ -2401,8 +2402,9 @@ function PointsGapChart({ snapshots, matches }) {
   }
 
   const H = 360, padL = 34, padR = 84, padT = 12, padB = 22
-  const W = width
-  const plotW = W - padL - padR, plotH = H - padT - padB
+  const plotW = (width - padL - padR) * zoom
+  const W = padL + plotW + padR
+  const plotH = H - padT - padB
   const axisMax = totalMatches + 8
   const xPos = g => padL + (axisMax === 0 ? 0 : (g / axisMax) * plotW)
   const yPos = gap => padT + (gap / maxGap) * plotH
@@ -2423,7 +2425,11 @@ function PointsGapChart({ snapshots, matches }) {
 
   return (
     <StatCard title="Punkte-Rückstand zum Spitzenreiter" hint="Abstand in Punkten zur Tabellenspitze über den Turnierverlauf — die Linie ganz oben führt.">
-      <div ref={wrapRef} style={{ width: '100%' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Zoom</span>
+        <input type="range" min={1} max={5} step={0.5} value={zoom} onChange={e => setZoom(Number(e.target.value))} style={{ width: 80 }} />
+      </div>
+      <div ref={wrapRef} style={{ overflowX: 'auto' }}>
         <svg width={W} height={H} style={{ display: 'block' }}>
           {gridLines.map(g => (
             <g key={g}>
