@@ -41,6 +41,16 @@ function statusColor(s) { return STATUS_COLORS[s] ?? STATUS_COLORS.default }
 
 function stageLabel(s) { return STAGE_LABELS[s] ?? s.replace(/_/g, ' ') }
 
+// Style for a row of equal-width buttons that fill the full content width and
+// wrap into a grid when needed. Every button is at least as wide as the longest
+// label (so text never wraps) and stretches equally to align with the card
+// borders, instead of each button sizing to its own text.
+function equalButtonGrid(labels) {
+  const maxLen = labels.reduce((m, l) => Math.max(m, String(l).length), 0)
+  const minPx = Math.max(72, maxLen * 8 + 24)
+  return { display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(${minPx}px, 1fr))`, gap: 6 }
+}
+
 function formatDate(utcStr) {
   if (!utcStr) return ''
   const d = new Date(utcStr)
@@ -998,7 +1008,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v3.53</span>
+          <span className="topbar-version">v3.54</span>
         </div>
       </div>
 
@@ -1123,9 +1133,8 @@ export default function Wmt() {
 
       <div className="page">
         {/* view tabs (hidden on the opponents-only mirror) */}
-        {!wmtOnly && (
-        <div style={{ display: 'flex', gap: 6, marginBottom: 20, flexWrap: 'wrap' }}>
-          {[
+        {!wmtOnly && (() => {
+          const tabs = [
             ['import', 'Import'],
             ['spieltage', 'Spieltage'],
             ['gruppen', 'Gruppen-Tabellen'],
@@ -1133,22 +1142,26 @@ export default function Wmt() {
             ['bonus', 'Bonus-Tipps'],
             ['zusammenfassung', 'Morgenberichte'],
             ...(isUpdateLogDomain() ? [['updatelog', 'Update-Log']] : []),
-          ].map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => setView(key)}
-              style={{
-                background: view === key ? 'var(--border)' : 'none',
-                border: `1px solid ${view === key ? 'var(--border-hover)' : 'var(--border)'}`,
-                color: view === key ? 'var(--text-primary)' : 'var(--text-dim)',
-                borderRadius: 6, padding: '5px 12px', fontSize: 12,
-                cursor: 'pointer', fontFamily: 'inherit',
-              }}>
-              {label}{key === 'import' && logs.length > 0 && <span style={{ color: 'var(--text-dim)', marginLeft: 4 }}>{logs.length}</span>}
-            </button>
-          ))}
-        </div>
-        )}
+          ]
+          return (
+            <div style={{ ...equalButtonGrid(tabs.map(t => t[1])), marginBottom: 20 }}>
+              {tabs.map(([key, label]) => (
+                <button
+                  key={key}
+                  onClick={() => setView(key)}
+                  style={{
+                    background: view === key ? 'var(--border)' : 'none',
+                    border: `1px solid ${view === key ? 'var(--border-hover)' : 'var(--border)'}`,
+                    color: view === key ? 'var(--text-primary)' : 'var(--text-dim)',
+                    borderRadius: 6, padding: '5px 12px', fontSize: 12,
+                    cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
+                  }}>
+                  {label}{key === 'import' && logs.length > 0 && <span style={{ color: 'var(--text-dim)', marginLeft: 4 }}>{logs.length}</span>}
+                </button>
+              ))}
+            </div>
+          )
+        })()}
 
         {loading && view !== 'import' && view !== 'updatelog' && (
           wmtOnly ? (
@@ -1210,7 +1223,7 @@ export default function Wmt() {
             ) : (
               <>
                 {/* matchday / stage selector */}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 20 }}>
+                <div style={{ ...equalButtonGrid(groupKeys.map(groupLabel)), marginBottom: 20 }}>
                   {groupKeys.map(k => {
                     const kMatches  = grouped[k] ?? []
                     const hasLive   = kMatches.some(m => m.status === 'IN_PLAY' || m.status === 'PAUSED')
@@ -1225,7 +1238,7 @@ export default function Wmt() {
                           border: `1px solid ${hasLive ? '#4d8a4d' : isSelected ? 'var(--border-hover)' : 'var(--border)'}`,
                           color: isSelected ? 'var(--text-primary)' : allDone ? 'var(--text-dim)' : 'var(--text-secondary)',
                           borderRadius: 6, padding: '4px 10px', fontSize: 11,
-                          cursor: 'pointer', fontFamily: 'inherit',
+                          cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
                         }}>
                         {groupLabel(k)}
                       </button>
@@ -2357,7 +2370,7 @@ function PointsGapChart({ snapshots, matches }) {
   // scroll / shrink-to-fit and made the height change barely visible).
   const wrapRef = useRef(null)
   const [width, setWidth] = useState(680)
-  const [zoom, setZoom] = useState(1)
+  const [zoom, setZoom] = useState(3)
   useEffect(() => {
     const measure = () => { if (wrapRef.current) setWidth(Math.max(300, wrapRef.current.clientWidth)) }
     measure()
@@ -2826,7 +2839,7 @@ function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
         border: `1px solid ${sub === key ? 'var(--border-hover)' : 'var(--border)'}`,
         color: sub === key ? 'var(--text-primary)' : 'var(--text-secondary)',
         borderRadius: 6, padding: '4px 10px', fontSize: 11,
-        cursor: 'pointer', fontFamily: 'inherit',
+        cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
       }}>
       {label}
     </button>
@@ -2848,7 +2861,7 @@ function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+      <div style={equalButtonGrid(['Statistiken', 'Spielergebnisse'])}>
         {pill('stats', 'Statistiken')}
         {pill('results', 'Spielergebnisse')}
       </div>
