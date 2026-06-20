@@ -1018,7 +1018,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v3.59</span>
+          <span className="topbar-version">v3.60</span>
         </div>
       </div>
 
@@ -1845,7 +1845,7 @@ function RankingChart({ snapshots, matches }) {
   const players = [...new Set(snapshots.map(s => s.player_name))].sort()
 
   const [selected, setSelected] = useState(null)
-  const [zoom, setZoom] = useState(5)
+  const [zoom, setZoom] = useState(3)
 
   // The chart stretches to fill the remaining viewport height (handy on mobile,
   // where vertical space is the constraint). We measure where the plot area
