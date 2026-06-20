@@ -1018,7 +1018,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v3.62</span>
+          <span className="topbar-version">v3.63</span>
         </div>
       </div>
 
@@ -1910,8 +1910,15 @@ function RankingChart({ snapshots, matches }) {
     if (didAutoScroll.current) return
     const sc = scrollRef.current
     if (!sc || sc.scrollWidth <= sc.clientWidth) return
+    const circles = sc.querySelectorAll('circle')
+    if (circles.length === 0) return
     didAutoScroll.current = true
-    sc.scrollLeft = sc.scrollWidth - sc.clientWidth
+    let maxCx = 0
+    circles.forEach(c => {
+      const cx = parseFloat(c.getAttribute('cx'))
+      if (cx > maxCx) maxCx = cx
+    })
+    sc.scrollLeft = Math.max(0, maxCx + 80 - sc.clientWidth)
   })
 
   // Each snapshot represents a moment in time — an exact `snapshot_time` if set,
