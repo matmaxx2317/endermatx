@@ -1018,7 +1018,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v3.61</span>
+          <span className="topbar-version">v3.62</span>
         </div>
       </div>
 
@@ -1853,6 +1853,7 @@ function RankingChart({ snapshots, matches }) {
   // the screen to the SVG — clamped so it never collapses on tiny screens.
   const scrollRef = useRef(null)
   const belowRef = useRef(null)
+  const didAutoScroll = useRef(false)
   const [svgH, setSvgH] = useState(440)
 
   useEffect(() => {
@@ -1904,6 +1905,14 @@ function RankingChart({ snapshots, matches }) {
       return next
     })
   }, [players.join(',')])
+
+  useEffect(() => {
+    if (didAutoScroll.current) return
+    const sc = scrollRef.current
+    if (!sc || sc.scrollWidth <= sc.clientWidth) return
+    didAutoScroll.current = true
+    sc.scrollLeft = sc.scrollWidth - sc.clientWidth
+  })
 
   // Each snapshot represents a moment in time — an exact `snapshot_time` if set,
   // otherwise the earlier of "when it was imported" (captured_at) and "end of its
