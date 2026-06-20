@@ -51,13 +51,14 @@ function equalButtonGrid(labels) {
   return { display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(${minPx}px, 1fr))`, gap: 6 }
 }
 
-// Style for a clickable player-name legend: fixed-width aligned columns (so the
-// colour boxes line up vertically) sized to the longest name, left-aligned and
-// not stretched. Fewer columns per row than free-flow wrapping, but tidy.
+// Style for a clickable player-name legend: aligned columns (so the colour
+// boxes line up vertically), left-aligned and not stretched. The column min is
+// kept tight (≈ longest name) so at least three fit per row on a phone; tracks
+// stretch to fill the width and the items themselves stay left-aligned.
 function legendGrid(players) {
   const maxLen = players.reduce((m, p) => Math.max(m, p.length), 0)
-  const colPx = Math.max(96, maxLen * 7 + 30)
-  return { display: 'grid', gridTemplateColumns: `repeat(auto-fill, ${colPx}px)`, justifyItems: 'start', gap: '6px 14px', marginTop: 10 }
+  const colPx = Math.max(78, maxLen * 6 + 4)
+  return { display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${colPx}px, 1fr))`, justifyItems: 'start', gap: '6px 8px', marginTop: 10 }
 }
 
 function formatDate(utcStr) {
@@ -1017,7 +1018,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v3.56</span>
+          <span className="topbar-version">v3.57</span>
         </div>
       </div>
 
