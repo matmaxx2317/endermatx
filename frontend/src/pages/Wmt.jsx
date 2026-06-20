@@ -1017,7 +1017,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v3.55</span>
+          <span className="topbar-version">v3.56</span>
         </div>
       </div>
 
@@ -2878,13 +2878,14 @@ function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
       {sub === 'stats' && (<>
       <RankingChart snapshots={rankingSnapshots} matches={matches} />
 
+      <PointsGapChart snapshots={rankingSnapshots} matches={matches} />
+
+      <DayWinnerLoserCard matches={matches} opponentTips={opponentTips} />
+
       <HitQualityBars matches={matches} opponentTips={opponentTips} />
 
       <TipSummaryTable matches={matches} opponentTips={opponentTips} />
 
-      <DayWinnerLoserCard matches={matches} opponentTips={opponentTips} />
-
-      <PointsGapChart snapshots={rankingSnapshots} matches={matches} />
       <PointsPerDayHeatmap matches={matches} opponentTips={opponentTips} />
       <TwinsHeatmap opponentTips={opponentTips} />
       <RiskProfile opponentTips={opponentTips} />
