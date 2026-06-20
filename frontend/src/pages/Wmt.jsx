@@ -1018,7 +1018,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v3.64</span>
+          <span className="topbar-version">v3.65</span>
         </div>
       </div>
 
@@ -3088,9 +3088,11 @@ function ScoreDiversityCard({ opponentTips }) {
   }
 
   const rows = Object.entries(byPlayer).map(([player, d]) => {
-    const segs = Object.entries(d.scores).sort((a, b) => b[1] - a[1])
-    const top = segs[0]
-    return { player, n: d.n, distinct: segs.length, segs, topScore: top[0], topShare: top[1] / d.n }
+    // Order segments by global scoreline frequency (topScores), not each
+    // player's own count, so a given scoreline sits at the same position in
+    // every player's bar and the colours line up across rows.
+    const segs = topScores.filter(k => d.scores[k]).map(k => [k, d.scores[k]])
+    return { player, n: d.n, distinct: segs.length, segs }
   })
   if (!rows.length) return null
   // Most diverse tippers first (most distinct scorelines), then alphabetical.
