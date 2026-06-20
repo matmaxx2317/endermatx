@@ -1018,7 +1018,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v3.65</span>
+          <span className="topbar-version">v3.66</span>
         </div>
       </div>
 
@@ -2735,11 +2735,10 @@ function PointsPerDayHeatmap({ matches, opponentTips }) {
               {days.map(d => (
                 <th key={d} style={{ ...cell, fontSize: 9, color: 'var(--text-dim)', fontWeight: 400, paddingBottom: 6 }}>{ddmm(d)}</th>
               ))}
-              <th style={{ ...cell, fontSize: 9, color: 'var(--text-dim)', fontWeight: 400, paddingBottom: 6 }}>Σ</th>
             </tr>
           </thead>
           <tbody>
-            {order.map(({ p, total }) => (
+            {order.map(({ p }) => (
               <tr key={p}>
                 <td style={{ position: 'sticky', left: 0, background: 'var(--surface)', fontSize: 12, color: 'var(--text-secondary)', padding: '2px 8px 2px 0', whiteSpace: 'nowrap' }}>{p}</td>
                 {days.map(d => {
@@ -2748,7 +2747,6 @@ function PointsPerDayHeatmap({ matches, opponentTips }) {
                     <td key={d} style={{ ...cell, color: '#15202b', background: heat(v / maxDay) }}>{v}</td>
                   )
                 })}
-                <td style={{ ...cell, color: 'var(--text-primary)', fontWeight: 500 }}>{total}</td>
               </tr>
             ))}
           </tbody>
