@@ -998,7 +998,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v3.48</span>
+          <span className="topbar-version">v3.51</span>
         </div>
       </div>
 
@@ -2186,7 +2186,6 @@ function TipSummaryTable({ matches, opponentTips }) {
                   </span>
                 </th>
               ))}
-              <th style={th}>Pkt</th>
             </tr>
           </thead>
           <tbody>
@@ -2197,7 +2196,6 @@ function TipSummaryTable({ matches, opponentTips }) {
                 <td style={td}>{r.diff}</td>
                 <td style={td}>{r.tendency}</td>
                 <td style={td}>{r.wrong}</td>
-                <td style={{ ...td, color: 'var(--text-primary)', fontWeight: 500 }}>{r.points}</td>
               </tr>
             ))}
           </tbody>
@@ -2359,6 +2357,7 @@ function PointsGapChart({ snapshots, matches }) {
   // scroll / shrink-to-fit and made the height change barely visible).
   const wrapRef = useRef(null)
   const [width, setWidth] = useState(680)
+  const [zoom, setZoom] = useState(1)
   useEffect(() => {
     const measure = () => { if (wrapRef.current) setWidth(Math.max(300, wrapRef.current.clientWidth)) }
     measure()
@@ -2403,8 +2402,9 @@ function PointsGapChart({ snapshots, matches }) {
   }
 
   const H = 360, padL = 34, padR = 84, padT = 12, padB = 22
-  const W = width
-  const plotW = W - padL - padR, plotH = H - padT - padB
+  const plotW = (width - padL - padR) * zoom
+  const W = padL + plotW + padR
+  const plotH = H - padT - padB
   const axisMax = totalMatches + 8
   const xPos = g => padL + (axisMax === 0 ? 0 : (g / axisMax) * plotW)
   const yPos = gap => padT + (gap / maxGap) * plotH
@@ -2425,7 +2425,11 @@ function PointsGapChart({ snapshots, matches }) {
 
   return (
     <StatCard title="Punkte-Rückstand zum Spitzenreiter" hint="Abstand in Punkten zur Tabellenspitze über den Turnierverlauf — die Linie ganz oben führt.">
-      <div ref={wrapRef} style={{ width: '100%' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Zoom</span>
+        <input type="range" min={1} max={5} step={0.5} value={zoom} onChange={e => setZoom(Number(e.target.value))} style={{ width: 80 }} />
+      </div>
+      <div ref={wrapRef} style={{ overflowX: 'auto' }}>
         <svg width={W} height={H} style={{ display: 'block' }}>
           {gridLines.map(g => (
             <g key={g}>
@@ -2509,10 +2513,20 @@ function PointsPerDayHeatmap({ matches, opponentTips }) {
     .sort((a, b) => b.total - a.total || a.p.localeCompare(b.p))
   const maxDay = Math.max(1, ...players.flatMap(p => days.map(d => pts[p][d])))
 
+  // Red → yellow → green heat scale: low score red, high score green.
+  const heat = t => {
+    const stops = [[231, 76, 60], [241, 196, 15], [46, 204, 113]] // rot, gelb, grün
+    const seg = t < 0.5 ? 0 : 1
+    const f = t < 0.5 ? t / 0.5 : (t - 0.5) / 0.5
+    const c0 = stops[seg], c1 = stops[seg + 1]
+    const ch = i => Math.round(c0[i] + (c1[i] - c0[i]) * f)
+    return `rgb(${ch(0)}, ${ch(1)}, ${ch(2)})`
+  }
+
   const cell = { width: 30, height: 22, fontSize: 11, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }
 
   return (
-    <StatCard title="Punkte pro Spieltag" hint="Punkteausbeute je Spieler und Spieltag — kräftigeres Grün = mehr Punkte.">
+    <StatCard title="Punkte pro Spieltag" hint="Punkteausbeute je Spieler und Spieltag — Rot = wenig, Grün = viele Punkte.">
       <div style={{ overflowX: 'auto' }}>
         <table style={{ borderCollapse: 'collapse' }}>
           <thead>
@@ -2531,7 +2545,7 @@ function PointsPerDayHeatmap({ matches, opponentTips }) {
                 {days.map(d => {
                   const v = pts[p][d]
                   return (
-                    <td key={d} style={{ ...cell, color: v > 0 ? 'var(--text-primary)' : 'var(--text-dim)', background: v > 0 ? `rgba(77, 138, 77, ${0.15 + 0.6 * (v / maxDay)})` : 'transparent', borderRadius: 4 }}>{v}</td>
+                    <td key={d} style={{ ...cell, color: '#15202b', background: heat(v / maxDay), borderRadius: 4 }}>{v}</td>
                   )
                 })}
                 <td style={{ ...cell, color: 'var(--text-primary)', fontWeight: 500 }}>{total}</td>
@@ -2771,12 +2785,13 @@ function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <RankingChart snapshots={rankingSnapshots} matches={matches} />
 
+      <HitQualityBars matches={matches} opponentTips={opponentTips} />
+
       <TipSummaryTable matches={matches} opponentTips={opponentTips} />
 
       <DayWinnerLoserCard matches={matches} opponentTips={opponentTips} />
 
       <PointsGapChart snapshots={rankingSnapshots} matches={matches} />
-      <HitQualityBars matches={matches} opponentTips={opponentTips} />
       <PointsPerDayHeatmap matches={matches} opponentTips={opponentTips} />
       <TwinsHeatmap opponentTips={opponentTips} />
       <RiskProfile opponentTips={opponentTips} />
