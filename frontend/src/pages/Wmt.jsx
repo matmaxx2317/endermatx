@@ -998,7 +998,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v3.48</span>
+          <span className="topbar-version">v3.49</span>
         </div>
       </div>
 
@@ -2186,7 +2186,6 @@ function TipSummaryTable({ matches, opponentTips }) {
                   </span>
                 </th>
               ))}
-              <th style={th}>Pkt</th>
             </tr>
           </thead>
           <tbody>
@@ -2197,7 +2196,6 @@ function TipSummaryTable({ matches, opponentTips }) {
                 <td style={td}>{r.diff}</td>
                 <td style={td}>{r.tendency}</td>
                 <td style={td}>{r.wrong}</td>
-                <td style={{ ...td, color: 'var(--text-primary)', fontWeight: 500 }}>{r.points}</td>
               </tr>
             ))}
           </tbody>
@@ -2771,12 +2769,13 @@ function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <RankingChart snapshots={rankingSnapshots} matches={matches} />
 
+      <HitQualityBars matches={matches} opponentTips={opponentTips} />
+
       <TipSummaryTable matches={matches} opponentTips={opponentTips} />
 
       <DayWinnerLoserCard matches={matches} opponentTips={opponentTips} />
 
       <PointsGapChart snapshots={rankingSnapshots} matches={matches} />
-      <HitQualityBars matches={matches} opponentTips={opponentTips} />
       <PointsPerDayHeatmap matches={matches} opponentTips={opponentTips} />
       <TwinsHeatmap opponentTips={opponentTips} />
       <RiskProfile opponentTips={opponentTips} />
