@@ -1018,7 +1018,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v3.58</span>
+          <span className="topbar-version">v3.60</span>
         </div>
       </div>
 
@@ -1845,7 +1845,7 @@ function RankingChart({ snapshots, matches }) {
   const players = [...new Set(snapshots.map(s => s.player_name))].sort()
 
   const [selected, setSelected] = useState(null)
-  const [zoom, setZoom] = useState(5)
+  const [zoom, setZoom] = useState(3)
 
   // The chart stretches to fill the remaining viewport height (handy on mobile,
   // where vertical space is the constraint). We measure where the plot area
@@ -2503,8 +2503,8 @@ function TrefferguteCard({ matches, opponentTips }) {
               {TIP_CATEGORIES.map(([key, label]) => (
                 <th key={key} style={{ verticalAlign: 'bottom', padding: '0 4px 6px' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                    <span style={{ width: 10, height: 10, borderRadius: 2, background: TIP_OVERLAYS[key], border: '1px solid var(--border)', flexShrink: 0 }} />
                     <span style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: 10, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>{label}</span>
+                    <span style={{ width: 10, height: 10, borderRadius: 2, background: TIP_OVERLAYS[key], border: '1px solid var(--border)', flexShrink: 0 }} />
                   </div>
                 </th>
               ))}
