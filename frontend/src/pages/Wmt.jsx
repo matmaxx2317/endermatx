@@ -998,7 +998,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v3.51</span>
+          <span className="topbar-version">v3.53</span>
         </div>
       </div>
 
@@ -2366,8 +2366,25 @@ function PointsGapChart({ snapshots, matches }) {
   }, [snapshots.length])
 
   const players = [...new Set(snapshots.map(s => s.player_name))].sort()
+
+  // Clickable legend: which players' lines are shown (same model as Rangverlauf).
+  const [selected, setSelected] = useState(null)
+  useEffect(() => {
+    setSelected(prev => {
+      if (prev === null) return new Set(players)
+      const next = new Set([...prev].filter(p => players.includes(p)))
+      for (const p of players) if (!prev.has(p)) next.add(p)
+      return next
+    })
+  }, [players.join(',')])
+  const togglePlayer = p => setSelected(prev => {
+    const next = new Set(prev)
+    if (next.has(p)) next.delete(p); else next.add(p)
+    return next
+  })
+
   const dateCount = new Set(snapshots.map(s => s.date)).size
-  if (dateCount < 2 || players.length === 0) return null
+  if (dateCount < 2 || players.length === 0 || selected === null) return null
 
   const effectiveTime = s => {
     if (s.snapshot_time) return s.snapshot_time
@@ -2415,6 +2432,7 @@ function PointsGapChart({ snapshots, matches }) {
 
   const ends = {}
   for (const p of players) {
+    if (!selected.has(p)) continue
     const pts = series[p]
     if (!pts.length) continue
     const last = pts[pts.length - 1]
@@ -2438,6 +2456,7 @@ function PointsGapChart({ snapshots, matches }) {
             </g>
           ))}
           {players.map(p => {
+            if (!selected.has(p)) return null
             const color = playerColor(players, p)
             const pts = series[p].map(d => `${xPos(d.games)},${yPos(d.gap)}`).join(' ')
             return (
@@ -2455,6 +2474,35 @@ function PointsGapChart({ snapshots, matches }) {
             </text>
           ))}
         </svg>
+      </div>
+      <div style={{ display: 'flex', gap: 6, marginTop: 12 }}>
+        <button
+          onClick={() => setSelected(new Set(players))}
+          style={{ flex: 1, fontSize: 10, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-alt)', color: 'var(--text-secondary)', cursor: 'pointer' }}
+        >
+          Alle einblenden
+        </button>
+        <button
+          onClick={() => setSelected(new Set())}
+          style={{ flex: 1, fontSize: 10, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-alt)', color: 'var(--text-secondary)', cursor: 'pointer' }}
+        >
+          Alle ausblenden
+        </button>
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 14px', marginTop: 10 }}>
+        {players.map(p => (
+          <div
+            key={p}
+            onClick={() => togglePlayer(p)}
+            style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: selected.has(p) ? 'var(--text-secondary)' : 'var(--text-faint)', cursor: 'pointer', userSelect: 'none' }}
+          >
+            <span style={{ width: 10, height: 10, borderRadius: 2, background: playerColor(players, p), display: 'inline-block', opacity: selected.has(p) ? 1 : 0.3 }} />
+            <span style={{ textDecoration: selected.has(p) ? 'none' : 'line-through' }}>{p}</span>
+          </div>
+        ))}
+      </div>
+      <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 8 }}>
+        Auf einen Namen tippen blendet seine Linie im Diagramm ein oder aus.
       </div>
     </StatCard>
   )
@@ -2545,7 +2593,7 @@ function PointsPerDayHeatmap({ matches, opponentTips }) {
                 {days.map(d => {
                   const v = pts[p][d]
                   return (
-                    <td key={d} style={{ ...cell, color: '#15202b', background: heat(v / maxDay), borderRadius: 4 }}>{v}</td>
+                    <td key={d} style={{ ...cell, color: '#15202b', background: heat(v / maxDay) }}>{v}</td>
                   )
                 })}
                 <td style={{ ...cell, color: 'var(--text-primary)', fontWeight: 500 }}>{total}</td>
@@ -2766,6 +2814,23 @@ function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
   // On the opponents-only mirror the ELO tip is hidden so fellow players
   // don't see the model's prediction for past games.
   const wmtOnly = isWmtOnlyDomain()
+  // Two subpages (both shown on every domain): aggregate stats vs. the
+  // per-match tip results. Pills styled like the Spieltage stage selector.
+  const [sub, setSub] = useState('stats')
+  const pill = (key, label) => (
+    <button
+      key={key}
+      onClick={() => setSub(key)}
+      style={{
+        background: sub === key ? 'var(--border)' : 'none',
+        border: `1px solid ${sub === key ? 'var(--border-hover)' : 'var(--border)'}`,
+        color: sub === key ? 'var(--text-primary)' : 'var(--text-secondary)',
+        borderRadius: 6, padding: '4px 10px', fontSize: 11,
+        cursor: 'pointer', fontFamily: 'inherit',
+      }}>
+      {label}
+    </button>
+  )
   const matchById = {}
   for (const m of matches) matchById[m.id] = m
 
@@ -2783,6 +2848,12 @@ function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        {pill('stats', 'Statistiken')}
+        {pill('results', 'Spielergebnisse')}
+      </div>
+
+      {sub === 'stats' && (<>
       <RankingChart snapshots={rankingSnapshots} matches={matches} />
 
       <HitQualityBars matches={matches} opponentTips={opponentTips} />
@@ -2796,7 +2867,9 @@ function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
       <TwinsHeatmap opponentTips={opponentTips} />
       <RiskProfile opponentTips={opponentTips} />
       <BoldnessCard matches={matches} opponentTips={opponentTips} />
+      </>)}
 
+      {sub === 'results' && (<>
       {matchIds.length === 0 ? (
         // Opponents-only mirror: don't leak the screenshot-import workflow —
         // just show nothing until tips exist (e.g. during a Railway deploy).
@@ -2864,6 +2937,7 @@ function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
           </div>
         )
       })}
+      </>)}
     </div>
   )
 }
