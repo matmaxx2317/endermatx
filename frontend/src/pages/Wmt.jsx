@@ -998,7 +998,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v3.50</span>
+          <span className="topbar-version">v3.51</span>
         </div>
       </div>
 
@@ -2513,10 +2513,20 @@ function PointsPerDayHeatmap({ matches, opponentTips }) {
     .sort((a, b) => b.total - a.total || a.p.localeCompare(b.p))
   const maxDay = Math.max(1, ...players.flatMap(p => days.map(d => pts[p][d])))
 
+  // Red → yellow → green heat scale: low score red, high score green.
+  const heat = t => {
+    const stops = [[231, 76, 60], [241, 196, 15], [46, 204, 113]] // rot, gelb, grün
+    const seg = t < 0.5 ? 0 : 1
+    const f = t < 0.5 ? t / 0.5 : (t - 0.5) / 0.5
+    const c0 = stops[seg], c1 = stops[seg + 1]
+    const ch = i => Math.round(c0[i] + (c1[i] - c0[i]) * f)
+    return `rgb(${ch(0)}, ${ch(1)}, ${ch(2)})`
+  }
+
   const cell = { width: 30, height: 22, fontSize: 11, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }
 
   return (
-    <StatCard title="Punkte pro Spieltag" hint="Punkteausbeute je Spieler und Spieltag — kräftigeres Grün = mehr Punkte.">
+    <StatCard title="Punkte pro Spieltag" hint="Punkteausbeute je Spieler und Spieltag — Rot = wenig, Grün = viele Punkte.">
       <div style={{ overflowX: 'auto' }}>
         <table style={{ borderCollapse: 'collapse' }}>
           <thead>
@@ -2535,7 +2545,7 @@ function PointsPerDayHeatmap({ matches, opponentTips }) {
                 {days.map(d => {
                   const v = pts[p][d]
                   return (
-                    <td key={d} style={{ ...cell, color: v > 0 ? 'var(--text-primary)' : 'var(--text-dim)', background: v > 0 ? `rgba(77, 138, 77, ${0.15 + 0.6 * (v / maxDay)})` : 'transparent', borderRadius: 4 }}>{v}</td>
+                    <td key={d} style={{ ...cell, color: '#15202b', background: heat(v / maxDay), borderRadius: 4 }}>{v}</td>
                   )
                 })}
                 <td style={{ ...cell, color: 'var(--text-primary)', fontWeight: 500 }}>{total}</td>
