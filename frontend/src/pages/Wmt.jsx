@@ -1087,7 +1087,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v4.3</span>
+          <span className="topbar-version">v4.4</span>
         </div>
       </div>
 
@@ -1979,15 +1979,15 @@ function RankingChart({ snapshots, matches }) {
     if (didAutoScroll.current) return
     const sc = scrollRef.current
     if (!sc || sc.scrollWidth <= sc.clientWidth) return
-    const circles = sc.querySelectorAll('circle')
-    if (circles.length === 0) return
+    const polylines = sc.querySelectorAll('polyline')
+    if (polylines.length === 0) return
     didAutoScroll.current = true
-    let maxCx = 0
-    circles.forEach(c => {
-      const cx = parseFloat(c.getAttribute('cx'))
-      if (cx > maxCx) maxCx = cx
+    // Rightmost plotted x across every line — the latest data point.
+    let maxX = 0
+    polylines.forEach(pl => {
+      for (const pt of pl.points) if (pt.x > maxX) maxX = pt.x
     })
-    sc.scrollLeft = Math.max(0, maxCx + 80 - sc.clientWidth)
+    sc.scrollLeft = Math.max(0, maxX + 80 - sc.clientWidth)
   })
 
   // Each snapshot represents a moment in time — an exact `snapshot_time` if set,
@@ -2130,9 +2130,6 @@ function RankingChart({ snapshots, matches }) {
               return (
                 <g key={p}>
                   <polyline points={pts} fill="none" stroke={color} strokeWidth={1.5} opacity={0.85} />
-                  {points.map((pt, i) => (
-                    <circle key={i} cx={pt.x} cy={pt.y} r={2.5} fill={color} />
-                  ))}
                 </g>
               )
             })
@@ -2525,9 +2522,6 @@ function PointsGapChart({ snapshots, matches }) {
             return (
               <g key={p}>
                 <polyline points={pts} fill="none" stroke={color} strokeWidth={1.5} opacity={0.85} />
-                {series[p].map((d, i) => (
-                  <circle key={i} cx={xPos(d.games)} cy={yPos(d.gap)} r={2.5} fill={color} />
-                ))}
               </g>
             )
           })}
@@ -2691,9 +2685,6 @@ function PointsProgressChart({ snapshots, matches }) {
             return (
               <g key={p}>
                 <polyline points={pts} fill="none" stroke={color} strokeWidth={1.5} opacity={0.85} />
-                {series[p].map((d, i) => (
-                  <circle key={i} cx={xPos(d.games)} cy={yPos(d.points)} r={2.5} fill={color} />
-                ))}
               </g>
             )
           })}
