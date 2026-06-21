@@ -1087,7 +1087,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v4.4</span>
+          <span className="topbar-version">v4.5</span>
         </div>
       </div>
 
@@ -2130,6 +2130,9 @@ function RankingChart({ snapshots, matches }) {
               return (
                 <g key={p}>
                   <polyline points={pts} fill="none" stroke={color} strokeWidth={1.5} opacity={0.85} />
+                  {points.map((pt, i) => (
+                    <circle key={i} cx={pt.x} cy={pt.y} r={2.5} fill={color} />
+                  ))}
                 </g>
               )
             })
