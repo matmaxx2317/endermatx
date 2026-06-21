@@ -1067,3 +1067,46 @@ input, textarea, select {
   background: var(--text-secondary);
   border-color: var(--text-secondary);
 }
+
+/* ── Back-to-top flyout ──────────────────────────────────────── */
+.back-to-top {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  width: 40px; height: 40px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--surface);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+  z-index: 200;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.back-to-top:hover {
+  color: var(--text-primary);
+  border-color: var(--border-hover);
+  background: var(--surface-alt);
+}
+
+/* WMT loading spinner — classic ticking throbber centered over the page,
+   shown on the opponents-only mirror (matthiasweigel.com) while data loads.
+   The overlay has no backdrop and ignores pointer events so the (empty)
+   opponents page stays visible behind it. */
+.wmt-loading-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 150;
+  pointer-events: none;
+}
+.wmt-spinner {
+  animation: wmt-spinner-spin 0.9s steps(8) infinite;
+  transform-origin: 50% 50%;
+}
+@keyframes wmt-spinner-spin {
+  to { transform: rotate(360deg); }
+}

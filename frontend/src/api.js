@@ -102,3 +102,8 @@ export const drv = {
   stop: ()                   => post('/drv/ride/stop'),
 }
 
+// ── update log ────────────────────────────────────────────────
+export const log = {
+  list: ()                   => get('/log'),
+}
+

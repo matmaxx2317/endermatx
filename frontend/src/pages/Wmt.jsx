@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { wmt } from '../api'
-import { isWmtOnlyDomain } from '../domain'
+import { isWmtOnlyDomain, isUpdateLogDomain } from '../domain'
+import UpdateLogList from '../components/UpdateLogList'
 
 // ── constants & helpers ───────────────────────────────────────────────────────
 
@@ -39,6 +40,26 @@ const STATUS_COLORS = {
 function statusColor(s) { return STATUS_COLORS[s] ?? STATUS_COLORS.default }
 
 function stageLabel(s) { return STAGE_LABELS[s] ?? s.replace(/_/g, ' ') }
+
+// Style for a row of equal-width buttons that fill the full content width and
+// wrap into a grid when needed. Every button is at least as wide as the longest
+// label (so text never wraps) and stretches equally to align with the card
+// borders, instead of each button sizing to its own text.
+function equalButtonGrid(labels) {
+  const maxLen = labels.reduce((m, l) => Math.max(m, String(l).length), 0)
+  const minPx = Math.max(72, maxLen * 8 + 24)
+  return { display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(${minPx}px, 1fr))`, gap: 6 }
+}
+
+// Style for a clickable player-name legend: aligned columns (so the colour
+// boxes line up vertically), left-aligned and not stretched. The column min is
+// kept tight (≈ longest name) so at least three fit per row on a phone; tracks
+// stretch to fill the width and the items themselves stay left-aligned.
+function legendGrid(players) {
+  const maxLen = players.reduce((m, p) => Math.max(m, p.length), 0)
+  const colPx = Math.max(78, maxLen * 6 + 4)
+  return { display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${colPx}px, 1fr))`, justifyItems: 'start', gap: '6px 8px', marginTop: 10 }
+}
 
 function formatDate(utcStr) {
   if (!utcStr) return ''
@@ -280,7 +301,51 @@ function teamStatusColor(status) {
   return 'var(--text-primary)'
 }
 
-function MatchCard({ match, teamStatuses = {} }) {
+// Finished matches involving a team that kicked off before `beforeDate`,
+// chronological ascending. Used for the "bisherige Spiele" block.
+function prevMatchesForTeam(allMatches, teamId, beforeDate) {
+  if (!teamId) return []
+  const before = new Date(beforeDate)
+  return allMatches
+    .filter(m => m.status === 'FINISHED' && m.score_home != null && m.score_away != null &&
+      (m.home_team?.id === teamId || m.away_team?.id === teamId) &&
+      new Date(m.utc_date) < before)
+    .sort((a, b) => new Date(a.utc_date) - new Date(b.utc_date))
+}
+
+// A team's result (Sieg/Unentschieden/Niederlage) in a given match.
+// Labels + colours for how the app's prognosis scored against a finished match.
+const PREV_CAT = {
+  exact:    { label: 'Exakt',     color: '#4d8a4d' },
+  diff:     { label: 'Differenz', color: '#4d6fa0' },
+  tendency: { label: 'Tendenz',   color: '#c8a84d' },
+  wrong:    { label: 'falsch',    color: '#8a4d4d' },
+}
+
+// One "bisherige Spiele" row: the result plus what the app had predicted and
+// how that prediction scored (Exakt / Differenz / Tendenz / falsch).
+function PrevMatchRow({ m }) {
+  const hTla = m.home_team?.tla ?? '?'
+  const aTla = m.away_team?.tla ?? '?'
+  let prog = null
+  if (m.prediction) {
+    const [pH, pA] = bestTip(m.prediction, m.stage !== 'GROUP_STAGE')
+    const cat = classifyTip(m, { pred_home_goals: pH, pred_away_goals: pA })
+    if (cat) prog = { pH, pA, cat }
+  }
+  return (
+    <div style={{ fontSize: 11, color: 'var(--text-dim)', padding: '2px 0', fontVariantNumeric: 'tabular-nums' }}>
+      <span style={{ color: 'var(--text-secondary)' }}>{hTla} {m.score_home}:{m.score_away} {aTla}</span>
+      {prog && (
+        <span> – Prognose {prog.pH}:{prog.pA}{' '}
+          <span style={{ color: PREV_CAT[prog.cat].color }}>({PREV_CAT[prog.cat].label})</span>
+        </span>
+      )}
+    </div>
+  )
+}
+
+function MatchCard({ match, teamStatuses = {}, allMatches = [] }) {
   const p = match.prediction
   const isFinished = match.status === 'FINISHED'
   const isLive = match.status === 'IN_PLAY' || match.status === 'PAUSED'
@@ -291,6 +356,44 @@ function MatchCard({ match, teamStatuses = {} }) {
   const homeStatus = match.home_team ? teamStatuses[match.home_team.id] ?? null : null
   const awayStatus = match.away_team ? teamStatuses[match.away_team.id] ?? null : null
   const [tipHome, tipAway] = p ? bestTip(p, match.stage !== 'GROUP_STAGE') : [null, null]
+
+  const homePrev = prevMatchesForTeam(allMatches, match.home_team?.id, match.utc_date)
+  const awayPrev = prevMatchesForTeam(allMatches, match.away_team?.id, match.utc_date)
+
+  // Prediction history: each entry plus a change note when its tip differs from
+  // the older one. The VERLAUF only shows entries where the tip actually changed
+  // (the "yellow" ones); if it never changed, just the latest entry is shown.
+  const isKo = match.stage !== 'GROUP_STAGE'
+  const predList = match.predictions || []
+  const histEntries = predList.map((ph, i) => {
+    const prev = predList[i + 1]
+    const [tipH, tipA] = bestTip(ph, isKo)
+    const prevTip = prev ? bestTip(prev, isKo) : null
+    const tipChanged = prevTip && (tipH !== prevTip[0] || tipA !== prevTip[1])
+
+    let changeNote = null
+    if (tipChanged) {
+      const [prevTipH, prevTipA] = prevTip
+      const dHome = (ph.home_elo != null && prev.home_elo != null) ? Math.round(ph.home_elo - prev.home_elo) : null
+      const dAway = (ph.away_elo != null && prev.away_elo != null) ? Math.round(ph.away_elo - prev.away_elo) : null
+      const nachMatch = ph.reasoning?.match(/nach: ([^.]+)/)
+      const trigger = nachMatch ? nachMatch[1].trim() : null
+
+      let note = `Tipp: ${prevTipH}:${prevTipA} → ${tipH}:${tipA}`
+      const triggerItems = trigger ? trigger.split(', ') : []
+      if (triggerItems.length > 0) {
+        note += `\nAuslöser:\n${triggerItems.join('\n')}`
+      }
+      const eloParts = []
+      if (dHome != null) eloParts.push(`${homeTla} ${dHome > 0 ? '+' : ''}${dHome}`)
+      if (dAway != null) eloParts.push(`${awayTla} ${dAway > 0 ? '+' : ''}${dAway}`)
+      if (eloParts.length) note += `\nELO: ${eloParts.join(' · ')}.`
+      changeNote = note
+    }
+    return { ph, i, tipH, tipA, changeNote }
+  })
+  const changedEntries = histEntries.filter(e => e.changeNote)
+  const shownEntries = changedEntries.length > 0 ? changedEntries : histEntries.slice(0, 1)
 
   const tipBgColor = isFinished ? 'var(--surface)' : 'rgba(77,111,160,0.06)'
 
@@ -383,69 +486,56 @@ function MatchCard({ match, teamStatuses = {} }) {
                 </div>
               )}
 
-              {match.predictions?.length >= 1 && (
+              {(homePrev.length > 0 || awayPrev.length > 0) && (
                 <div style={{ marginTop: 12 }}>
                   <div style={{ fontSize: 10, color: 'var(--text-dim)', letterSpacing: '0.1em', marginBottom: 6 }}>
-                    VERLAUF ({match.predictions.length} {match.predictions.length === 1 ? 'VERSION' : 'VERSIONEN'})
+                    BISHERIGE SPIELE
                   </div>
-                  {match.predictions.map((ph, i) => {
-                    const prev = match.predictions[i + 1]
-                    const isKo = match.stage !== 'GROUP_STAGE'
-                    const [tipH, tipA] = bestTip(ph, isKo)
-                    const prevTip = prev ? bestTip(prev, isKo) : null
-                    const tipChanged = prevTip && (tipH !== prevTip[0] || tipA !== prevTip[1])
+                  {homePrev.length > 0 && (
+                    <div style={{ marginBottom: awayPrev.length > 0 ? 8 : 0 }}>
+                      <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginBottom: 2 }}>{homeTla}</div>
+                      {homePrev.map(m => <PrevMatchRow key={m.id} m={m} />)}
+                    </div>
+                  )}
+                  {awayPrev.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginBottom: 2 }}>{awayTla}</div>
+                      {awayPrev.map(m => <PrevMatchRow key={m.id} m={m} />)}
+                    </div>
+                  )}
+                </div>
+              )}
 
-                    let changeNote = null
-                    if (tipChanged) {
-                      const [prevTipH, prevTipA] = prevTip
-                      const dHome = (ph.home_elo != null && prev.home_elo != null) ? Math.round(ph.home_elo - prev.home_elo) : null
-                      const dAway = (ph.away_elo != null && prev.away_elo != null) ? Math.round(ph.away_elo - prev.away_elo) : null
-                      const nachMatch = ph.reasoning?.match(/nach: ([^.]+)/)
-                      const trigger = nachMatch ? nachMatch[1].trim() : null
-
-                      let note = `Tipp: ${prevTipH}:${prevTipA} → ${tipH}:${tipA}`
-                      const triggerItems = trigger ? trigger.split(', ') : []
-                      if (triggerItems.length > 0) {
-                        note += `\nAuslöser:\n${triggerItems.join('\n')}`
-                      }
-                      const eloParts = []
-                      if (dHome != null) eloParts.push(`${homeTla} ${dHome > 0 ? '+' : ''}${dHome}`)
-                      if (dAway != null) eloParts.push(`${awayTla} ${dAway > 0 ? '+' : ''}${dAway}`)
-                      if (eloParts.length) note += `\nELO: ${eloParts.join(' · ')}.`
-                      changeNote = note
-                    }
-
-                    return (
-                      <div key={ph.id} style={{
-                        padding: '6px 0',
-                        borderTop: '1px solid var(--border)',
-                        fontSize: 11,
-                        color: i === 0 ? 'var(--text-secondary)' : 'var(--text-dim)',
-                      }}>
-                        <span style={{ marginRight: 8 }}>{formatDateLong(ph.created_at)}</span>
-                        <span style={{ fontVariantNumeric: 'tabular-nums' }}>
-                          {tipH}:{tipA}
-                          {' '}<span style={{ color: 'var(--text-dim)' }}>
-                            (xG {ph.pred_home_goals.toFixed(1)}:{ph.pred_away_goals.toFixed(1)})
-                          </span>
-                          {' '}({(ph.home_win_prob * 100).toFixed(0)}%/
-                          {(ph.draw_prob * 100).toFixed(0)}%/
-                          {(ph.away_win_prob * 100).toFixed(0)}%)
+              {shownEntries.length >= 1 && (
+                <div style={{ marginTop: 12 }}>
+                  <div style={{ fontSize: 10, color: 'var(--text-dim)', letterSpacing: '0.1em', marginBottom: 6 }}>
+                    VERLAUF ({shownEntries.length} {shownEntries.length === 1 ? 'VERSION' : 'VERSIONEN'})
+                  </div>
+                  {shownEntries.map(({ ph, i, tipH, tipA, changeNote }) => (
+                    <div key={ph.id} style={{
+                      padding: '6px 0',
+                      borderTop: '1px solid var(--border)',
+                      fontSize: 11,
+                      color: i === 0 ? 'var(--text-secondary)' : 'var(--text-dim)',
+                    }}>
+                      <span style={{ marginRight: 8 }}>{formatDateLong(ph.created_at)}</span>
+                      <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+                        {tipH}:{tipA}
+                        {' '}<span style={{ color: 'var(--text-dim)' }}>
+                          (xG {ph.pred_home_goals.toFixed(1)}:{ph.pred_away_goals.toFixed(1)})
                         </span>
-                        {i === 0 && <span style={{ color: '#4d6fa0', marginLeft: 6 }}>aktuell</span>}
-                        {changeNote && (
-                          <div style={{ color: '#c8a84d', marginTop: 3, fontSize: 10, lineHeight: 1.5, whiteSpace: 'pre-line' }}>
-                            {changeNote}
-                          </div>
-                        )}
-                        {!changeNote && i > 0 && ph.reasoning && (
-                          <div style={{ color: 'var(--text-dim)', marginTop: 2, fontSize: 10, lineHeight: 1.5, whiteSpace: 'pre-line' }}>
-                            {ph.reasoning}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
+                        {' '}({(ph.home_win_prob * 100).toFixed(0)}%/
+                        {(ph.draw_prob * 100).toFixed(0)}%/
+                        {(ph.away_win_prob * 100).toFixed(0)}%)
+                      </span>
+                      {i === 0 && <span style={{ color: '#4d6fa0', marginLeft: 6 }}>aktuell</span>}
+                      {changeNote && (
+                        <div style={{ color: '#c8a84d', marginTop: 3, fontSize: 10, lineHeight: 1.5, whiteSpace: 'pre-line' }}>
+                          {changeNote}
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -499,7 +589,7 @@ export default function Wmt() {
   const [rankingSnapshots, setRankingSnapshots] = useState([])
   const [summaries, setSummaries]       = useState([])
   const [bonus, setBonus]               = useState(null)
-  const [view, setView]                 = useState('spieltage')
+  const [view, setView]                 = useState(isWmtOnlyDomain() ? 'konkurrenz' : 'spieltage')
   const [selectedKey, setSelectedKey]   = useState(null)
   const [loading, setLoading]           = useState(true)
   const [refreshing, setRefreshing]     = useState(false)
@@ -522,6 +612,11 @@ export default function Wmt() {
   const [logs, setLogs]                   = useState([])
   const [menuOpen, setMenuOpen]         = useState(false)
   const logRef                          = useRef(null)
+
+  // matthiasweigel.com is a stripped-down mirror for Tipprunde opponents:
+  // it shows only the Konkurrenz view (rank chart + everyone's tips), no
+  // burger menu, no tabs, no import/log noise.
+  const wmtOnly = isWmtOnlyDomain()
 
   const addLog = useCallback((text, level = 'info') => {
     setLogs(prev => [...prev, { ts: Date.now(), text, level }])
@@ -571,6 +666,20 @@ export default function Wmt() {
   useEffect(() => {
     async function startup() {
       setLoading(true)
+
+      // Opponents-only mirror: just load the data the Konkurrenz view needs,
+      // skip the status check and all import logging.
+      if (wmtOnly) {
+        try {
+          await loadAll()
+        } catch (e) {
+          console.error(e)
+        } finally {
+          setLoading(false)
+        }
+        return
+      }
+
       setView('import')
       try {
         const status = await wmt.getStatus()
@@ -616,7 +725,7 @@ export default function Wmt() {
       }
     }
     startup()
-  }, [addLog, loadAll])
+  }, [addLog, loadAll, wmtOnly])
 
   async function handleClear() {
     if (!window.confirm('Alle WMT-Daten löschen? (Teams, Spiele, Prognosen, Faktoren, Konkurrenz-Tipps, Morgenberichte, Bonus)')) return
@@ -960,7 +1069,6 @@ export default function Wmt() {
   const currentMatches = selectedKey !== null ? (grouped[selectedKey] ?? []) : []
 
   const hasData = matches.length > 0
-  const wmtOnly = isWmtOnlyDomain()
 
   return (
     <div>
@@ -973,24 +1081,26 @@ export default function Wmt() {
           <span className="topbar-title">wmt</span>
         </div>
         <div className="topbar-right">
-          <button
-            onClick={() => setMenuOpen(o => !o)}
-            style={{
-              background: menuOpen ? 'var(--border)' : 'none',
-              border: menuOpen ? '1px solid var(--border-hover)' : '1px solid transparent',
-              color: anyBusy ? '#4d6fa0' : 'var(--text-secondary)',
-              fontSize: 14, cursor: 'pointer', marginRight: 10,
-              fontFamily: 'inherit', borderRadius: 4,
-              padding: '2px 6px', lineHeight: 1,
-            }}>
-            {anyBusy ? '…' : '☰'}
-          </button>
-          <span className="topbar-version">v3.21</span>
+          {!wmtOnly && (
+            <button
+              onClick={() => setMenuOpen(o => !o)}
+              style={{
+                background: menuOpen ? 'var(--border)' : 'none',
+                border: menuOpen ? '1px solid var(--border-hover)' : '1px solid transparent',
+                color: anyBusy ? '#4d6fa0' : 'var(--text-secondary)',
+                fontSize: 14, cursor: 'pointer', marginRight: 10,
+                fontFamily: 'inherit', borderRadius: 4,
+                padding: '2px 6px', lineHeight: 1,
+              }}>
+              {anyBusy ? '…' : '☰'}
+            </button>
+          )}
+          <span className="topbar-version">v4.6</span>
         </div>
       </div>
 
       {/* burger menu overlay */}
-      {menuOpen && (
+      {!wmtOnly && menuOpen && (
         <div
           onClick={() => setMenuOpen(false)}
           style={{ position: 'fixed', inset: 0, zIndex: 100 }}>
@@ -1109,34 +1219,62 @@ export default function Wmt() {
       )}
 
       <div className="page">
-        {/* view tabs */}
-        <div style={{ display: 'flex', gap: 6, marginBottom: 20, flexWrap: 'wrap' }}>
-          {[
+        {/* view tabs (hidden on the opponents-only mirror) */}
+        {!wmtOnly && (() => {
+          const tabs = [
             ['import', 'Import'],
             ['spieltage', 'Spieltage'],
             ['gruppen', 'Gruppen-Tabellen'],
             ['konkurrenz', 'Konkurrenz'],
             ['bonus', 'Bonus-Tipps'],
             ['zusammenfassung', 'Morgenberichte'],
-          ].map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => setView(key)}
-              style={{
-                background: view === key ? 'var(--border)' : 'none',
-                border: `1px solid ${view === key ? 'var(--border-hover)' : 'var(--border)'}`,
-                color: view === key ? 'var(--text-primary)' : 'var(--text-dim)',
-                borderRadius: 6, padding: '5px 12px', fontSize: 12,
-                cursor: 'pointer', fontFamily: 'inherit',
-              }}>
-              {label}{key === 'import' && logs.length > 0 && <span style={{ color: 'var(--text-dim)', marginLeft: 4 }}>{logs.length}</span>}
-            </button>
-          ))}
-        </div>
+            ...(isUpdateLogDomain() ? [['updatelog', 'Update-Log']] : []),
+          ]
+          return (
+            <div style={{ ...equalButtonGrid(tabs.map(t => t[1])), marginBottom: 20 }}>
+              {tabs.map(([key, label]) => (
+                <button
+                  key={key}
+                  onClick={() => setView(key)}
+                  style={{
+                    background: view === key ? 'var(--border)' : 'none',
+                    border: `1px solid ${view === key ? 'var(--border-hover)' : 'var(--border)'}`,
+                    color: view === key ? 'var(--text-primary)' : 'var(--text-dim)',
+                    borderRadius: 6, padding: '5px 12px', fontSize: 12,
+                    cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
+                  }}>
+                  {label}{key === 'import' && logs.length > 0 && <span style={{ color: 'var(--text-dim)', marginLeft: 4 }}>{logs.length}</span>}
+                </button>
+              ))}
+            </div>
+          )
+        })()}
 
-        {loading && view !== 'import' && (
-          <div style={{ color: 'var(--text-dim)', fontSize: 12 }}>…</div>
+        {loading && view !== 'import' && view !== 'updatelog' && (
+          wmtOnly ? (
+            <div className="wmt-loading-overlay" role="status" aria-label="Daten werden geladen">
+              <svg className="wmt-spinner" width="72" height="72" viewBox="-50 -50 100 100">
+                {Array.from({ length: 8 }).map((_, i) => {
+                  const a = (i * 45) * Math.PI / 180
+                  return (
+                    <line
+                      key={i}
+                      x1={Math.cos(a) * 22} y1={Math.sin(a) * 22}
+                      x2={Math.cos(a) * 40} y2={Math.sin(a) * 40}
+                      stroke="var(--text-secondary)" strokeWidth="8" strokeLinecap="round"
+                      opacity={(i + 1) / 8}
+                    />
+                  )
+                })}
+              </svg>
+            </div>
+          ) : (
+            <div style={{ color: 'var(--text-dim)', fontSize: 12 }}>…</div>
+          )
         )}
+
+        {/* ── Update-Log view (matmaxx.org only) ─────────────────────────── */}
+        {view === 'updatelog' && <UpdateLogList />}
 
         {/* ── Import view ────────────────────────────────────────────────── */}
         {view === 'import' && (
@@ -1172,7 +1310,7 @@ export default function Wmt() {
             ) : (
               <>
                 {/* matchday / stage selector */}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 20 }}>
+                <div style={{ ...equalButtonGrid(groupKeys.map(groupLabel)), marginBottom: 20 }}>
                   {groupKeys.map(k => {
                     const kMatches  = grouped[k] ?? []
                     const hasLive   = kMatches.some(m => m.status === 'IN_PLAY' || m.status === 'PAUSED')
@@ -1187,7 +1325,7 @@ export default function Wmt() {
                           border: `1px solid ${hasLive ? '#4d8a4d' : isSelected ? 'var(--border-hover)' : 'var(--border)'}`,
                           color: isSelected ? 'var(--text-primary)' : allDone ? 'var(--text-dim)' : 'var(--text-secondary)',
                           borderRadius: 6, padding: '4px 10px', fontSize: 11,
-                          cursor: 'pointer', fontFamily: 'inherit',
+                          cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
                         }}>
                         {groupLabel(k)}
                       </button>
@@ -1210,14 +1348,14 @@ export default function Wmt() {
                         {calDayLabel(isoDay).toUpperCase()}
                       </div>
                       {dayMatches.map(m => (
-                        <MatchCard key={m.id} match={m} teamStatuses={selectedKey === 'md_3' ? teamStatuses : {}} />
+                        <MatchCard key={m.id} match={m} teamStatuses={selectedKey === 'md_3' ? teamStatuses : {}} allMatches={matches} />
                       ))}
                     </div>
                   ))
                 ) : (
                   // Knockout rounds: flat list
                   currentMatches.map(m => (
-                    <MatchCard key={m.id} match={m} />
+                    <MatchCard key={m.id} match={m} allMatches={matches} />
                   ))
                 )}
               </>
@@ -1784,7 +1922,57 @@ function RankingChart({ snapshots, matches }) {
   const players = [...new Set(snapshots.map(s => s.player_name))].sort()
 
   const [selected, setSelected] = useState(null)
-  const [zoom, setZoom] = useState(1)
+  const [zoom, setZoom] = useState(3)
+
+  // The chart stretches to fill the remaining viewport height (handy on mobile,
+  // where vertical space is the constraint). We measure where the plot area
+  // starts and how tall the legend/controls below it are, then give the rest of
+  // the screen to the SVG — clamped so it never collapses on tiny screens.
+  const scrollRef = useRef(null)
+  const belowRef = useRef(null)
+  const didAutoScroll = useRef(false)
+  const [svgH, setSvgH] = useState(440)
+
+  useEffect(() => {
+    const recompute = () => {
+      const sc = scrollRef.current
+      if (!sc) return
+      const vv = window.visualViewport
+      // When the page is pinch-zoomed (scale > 1) the visual viewport height and
+      // the layout-based getBoundingClientRect().top live in different reference
+      // frames, so the math below produces a garbage height that collapsed the
+      // chart. Skip re-fitting while zoomed and keep the last good height.
+      if (vv && vv.scale > 1.01) return
+      const top = sc.getBoundingClientRect().top
+      const below = belowRef.current ? belowRef.current.offsetHeight : 0
+      // Size against the *visual* viewport (window.visualViewport), which
+      // excludes mobile browser chrome like the URL bar and bottom toolbar —
+      // window.innerHeight includes that area, which pushed the legend behind
+      // the back button / address bar. 16 = card's bottom padding; 36 =
+      // clearance so the clickable legend stays clear of browser chrome and
+      // the iOS home indicator.
+      const vh = vv ? vv.height : window.innerHeight
+      const avail = vh - top - below - 16 - 36
+      setSvgH(Math.max(320, Math.min(1000, avail)))
+    }
+    recompute()
+    // Only re-fit when the viewport *width* changes (real resize / rotation).
+    // We deliberately ignore height-only changes: on mobile the URL bar
+    // collapses/expands while scrolling, and recomputing then made the chart
+    // stretch on every scroll frame and wrecked the scroll feel.
+    let lastWidth = window.innerWidth
+    const onResize = () => {
+      if (window.innerWidth === lastWidth) return
+      lastWidth = window.innerWidth
+      recompute()
+    }
+    window.addEventListener('resize', onResize)
+    window.addEventListener('orientationchange', recompute)
+    return () => {
+      window.removeEventListener('resize', onResize)
+      window.removeEventListener('orientationchange', recompute)
+    }
+  }, [players.join(',')])
 
   useEffect(() => {
     setSelected(prev => {
@@ -1794,6 +1982,21 @@ function RankingChart({ snapshots, matches }) {
       return next
     })
   }, [players.join(',')])
+
+  useEffect(() => {
+    if (didAutoScroll.current) return
+    const sc = scrollRef.current
+    if (!sc || sc.scrollWidth <= sc.clientWidth) return
+    const polylines = sc.querySelectorAll('polyline')
+    if (polylines.length === 0) return
+    didAutoScroll.current = true
+    // Rightmost plotted x across every line — the latest data point.
+    let maxX = 0
+    polylines.forEach(pl => {
+      for (const pt of pl.points) if (pt.x > maxX) maxX = pt.x
+    })
+    sc.scrollLeft = Math.max(0, maxX + 80 - sc.clientWidth)
+  })
 
   // Each snapshot represents a moment in time — an exact `snapshot_time` if set,
   // otherwise the earlier of "when it was imported" (captured_at) and "end of its
@@ -1810,6 +2013,11 @@ function RankingChart({ snapshots, matches }) {
   if (dateCount < 2 || players.length === 0 || selected === null) return null
 
   const totalMatches = matches.length
+  // A few empty slots after the final match so the line for the day after the
+  // final (positioned at game count = totalMatches) doesn't sit at the very
+  // right edge — that trailing room is where the final player-name labels land.
+  const EXTRA_SLOTS = 8
+  const axisMax = totalMatches + EXTRA_SLOTS
   // Number of finished matches whose kickoff is on/before a given moment —
   // this turns the x-axis into "games played so far" instead of calendar days,
   // so rest days don't stretch the timeline.
@@ -1820,14 +2028,19 @@ function RankingChart({ snapshots, matches }) {
   const gameCountAt = time => finishedTimes.filter(t => t <= time).length
 
   const maxRank = Math.max(...snapshots.map(s => s.rank))
-  const H = 320
-  const padL = 28, padR = 12, padT = 12, padB = 28
+  const H = svgH
+  // padR leaves room for the player-name labels to the right of each line's
+  // last point; padB leaves room for the vertical match labels below the chart.
+  const padL = 28, padR = 76, padT = 12, padB = 46
   const plotW = (680 - padL - padR) * zoom
   const plotH = H - padT - padB
   const W = padL + plotW + padR
+  // Small breathing room between the lowest rank and the x-axis so the bottom
+  // line/labels don't sit flush against the match labels below.
+  const bottomGap = 14
 
-  const xPos = games => padL + (totalMatches === 0 ? 0 : (games / totalMatches) * plotW)
-  const yPos = rank => padT + ((rank - 1) / Math.max(1, maxRank - 1)) * plotH
+  const xPos = games => padL + (axisMax === 0 ? 0 : (games / axisMax) * plotW)
+  const yPos = rank => padT + ((rank - 1) / Math.max(1, maxRank - 1)) * (plotH - bottomGap)
 
   const byPlayer = {}
   for (const p of players) {
@@ -1835,11 +2048,6 @@ function RankingChart({ snapshots, matches }) {
       .filter(s => s.player_name === p)
       .sort((a, b) => effectiveTime(a) < effectiveTime(b) ? -1 : 1)
   }
-
-  const tickStep = Math.max(1, Math.ceil(totalMatches / 8))
-  const ticks = []
-  for (let g = 0; g <= totalMatches; g += tickStep) ticks.push(g)
-  if (ticks[ticks.length - 1] !== totalMatches) ticks.push(totalMatches)
 
   // One vertical helper line + "HOME-AWAY" label per match, evenly spaced in
   // chronological order so every match gets the same x-distance from its neighbours.
@@ -1872,7 +2080,7 @@ function RankingChart({ snapshots, matches }) {
           />
         </div>
       </div>
-      <div style={{ overflowX: 'auto' }}>
+      <div ref={scrollRef} style={{ overflowX: 'auto' }}>
         <svg width={W} height={H} style={{ display: 'block' }}>
           {Array.from({ length: maxRank }, (_, i) => i + 1).map(r => (
             <g key={r}>
@@ -1880,53 +2088,112 @@ function RankingChart({ snapshots, matches }) {
               <text x={padL - 6} y={yPos(r) + 3} textAnchor="end" fontSize={9} fill="var(--text-muted)">{r}</text>
             </g>
           ))}
-          {ticks.map(g => (
-            <text key={g} x={xPos(g)} y={H - padB + 14} textAnchor="middle" fontSize={9} fill="var(--text-muted)">
-              Spiel {g}
-            </text>
-          ))}
           {matchMarkers.map((mk, i) => (
             <g key={i}>
               {mk.showLine && (
                 <line x1={mk.lineX} y1={padT} x2={mk.lineX} y2={padT + plotH} stroke="var(--border)" strokeWidth={0.5} opacity={0.4} />
               )}
-              <text x={mk.x + 2} y={padT + plotH - 4} textAnchor="start" fontSize={7} fill="var(--text-faint)" transform={`rotate(-90 ${mk.x + 2} ${padT + plotH - 4})`}>
+              <text x={mk.x} y={padT + plotH + 4} textAnchor="end" fontSize={7} fill="var(--text-faint)" transform={`rotate(-90 ${mk.x} ${padT + plotH + 4})`}>
                 {mk.label}
               </text>
             </g>
           ))}
-          {players.map((p, pi) => {
-            if (!selected.has(p)) return null
-            const color = RANK_CHART_COLORS[pi % RANK_CHART_COLORS.length]
-            const points = byPlayer[p]
-              .map(s => ({ x: xPos(gameCountAt(effectiveTime(s))), y: yPos(s.rank) }))
-            const pts = points.map(({ x, y }) => `${x},${y}`).join(' ')
-            return (
-              <g key={p}>
-                <polyline points={pts} fill="none" stroke={color} strokeWidth={1.5} opacity={0.85} />
-                {points.map((pt, i) => (
-                  <circle key={i} cx={pt.x} cy={pt.y} r={2.5} fill={color} />
-                ))}
-              </g>
-            )
-          })}
+          {(() => {
+            const rawPoints = {}
+            for (const p of players) {
+              if (!selected.has(p)) continue
+              rawPoints[p] = byPlayer[p]
+                .map(s => ({ x: xPos(gameCountAt(effectiveTime(s))), y: yPos(s.rank) }))
+            }
+
+            // Players whose line passes through the exact same point at the
+            // same moment are nudged into a small parallel band, Mario-Party
+            // style, instead of drawing one indistinguishable stacked line.
+            const tieGroups = {}
+            for (const p of players) {
+              const pts = rawPoints[p]
+              if (!pts) continue
+              for (const pt of pts) {
+                const key = `${pt.x.toFixed(1)},${pt.y.toFixed(1)}`
+                if (!tieGroups[key]) tieGroups[key] = []
+                tieGroups[key].push(p)
+              }
+            }
+
+            const rowHeight = plotH / Math.max(1, maxRank - 1)
+            const offsetUnit = 2.5
+
+            const lines = players.map((p, pi) => {
+              if (!selected.has(p)) return null
+              const color = RANK_CHART_COLORS[pi % RANK_CHART_COLORS.length]
+              const points = rawPoints[p].map(pt => {
+                const group = tieGroups[`${pt.x.toFixed(1)},${pt.y.toFixed(1)}`]
+                const size = group.length
+                const idx = group.indexOf(p)
+                const spread = Math.min((size - 1) * offsetUnit, rowHeight * 0.8)
+                const step = size > 1 ? spread / (size - 1) : 0
+                return { x: pt.x, y: pt.y + (idx - (size - 1) / 2) * step }
+              })
+              const pts = points.map(({ x, y }) => `${x},${y}`).join(' ')
+              return (
+                <g key={p}>
+                  <polyline points={pts} fill="none" stroke={color} strokeWidth={1.5} opacity={0.85} />
+                  {points.map((pt, i) => (
+                    <circle key={i} cx={pt.x} cy={pt.y} r={2.5} fill={color} />
+                  ))}
+                </g>
+              )
+            })
+
+            // Name label to the right of each line's last point. Players who
+            // share the same final rank are merged into one comma-separated
+            // label so the names sit side by side on one line instead of
+            // stacking on top of each other. Rendered in neutral text colour
+            // (not the player's line colour) so it stays legible in both themes.
+            const endGroups = {}
+            for (const p of players) {
+              if (!selected.has(p)) continue
+              const pts = rawPoints[p]
+              if (!pts || pts.length === 0) continue
+              const last = pts[pts.length - 1]
+              const key = `${last.x.toFixed(1)},${last.y.toFixed(1)}`
+              if (!endGroups[key]) endGroups[key] = { x: last.x, y: last.y, names: [] }
+              endGroups[key].names.push(p)
+            }
+            const labels = Object.values(endGroups).map((g, i) => (
+              <text
+                key={`label-${i}`}
+                x={g.x + 8}
+                y={g.y + 3}
+                textAnchor="start"
+                fontSize={9}
+                fontWeight={500}
+                fill="var(--text-primary)"
+              >
+                {g.names.join(', ')}
+              </text>
+            ))
+
+            return [...lines, ...labels]
+          })()}
         </svg>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
+      <div ref={belowRef}>
+      <div style={{ display: 'flex', gap: 6, marginTop: 12 }}>
         <button
           onClick={() => setSelected(new Set(players))}
-          style={{ fontSize: 10, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-alt)', color: 'var(--text-secondary)', cursor: 'pointer' }}
+          style={{ flex: 1, fontSize: 10, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-alt)', color: 'var(--text-secondary)', cursor: 'pointer' }}
         >
-          Alle
+          Alle einblenden
         </button>
         <button
           onClick={() => setSelected(new Set())}
-          style={{ fontSize: 10, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-alt)', color: 'var(--text-secondary)', cursor: 'pointer' }}
+          style={{ flex: 1, fontSize: 10, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-alt)', color: 'var(--text-secondary)', cursor: 'pointer' }}
         >
-          Keine
+          Alle ausblenden
         </button>
       </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 14px', marginTop: 10 }}>
+      <div style={legendGrid(players)}>
         {players.map((p, pi) => (
           <div
             key={p}
@@ -1937,6 +2204,10 @@ function RankingChart({ snapshots, matches }) {
             <span style={{ textDecoration: selected.has(p) ? 'none' : 'line-through' }}>{p}</span>
           </div>
         ))}
+      </div>
+      <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 8 }}>
+        Auf einen Namen tippen blendet seine Linie im Diagramm ein oder aus.
+      </div>
       </div>
     </div>
   )
@@ -1951,17 +2222,1040 @@ const TIP_OVERLAYS = {
   wrong:    'rgba(128, 128, 128, 0.25)', // Grau — komplett daneben
 }
 
-function tipOverlay(m, t) {
+// Treffergüte-Kategorien in absteigender Wertigkeit: key, Label, Kicktipp-Punkte.
+const TIP_CATEGORIES = [
+  ['exact',    'Exakt',     4],
+  ['diff',     'Differenz', 3],
+  ['tendency', 'Tendenz',   2],
+  ['wrong',    'Falsch',    0],
+]
+
+// Kicktipp-Treffergüte eines Tipps gegen das Endergebnis.
+function classifyTip(m, t) {
   if (m.status !== 'FINISHED' || m.score_home == null || m.score_away == null) return null
   const sh = m.score_home, sa = m.score_away
   const ph = t.pred_home_goals, pa = t.pred_away_goals
-  if (ph === sh && pa === sa) return TIP_OVERLAYS.exact
-  if (ph - pa === sh - sa) return TIP_OVERLAYS.diff
-  if (Math.sign(ph - pa) === Math.sign(sh - sa)) return TIP_OVERLAYS.tendency
-  return TIP_OVERLAYS.wrong
+  if (ph === sh && pa === sa) return 'exact'
+  if (ph - pa === sh - sa) return 'diff'
+  if (Math.sign(ph - pa) === Math.sign(sh - sa)) return 'tendency'
+  return 'wrong'
+}
+
+function tipOverlay(m, t) {
+  const cat = classifyTip(m, t)
+  return cat ? TIP_OVERLAYS[cat] : null
+}
+
+// Kompakte einzeilige Farb-Legende, die in jeder Spielkarte steht.
+function TipLegendInline() {
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px', fontSize: 10, color: 'var(--text-muted)', marginBottom: 8 }}>
+      {TIP_CATEGORIES.map(([key, label]) => (
+        <span key={key} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ width: 10, height: 10, borderRadius: 2, background: TIP_OVERLAYS[key], border: '1px solid var(--border)', flexShrink: 0 }} />
+          {label}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+// Calendar-day key (YYYY-MM-DD) in US local time. The 2026 WC is hosted in
+// the US/Mexico/Canada; we anchor "day" to US Pacific. With Pacific the whole
+// German 18:00→06:00 broadcast window maps onto one calendar day (≈09:00–21:00
+// PT, no midnight crossing) — including the latest west-coast kickoffs, which
+// at 21:00 PT are 06:00 German the next morning but still the same PT day.
+const US_TIME_ZONE = 'America/Los_Angeles'
+const usDayKey = d => new Intl.DateTimeFormat('en-CA', { timeZone: US_TIME_ZONE }).format(d)
+
+const CATEGORY_BY_KEY = Object.fromEntries(TIP_CATEGORIES.map(([key, label, pts]) => [key, { label, pts }]))
+
+// Tagessieger / Tagesverlierer — best and worst scorer among the imported
+// opponent tips on the most recent match day (the latest US-Pacific calendar
+// day that has any finished match), with the tips that got them there. So the
+// day's winner keeps showing until the next match day produces results. Hidden
+// only when no match has finished yet at all.
+function DayWinnerLoserCard({ matches, opponentTips }) {
+  const finished = matches.filter(m => m.status === 'FINISHED')
+  if (finished.length === 0) return null
+
+  // Most recent match day = the largest (latest) Pacific day key among finished
+  // matches; string compare works because keys are zero-padded YYYY-MM-DD.
+  const dayKeys = finished.map(m => usDayKey(new Date(m.utc_date))).sort()
+  const targetKey = dayKeys[dayKeys.length - 1]
+
+  const dayMatches = finished.filter(m => usDayKey(new Date(m.utc_date)) === targetKey)
+  const dayMatchIds = new Set(dayMatches.map(m => m.id))
+  const matchById = {}
+  for (const m of dayMatches) matchById[m.id] = m
+
+  const byPlayer = {}
+  for (const t of opponentTips) {
+    if (!dayMatchIds.has(t.match_id)) continue
+    const m = matchById[t.match_id]
+    const cat = classifyTip(m, t)
+    if (!cat) continue
+    if (!byPlayer[t.player_name]) byPlayer[t.player_name] = { points: 0, tips: [] }
+    byPlayer[t.player_name].points += CATEGORY_BY_KEY[cat].pts
+    byPlayer[t.player_name].tips.push({ match: m, tip: t, cat })
+  }
+
+  const rows = Object.entries(byPlayer).map(([player, d]) => ({ player, ...d }))
+  if (rows.length === 0) return null
+  rows.sort((a, b) => b.points - a.points || a.player.localeCompare(b.player))
+
+  const winner = rows[0]
+  const loser = rows.length > 1 ? rows[rows.length - 1] : null
+
+  // targetKey is YYYY-MM-DD (Pacific) — format it directly, no timezone reparse.
+  const [yy, mm, dd] = targetKey.split('-')
+  const dateLabel = `${dd}.${mm}.${yy}`
+
+  const renderTips = entry => {
+    const tips = [...entry.tips].sort((a, b) => new Date(a.match.utc_date) - new Date(b.match.utc_date))
+    return (
+      <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {tips.map(({ match, tip, cat }) => (
+          <div key={match.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>
+            <span style={{ width: 9, height: 9, borderRadius: 2, background: TIP_OVERLAYS[cat], border: '1px solid var(--border)', flexShrink: 0 }} />
+            <span style={{ color: 'var(--text-secondary)', minWidth: 64 }}>
+              {match.home_team?.tla || '???'}–{match.away_team?.tla || '???'}
+            </span>
+            <span style={{ color: 'var(--text-muted)' }}>Tipp {tip.pred_home_goals}:{tip.pred_away_goals}</span>
+            <span style={{ color: 'var(--text-dim)' }}>Ergebnis {match.score_home}:{match.score_away}</span>
+            <span style={{ marginLeft: 'auto', color: 'var(--text-secondary)', fontWeight: 500 }}>+{CATEGORY_BY_KEY[cat].pts}</span>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  const section = (entry, label, accent) => (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
+        <span style={{ fontSize: 11, color: accent, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4 }}>{label}</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, marginTop: 2 }}>
+        <span style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 500 }}>{entry.player}</span>
+        <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500 }}>{entry.points} Pkt</span>
+      </div>
+      {renderTips(entry)}
+    </div>
+  )
+
+  return (
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 16px' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, marginBottom: 12 }}>
+        <div style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 500 }}>Tageswertung</div>
+        <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{dateLabel} · US-Zeit</div>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {section(winner, 'Tagessieger', '#4d8a4d')}
+        {loser && (
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+            {section(loser, 'Tagesverlierer', '#8a4d4d')}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Shared helpers for the Konkurrenz stat cards ──────────────────────────
+const dayKeyOf = m => usDayKey(new Date(m.utc_date))
+const finishedScored = matches =>
+  matches.filter(m => m.status === 'FINISHED' && m.score_home != null && m.score_away != null)
+// Stable per-player colour (alphabetical index) so a player keeps the same
+// colour across every stat card.
+const playerColor = (players, p) => {
+  const i = players.indexOf(p)
+  return RANK_CHART_COLORS[(i < 0 ? 0 : i) % RANK_CHART_COLORS.length]
+}
+const ddmm = key => { const [, m, d] = key.split('-'); return `${d}.${m}.` }
+
+// Points each player scored on each finished match day.
+function dailyPointsMatrix(matches, opponentTips) {
+  const fin = finishedScored(matches)
+  const byId = {}
+  for (const m of fin) byId[m.id] = m
+  const days = [...new Set(fin.map(dayKeyOf))].sort()
+  const players = [...new Set(opponentTips.filter(t => byId[t.match_id]).map(t => t.player_name))].sort()
+  const pts = {}
+  for (const p of players) { pts[p] = {}; for (const d of days) pts[p][d] = 0 }
+  for (const t of opponentTips) {
+    const m = byId[t.match_id]
+    if (!m) continue
+    const cat = classifyTip(m, t)
+    if (!cat) continue
+    pts[t.player_name][dayKeyOf(m)] += CATEGORY_BY_KEY[cat].pts
+  }
+  return { days, players, pts }
+}
+
+// Card shell matching the other Konkurrenz cards.
+function StatCard({ title, hint, children }) {
+  return (
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 16px' }}>
+      <div style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 500, marginBottom: hint ? 4 : 12 }}>{title}</div>
+      {hint && <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 12 }}>{hint}</div>}
+      {children}
+    </div>
+  )
+}
+
+// ── 1. Punkte-Rückstand zum Spitzenreiter ─────────────────────────────────
+// Overlaid lines, y = points behind the leader, x = games played. The leader
+// rides along the top (gap 0); the spread shows whether it's a runaway or a
+// dogfight. Driven by the imported ranking snapshots.
+function PointsGapChart({ snapshots, matches }) {
+  // Fill the card width instead of a fixed 700px (which forced horizontal
+  // scroll / shrink-to-fit and made the height change barely visible).
+  const wrapRef = useRef(null)
+  const [width, setWidth] = useState(680)
+  const [zoom, setZoom] = useState(3)
+  useEffect(() => {
+    const measure = () => { if (wrapRef.current) setWidth(Math.max(300, wrapRef.current.clientWidth)) }
+    measure()
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [snapshots.length])
+
+  const players = [...new Set(snapshots.map(s => s.player_name))].sort()
+
+  // Clickable legend: which players' lines are shown (same model as Rangverlauf).
+  const [selected, setSelected] = useState(null)
+  useEffect(() => {
+    setSelected(prev => {
+      if (prev === null) return new Set(players)
+      const next = new Set([...prev].filter(p => players.includes(p)))
+      for (const p of players) if (!prev.has(p)) next.add(p)
+      return next
+    })
+  }, [players.join(',')])
+  const togglePlayer = p => setSelected(prev => {
+    const next = new Set(prev)
+    if (next.has(p)) next.delete(p); else next.add(p)
+    return next
+  })
+
+  const dateCount = new Set(snapshots.map(s => s.date)).size
+  if (dateCount < 2 || players.length === 0 || selected === null) return null
+
+  const effectiveTime = s => {
+    if (s.snapshot_time) return s.snapshot_time
+    const end = `${s.date}T23:59:59Z`
+    return s.captured_at < end ? s.captured_at : end
+  }
+  const totalMatches = matches.length
+  const finishedTimes = matches.filter(m => m.status === 'FINISHED').map(m => m.utc_date).sort()
+  const gameCountAt = t => finishedTimes.filter(x => x <= t).length
+
+  const byPlayer = {}
+  for (const p of players) {
+    byPlayer[p] = snapshots.filter(s => s.player_name === p)
+      .sort((a, b) => effectiveTime(a) < effectiveTime(b) ? -1 : 1)
+  }
+  const latestPointsAt = (p, time) => {
+    let pts = null
+    for (const s of byPlayer[p]) { if (effectiveTime(s) <= time) pts = s.points; else break }
+    return pts
+  }
+
+  const series = {}
+  let maxGap = 1
+  for (const p of players) {
+    series[p] = byPlayer[p].map(s => {
+      const time = effectiveTime(s)
+      const leader = Math.max(...players.map(q => latestPointsAt(q, time)).filter(v => v != null))
+      const gap = leader - s.points
+      if (gap > maxGap) maxGap = gap
+      return { games: gameCountAt(time), gap }
+    })
+  }
+
+  const H = 360, padL = 34, padR = 84, padT = 12, padB = 46
+  const plotW = (width - padL - padR) * zoom
+  const W = padL + plotW + padR
+  const plotH = H - padT - padB
+  const axisMax = totalMatches + 8
+  const xPos = g => padL + (axisMax === 0 ? 0 : (g / axisMax) * plotW)
+  const yPos = gap => padT + (gap / maxGap) * plotH
+
+  // Horizontal grid line every 5 points.
+  const gridLines = []
+  for (let g = 0; g <= maxGap; g += 5) gridLines.push(g)
+
+  // One vertical helper line + "HOME-AWAY" label per match below the chart,
+  // evenly spaced in chronological order (same as Rangverlauf).
+  const sortedMatches = [...matches].sort((a, b) => new Date(a.utc_date) - new Date(b.utc_date))
+  const matchMarkers = sortedMatches.map((m, i) => ({
+    x: xPos(i + 1),
+    label: `${m.home_team?.tla || '???'}-${m.away_team?.tla || '???'}`,
+  }))
+
+  const ends = {}
+  for (const p of players) {
+    if (!selected.has(p)) continue
+    const pts = series[p]
+    if (!pts.length) continue
+    const last = pts[pts.length - 1]
+    const key = `${xPos(last.games).toFixed(1)},${yPos(last.gap).toFixed(1)}`
+    if (!ends[key]) ends[key] = { x: xPos(last.games), y: yPos(last.gap), names: [] }
+    ends[key].names.push(p)
+  }
+
+  return (
+    <StatCard title="Punkte-Rückstand zum Spitzenreiter" hint="Abstand in Punkten zur Tabellenspitze über den Turnierverlauf — die Linie ganz oben führt.">
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Zoom</span>
+        <input type="range" min={1} max={5} step={0.5} value={zoom} onChange={e => setZoom(Number(e.target.value))} style={{ width: 80 }} />
+      </div>
+      <div ref={wrapRef} style={{ overflowX: 'auto' }}>
+        <svg width={W} height={H} style={{ display: 'block' }}>
+          {gridLines.map(g => (
+            <g key={g}>
+              <line x1={padL} y1={yPos(g)} x2={W - padR} y2={yPos(g)} stroke="var(--border)" strokeWidth={0.5} />
+              <text x={padL - 6} y={yPos(g) + 3} textAnchor="end" fontSize={9} fill="var(--text-muted)">{g}</text>
+            </g>
+          ))}
+          {matchMarkers.map((mk, i) => (
+            <g key={`m${i}`}>
+              <line x1={mk.x} y1={padT} x2={mk.x} y2={padT + plotH} stroke="var(--border)" strokeWidth={0.5} opacity={0.4} />
+              <text x={mk.x} y={padT + plotH + 4} textAnchor="end" fontSize={7} fill="var(--text-faint)" transform={`rotate(-90 ${mk.x} ${padT + plotH + 4})`}>
+                {mk.label}
+              </text>
+            </g>
+          ))}
+          {players.map(p => {
+            if (!selected.has(p)) return null
+            const color = playerColor(players, p)
+            const pts = series[p].map(d => `${xPos(d.games)},${yPos(d.gap)}`).join(' ')
+            return (
+              <g key={p}>
+                <polyline points={pts} fill="none" stroke={color} strokeWidth={1.5} opacity={0.85} />
+              </g>
+            )
+          })}
+          {Object.values(ends).map((e, i) => (
+            <text key={i} x={e.x + 8} y={e.y + 3} textAnchor="start" fontSize={9} fontWeight={500} fill="var(--text-primary)">
+              {e.names.join(', ')}
+            </text>
+          ))}
+        </svg>
+      </div>
+      <div style={{ display: 'flex', gap: 6, marginTop: 12 }}>
+        <button
+          onClick={() => setSelected(new Set(players))}
+          style={{ flex: 1, fontSize: 10, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-alt)', color: 'var(--text-secondary)', cursor: 'pointer' }}
+        >
+          Alle einblenden
+        </button>
+        <button
+          onClick={() => setSelected(new Set())}
+          style={{ flex: 1, fontSize: 10, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-alt)', color: 'var(--text-secondary)', cursor: 'pointer' }}
+        >
+          Alle ausblenden
+        </button>
+      </div>
+      <div style={legendGrid(players)}>
+        {players.map(p => (
+          <div
+            key={p}
+            onClick={() => togglePlayer(p)}
+            style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: selected.has(p) ? 'var(--text-secondary)' : 'var(--text-faint)', cursor: 'pointer', userSelect: 'none' }}
+          >
+            <span style={{ width: 10, height: 10, borderRadius: 2, background: playerColor(players, p), display: 'inline-block', opacity: selected.has(p) ? 1 : 0.3 }} />
+            <span style={{ textDecoration: selected.has(p) ? 'none' : 'line-through' }}>{p}</span>
+          </div>
+        ))}
+      </div>
+      <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 8 }}>
+        Auf einen Namen tippen blendet seine Linie im Diagramm ein oder aus.
+      </div>
+    </StatCard>
+  )
+}
+
+// ── 1b. Punkteverlauf (cumulative points) ─────────────────────────────────
+// Absolute points over the tournament, one line per player. Where the gap chart
+// shows the spread to the leader, this shows raw accumulation — who's pulling
+// away and who's stalling. Same zoom + clickable legend as the other charts.
+function PointsProgressChart({ snapshots, matches }) {
+  const wrapRef = useRef(null)
+  const [width, setWidth] = useState(680)
+  const [zoom, setZoom] = useState(3)
+  useEffect(() => {
+    const measure = () => { if (wrapRef.current) setWidth(Math.max(300, wrapRef.current.clientWidth)) }
+    measure()
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [snapshots.length])
+
+  const players = [...new Set(snapshots.map(s => s.player_name))].sort()
+
+  const [selected, setSelected] = useState(null)
+  useEffect(() => {
+    setSelected(prev => {
+      if (prev === null) return new Set(players)
+      const next = new Set([...prev].filter(p => players.includes(p)))
+      for (const p of players) if (!prev.has(p)) next.add(p)
+      return next
+    })
+  }, [players.join(',')])
+  const togglePlayer = p => setSelected(prev => {
+    const next = new Set(prev)
+    if (next.has(p)) next.delete(p); else next.add(p)
+    return next
+  })
+
+  const dateCount = new Set(snapshots.map(s => s.date)).size
+  if (dateCount < 2 || players.length === 0 || selected === null) return null
+
+  const effectiveTime = s => {
+    if (s.snapshot_time) return s.snapshot_time
+    const end = `${s.date}T23:59:59Z`
+    return s.captured_at < end ? s.captured_at : end
+  }
+  const totalMatches = matches.length
+  const finishedTimes = matches.filter(m => m.status === 'FINISHED').map(m => m.utc_date).sort()
+  const gameCountAt = t => finishedTimes.filter(x => x <= t).length
+
+  const byPlayer = {}
+  for (const p of players) {
+    byPlayer[p] = snapshots.filter(s => s.player_name === p)
+      .sort((a, b) => effectiveTime(a) < effectiveTime(b) ? -1 : 1)
+  }
+
+  let maxPts = 1
+  const series = {}
+  for (const p of players) {
+    series[p] = byPlayer[p].map(s => {
+      if (s.points > maxPts) maxPts = s.points
+      return { games: gameCountAt(effectiveTime(s)), points: s.points }
+    })
+  }
+
+  const H = 360, padL = 34, padR = 84, padT = 12, padB = 46
+  const plotW = (width - padL - padR) * zoom
+  const W = padL + plotW + padR
+  const plotH = H - padT - padB
+  const axisMax = totalMatches + 8
+  const xPos = g => padL + (axisMax === 0 ? 0 : (g / axisMax) * plotW)
+  // High points at the top (better = higher), so invert.
+  const yPos = pts => padT + (1 - pts / maxPts) * plotH
+
+  // Horizontal grid line every 5 points.
+  const gridLines = []
+  for (let g = 0; g <= maxPts; g += 5) gridLines.push(g)
+
+  // One vertical helper line + "HOME-AWAY" label per match below the chart,
+  // evenly spaced in chronological order (same as Rangverlauf).
+  const sortedMatches = [...matches].sort((a, b) => new Date(a.utc_date) - new Date(b.utc_date))
+  const matchMarkers = sortedMatches.map((m, i) => ({
+    x: xPos(i + 1),
+    label: `${m.home_team?.tla || '???'}-${m.away_team?.tla || '???'}`,
+  }))
+
+  const ends = {}
+  for (const p of players) {
+    if (!selected.has(p)) continue
+    const pts = series[p]
+    if (!pts.length) continue
+    const last = pts[pts.length - 1]
+    const key = `${xPos(last.games).toFixed(1)},${yPos(last.points).toFixed(1)}`
+    if (!ends[key]) ends[key] = { x: xPos(last.games), y: yPos(last.points), names: [] }
+    ends[key].names.push(p)
+  }
+
+  return (
+    <StatCard title="Punkteverlauf" hint="Erreichte Gesamtpunkte über den Turnierverlauf — die oberste Linie führt.">
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Zoom</span>
+        <input type="range" min={1} max={5} step={0.5} value={zoom} onChange={e => setZoom(Number(e.target.value))} style={{ width: 80 }} />
+      </div>
+      <div ref={wrapRef} style={{ overflowX: 'auto' }}>
+        <svg width={W} height={H} style={{ display: 'block' }}>
+          {gridLines.map(g => (
+            <g key={g}>
+              <line x1={padL} y1={yPos(g)} x2={W - padR} y2={yPos(g)} stroke="var(--border)" strokeWidth={0.5} />
+              <text x={padL - 6} y={yPos(g) + 3} textAnchor="end" fontSize={9} fill="var(--text-muted)">{g}</text>
+            </g>
+          ))}
+          {matchMarkers.map((mk, i) => (
+            <g key={`m${i}`}>
+              <line x1={mk.x} y1={padT} x2={mk.x} y2={padT + plotH} stroke="var(--border)" strokeWidth={0.5} opacity={0.4} />
+              <text x={mk.x} y={padT + plotH + 4} textAnchor="end" fontSize={7} fill="var(--text-faint)" transform={`rotate(-90 ${mk.x} ${padT + plotH + 4})`}>
+                {mk.label}
+              </text>
+            </g>
+          ))}
+          {players.map(p => {
+            if (!selected.has(p)) return null
+            const color = playerColor(players, p)
+            const pts = series[p].map(d => `${xPos(d.games)},${yPos(d.points)}`).join(' ')
+            return (
+              <g key={p}>
+                <polyline points={pts} fill="none" stroke={color} strokeWidth={1.5} opacity={0.85} />
+              </g>
+            )
+          })}
+          {Object.values(ends).map((e, i) => (
+            <text key={i} x={e.x + 8} y={e.y + 3} textAnchor="start" fontSize={9} fontWeight={500} fill="var(--text-primary)">
+              {e.names.join(', ')}
+            </text>
+          ))}
+        </svg>
+      </div>
+      <div style={{ display: 'flex', gap: 6, marginTop: 12 }}>
+        <button
+          onClick={() => setSelected(new Set(players))}
+          style={{ flex: 1, fontSize: 10, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-alt)', color: 'var(--text-secondary)', cursor: 'pointer' }}
+        >
+          Alle einblenden
+        </button>
+        <button
+          onClick={() => setSelected(new Set())}
+          style={{ flex: 1, fontSize: 10, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-alt)', color: 'var(--text-secondary)', cursor: 'pointer' }}
+        >
+          Alle ausblenden
+        </button>
+      </div>
+      <div style={legendGrid(players)}>
+        {players.map(p => (
+          <div
+            key={p}
+            onClick={() => togglePlayer(p)}
+            style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: selected.has(p) ? 'var(--text-secondary)' : 'var(--text-faint)', cursor: 'pointer', userSelect: 'none' }}
+          >
+            <span style={{ width: 10, height: 10, borderRadius: 2, background: playerColor(players, p), display: 'inline-block', opacity: selected.has(p) ? 1 : 0.3 }} />
+            <span style={{ textDecoration: selected.has(p) ? 'none' : 'line-through' }}>{p}</span>
+          </div>
+        ))}
+      </div>
+      <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 8 }}>
+        Auf einen Namen tippen blendet seine Linie im Diagramm ein oder aus.
+      </div>
+    </StatCard>
+  )
+}
+
+// ── 2. Treffergüte (stacked bars) ─────────────────────────────────────────
+function TrefferguteCard({ matches, opponentTips }) {
+  const byId = {}
+  for (const m of matches) byId[m.id] = m
+  const stat = {}
+  for (const t of opponentTips) {
+    const m = byId[t.match_id]
+    if (!m) continue
+    const cat = classifyTip(m, t)
+    if (!cat) continue
+    if (!stat[t.player_name]) stat[t.player_name] = { exact: 0, diff: 0, tendency: 0, wrong: 0 }
+    stat[t.player_name][cat]++
+  }
+  let rows = Object.entries(stat).map(([player, s]) => ({
+    player, ...s,
+    total: s.exact + s.diff + s.tendency + s.wrong,
+    points: TIP_CATEGORIES.reduce((a, [k, , p]) => a + s[k] * p, 0),
+  })).filter(r => r.total > 0)
+  if (!rows.length) return null
+  rows.sort((a, b) => b.points - a.points || a.player.localeCompare(b.player))
+
+  const num = { fontSize: 12, padding: '4px 6px', textAlign: 'center', color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }
+
+  return (
+    <StatCard title="Treffergüte" hint="Exakte Treffer, Tordifferenz, Tendenz und Fehltipps je Spieler — als Zahl und als Verteilungsbalken.">
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr>
+              <th style={{ textAlign: 'left', fontSize: 10, color: 'var(--text-dim)', fontWeight: 400, padding: '0 8px 6px 0', verticalAlign: 'bottom', whiteSpace: 'nowrap' }}>Spieler</th>
+              {TIP_CATEGORIES.map(([key, label]) => (
+                <th key={key} style={{ verticalAlign: 'bottom', padding: '0 4px 6px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                    <span style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: 10, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>{label}</span>
+                    <span style={{ width: 10, height: 10, borderRadius: 2, background: TIP_OVERLAYS[key], border: '1px solid var(--border)', flexShrink: 0 }} />
+                  </div>
+                </th>
+              ))}
+              <th style={{ width: '100%' }} />
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(r => (
+              <tr key={r.player} style={{ borderTop: '1px solid var(--border)' }}>
+                <td style={{ fontSize: 12, color: 'var(--text-primary)', padding: '4px 8px 4px 0', whiteSpace: 'nowrap' }}>{r.player}</td>
+                <td style={num}>{r.exact}</td>
+                <td style={num}>{r.diff}</td>
+                <td style={num}>{r.tendency}</td>
+                <td style={num}>{r.wrong}</td>
+                <td style={{ width: '100%', padding: '4px 0 4px 10px' }}>
+                  <div style={{ display: 'flex', height: 14, borderRadius: 4, overflow: 'hidden', background: 'var(--surface-alt)' }}>
+                    {TIP_CATEGORIES.map(([key]) => (
+                      r[key] > 0 ? (
+                        <div key={key} title={`${CATEGORY_BY_KEY[key].label}: ${r[key]}`}
+                          style={{ width: `${(r[key] / r.total) * 100}%`, background: TIP_OVERLAYS[key] }} />
+                      ) : null
+                    ))}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </StatCard>
+  )
+}
+
+// ── 4. Punkte pro Spieltag (heatmap) ──────────────────────────────────────
+function PointsPerDayHeatmap({ matches, opponentTips }) {
+  const { days, players, pts } = dailyPointsMatrix(matches, opponentTips)
+  if (days.length === 0 || players.length === 0) return null
+
+  const order = players.map(p => ({ p, total: days.reduce((a, d) => a + pts[p][d], 0) }))
+    .sort((a, b) => b.total - a.total || a.p.localeCompare(b.p))
+  const maxDay = Math.max(1, ...players.flatMap(p => days.map(d => pts[p][d])))
+
+  // Red → yellow → green heat scale: low score red, high score green.
+  const heat = t => {
+    const stops = [[231, 76, 60], [241, 196, 15], [46, 204, 113]] // rot, gelb, grün
+    const seg = t < 0.5 ? 0 : 1
+    const f = t < 0.5 ? t / 0.5 : (t - 0.5) / 0.5
+    const c0 = stops[seg], c1 = stops[seg + 1]
+    const ch = i => Math.round(c0[i] + (c1[i] - c0[i]) * f)
+    return `rgb(${ch(0)}, ${ch(1)}, ${ch(2)})`
+  }
+
+  const cell = { width: 30, height: 22, fontSize: 11, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }
+
+  return (
+    <StatCard title="Punkte pro Spieltag" hint="Punkteausbeute je Spieler und Spieltag — Rot = wenig, Grün = viele Punkte.">
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ borderCollapse: 'collapse' }}>
+          <thead>
+            <tr>
+              <th style={{ position: 'sticky', left: 0, background: 'var(--surface)', textAlign: 'left', fontSize: 10, color: 'var(--text-dim)', fontWeight: 400, padding: '0 8px 6px 0', whiteSpace: 'nowrap' }}>Spieler</th>
+              {days.map(d => (
+                <th key={d} style={{ ...cell, fontSize: 9, color: 'var(--text-dim)', fontWeight: 400, paddingBottom: 6 }}>{ddmm(d)}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {order.map(({ p }) => (
+              <tr key={p}>
+                <td style={{ position: 'sticky', left: 0, background: 'var(--surface)', fontSize: 12, color: 'var(--text-secondary)', padding: '2px 8px 2px 0', whiteSpace: 'nowrap' }}>{p}</td>
+                {days.map(d => {
+                  const v = pts[p][d]
+                  return (
+                    <td key={d} style={{ ...cell, color: '#15202b', background: heat(v / maxDay) }}>{v}</td>
+                  )
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </StatCard>
+  )
+}
+
+// ── 5. Tipp-Zwillinge (similarity heatmap) ────────────────────────────────
+// For every pair, the share of commonly-tipped matches where they picked the
+// exact same scoreline. Reveals who thinks alike and who's the contrarian.
+function TwinsHeatmap({ opponentTips }) {
+  const players = [...new Set(opponentTips.map(t => t.player_name))].sort()
+  if (players.length < 2) return null
+
+  const byPlayer = {}
+  for (const p of players) byPlayer[p] = {}
+  for (const t of opponentTips) byPlayer[t.player_name][t.match_id] = `${t.pred_home_goals}:${t.pred_away_goals}`
+
+  const sim = (a, b) => {
+    let common = 0, same = 0
+    for (const mid in byPlayer[a]) {
+      if (byPlayer[b][mid] == null) continue
+      common++
+      if (byPlayer[a][mid] === byPlayer[b][mid]) same++
+    }
+    return common === 0 ? null : { rate: same / common, common }
+  }
+
+  // Green → yellow → red heat scale; red marks the highest similarity. The
+  // input is biased upward (pow < 1) so the green band stays small and most
+  // cells read yellow → red.
+  const heat = t => {
+    const b = Math.pow(t, 0.55)
+    const stops = [[46, 204, 113], [241, 196, 15], [231, 76, 60]] // grün, gelb, rot
+    const seg = b < 0.5 ? 0 : 1
+    const f = b < 0.5 ? b / 0.5 : (b - 0.5) / 0.5
+    const c0 = stops[seg], c1 = stops[seg + 1]
+    const ch = i => Math.round(c0[i] + (c1[i] - c0[i]) * f)
+    return `rgb(${ch(0)}, ${ch(1)}, ${ch(2)})`
+  }
+
+  // The matrix fills 100% of the card width (table-layout: fixed) and every
+  // cell is forced square via aspect-ratio, so the whole grid fits the viewport
+  // horizontally and stays square regardless of player count.
+  const cellDiv = extra => ({ width: '100%', aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontVariantNumeric: 'tabular-nums', ...extra })
+
+  return (
+    <StatCard title="Tipp-Zwillinge" hint="Anteil gemeinsam getippter Spiele mit identischem Ergebnis-Tipp. Grün → Gelb → Rot: Rot = tippt am ähnlichsten.">
+      <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse' }}>
+        <colgroup>
+          <col style={{ width: 84 }} />
+          {players.map(p => <col key={p} />)}
+        </colgroup>
+        <thead>
+          <tr>
+            <th />
+            {players.map(p => (
+              <th key={p} title={p} style={{ verticalAlign: 'bottom', padding: '0 0 6px', fontWeight: 400 }}>
+                <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: 10, color: 'var(--text-dim)', whiteSpace: 'nowrap', margin: '0 auto' }}>{p}</div>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {players.map(a => (
+            <tr key={a}>
+              <td style={{ fontSize: 11, color: 'var(--text-secondary)', padding: '0 6px 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a}</td>
+              {players.map(b => {
+                if (a === b) return <td key={b} style={{ padding: 0 }}><div style={cellDiv({ background: 'var(--surface-alt)' })} /></td>
+                const s = sim(a, b)
+                return (
+                  <td key={b} style={{ padding: 0 }} title={s ? `${a} ↔ ${b}: ${Math.round(s.rate * 100)}% von ${s.common} Spielen` : 'keine gemeinsamen Spiele'}>
+                    <div style={cellDiv({ color: s ? '#15202b' : 'var(--text-dim)', background: s ? heat(s.rate) : 'transparent' })}>
+                      {s ? Math.round(s.rate * 100) : '–'}
+                    </div>
+                  </td>
+                )
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </StatCard>
+  )
+}
+
+// ── 6. Risikoprofil ───────────────────────────────────────────────────────
+function RiskProfile({ opponentTips }) {
+  const stat = {}
+  for (const t of opponentTips) {
+    const s = stat[t.player_name] || (stat[t.player_name] = { n: 0, goals: 0, draws: 0, scores: {} })
+    s.n++
+    s.goals += t.pred_home_goals + t.pred_away_goals
+    if (t.pred_home_goals === t.pred_away_goals) s.draws++
+    const key = `${t.pred_home_goals}:${t.pred_away_goals}`
+    s.scores[key] = (s.scores[key] || 0) + 1
+  }
+  const rows = Object.entries(stat).filter(([, s]) => s.n > 0).map(([player, s]) => {
+    const fav = Object.entries(s.scores).sort((a, b) => b[1] - a[1])[0]
+    return { player, avg: s.goals / s.n, drawRate: s.draws / s.n, fav: fav[0], favCount: fav[1] }
+  })
+  if (!rows.length) return null
+  rows.sort((a, b) => b.avg - a.avg || a.player.localeCompare(b.player))
+
+  const th = { fontSize: 10, color: 'var(--text-dim)', fontWeight: 400, padding: '0 8px 6px 0', whiteSpace: 'nowrap', textAlign: 'left' }
+  const td = { fontSize: 12, padding: '5px 8px 5px 0', textAlign: 'left', color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }
+
+  return (
+    <StatCard title="Risikoprofil" hint="Ø getippte Tore (offensiv vs. vorsichtig), Remis-Quote und Lieblingstipp je Spieler.">
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr>
+              <th style={th}>Spieler</th>
+              <th style={th}>Ø Tore</th>
+              <th style={th}>Remis</th>
+              <th style={th}>Lieblingstipp</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(r => (
+              <tr key={r.player} style={{ borderTop: '1px solid var(--border)' }}>
+                <td style={{ ...td, color: 'var(--text-primary)' }}>{r.player}</td>
+                <td style={td}>{r.avg.toFixed(1)}</td>
+                <td style={td}>{Math.round(r.drawRate * 100)}%</td>
+                <td style={td}>{r.fav} <span style={{ color: 'var(--text-dim)' }}>×{r.favCount}</span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </StatCard>
+  )
+}
+
+// ── 7. Mut zum Risiko (Konsens-Abweichung) ────────────────────────────────
+// Per match the crowd has a majority tendency (Heim/Remis/Auswärts); a player
+// is "bold" when they tip against it. We report how often each player goes
+// against the grain — and, on finished matches, how often that boldness paid off.
+function BoldnessCard({ matches, opponentTips }) {
+  const byId = {}
+  for (const m of matches) byId[m.id] = m
+  const tendency = (h, a) => h > a ? 'H' : h < a ? 'A' : 'D'
+
+  const tipsByMatch = {}
+  for (const t of opponentTips) {
+    if (!tipsByMatch[t.match_id]) tipsByMatch[t.match_id] = []
+    tipsByMatch[t.match_id].push(t)
+  }
+
+  const majorityByMatch = {}
+  for (const mid in tipsByMatch) {
+    const counts = { H: 0, D: 0, A: 0 }
+    for (const t of tipsByMatch[mid]) counts[tendency(t.pred_home_goals, t.pred_away_goals)]++
+    majorityByMatch[mid] = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0]
+  }
+
+  const stat = {}
+  for (const t of opponentTips) {
+    const list = tipsByMatch[t.match_id]
+    if (!list || list.length < 2) continue // need a crowd to deviate from
+    const s = stat[t.player_name] || (stat[t.player_name] = { n: 0, bold: 0, boldFin: 0, boldHit: 0 })
+    s.n++
+    const mine = tendency(t.pred_home_goals, t.pred_away_goals)
+    const isBold = mine !== majorityByMatch[t.match_id]
+    if (isBold) {
+      s.bold++
+      const m = byId[t.match_id]
+      if (m && m.status === 'FINISHED' && m.score_home != null) {
+        s.boldFin++
+        if (tendency(m.score_home, m.score_away) === mine) s.boldHit++
+      }
+    }
+  }
+
+  const rows = Object.entries(stat).filter(([, s]) => s.n > 0).map(([player, s]) => ({
+    player, boldRate: s.bold / s.n, bold: s.bold,
+    payoff: s.boldFin > 0 ? s.boldHit / s.boldFin : null, boldFin: s.boldFin,
+  }))
+  if (!rows.length) return null
+  rows.sort((a, b) => b.boldRate - a.boldRate || a.player.localeCompare(b.player))
+
+  const th = { fontSize: 10, color: 'var(--text-dim)', fontWeight: 400, padding: '0 8px 6px 0', whiteSpace: 'nowrap', textAlign: 'left' }
+  const td = { fontSize: 12, padding: '5px 8px 5px 0', textAlign: 'left', color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }
+
+  return (
+    <StatCard title="Mut zum Risiko" hint="Anteil der Spiele, in denen ein Spieler gegen die Mehrheitstendenz tippt — und wie oft dieser Mut belohnt wurde.">
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr>
+              <th style={th}>Spieler</th>
+              <th style={th}>Mut</th>
+              <th style={th}>davon korrekt</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(r => (
+              <tr key={r.player} style={{ borderTop: '1px solid var(--border)' }}>
+                <td style={{ ...td, color: 'var(--text-primary)' }}>{r.player}</td>
+                <td style={td}>{Math.round(r.boldRate * 100)}% <span style={{ color: 'var(--text-dim)' }}>({r.bold})</span></td>
+                <td style={td}>{r.payoff == null ? '–' : <>{Math.round(r.payoff * 100)}% <span style={{ color: 'var(--text-dim)' }}>von {r.boldFin}</span></>}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </StatCard>
+  )
+}
+
+// ── 8. Außenseiter-Gespür (upset radar) ───────────────────────────────────
+// An "upset" is a finished match the ELO favourite failed to win (the underdog
+// won or held a draw). The matrix shows, per upset, which players still called
+// the correct tendency — i.e. who smells a surprise coming.
+function UpsetRadarCard({ matches, opponentTips }) {
+  const tendency = (h, a) => h > a ? 'H' : h < a ? 'A' : 'D'
+
+  const tipsByMatch = {}
+  for (const t of opponentTips) {
+    if (!tipsByMatch[t.match_id]) tipsByMatch[t.match_id] = []
+    tipsByMatch[t.match_id].push(t)
+  }
+
+  // Finished matches the model clearly favoured one side (≥45%) but where that
+  // side didn't win, and that at least one player tipped.
+  const upsets = matches.filter(m => {
+    if (m.status !== 'FINISHED' || m.score_home == null || m.score_away == null) return false
+    const p = m.prediction
+    if (!p) return false
+    if (!tipsByMatch[m.id]) return false
+    const favHome = p.home_win_prob >= p.away_win_prob
+    const favProb = favHome ? p.home_win_prob : p.away_win_prob
+    if (favProb < 0.45) return false
+    const actual = tendency(m.score_home, m.score_away)
+    return favHome ? actual !== 'H' : actual !== 'A'
+  }).sort((a, b) => new Date(b.utc_date) - new Date(a.utc_date))
+
+  if (upsets.length === 0) return null
+
+  const players = [...new Set(opponentTips.map(t => t.player_name))].sort()
+
+  // Did a player call this upset (correct tendency)?
+  const calledBy = {}
+  const hits = Object.fromEntries(players.map(p => [p, 0]))
+  for (const m of upsets) {
+    const actual = tendency(m.score_home, m.score_away)
+    calledBy[m.id] = {}
+    for (const t of tipsByMatch[m.id]) {
+      const ok = tendency(t.pred_home_goals, t.pred_away_goals) === actual
+      calledBy[m.id][t.player_name] = ok
+      if (ok) hits[t.player_name]++
+    }
+  }
+
+  const labelCol = 96
+  const dotCell = { padding: 0, textAlign: 'center' }
+  const dot = ok => (
+    <span style={{
+      display: 'inline-block', width: 9, height: 9, borderRadius: '50%',
+      background: ok ? '#2ecc71' : 'transparent',
+      border: ok ? 'none' : '1px solid var(--border)',
+    }} />
+  )
+
+  return (
+    <StatCard title="Außenseiter-Gespür" hint="Spiele, in denen der ELO-Favorit nicht gewann. Grüner Punkt = Spieler tippte die Überraschung (richtige Tendenz).">
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ borderCollapse: 'collapse' }}>
+          <thead>
+            <tr>
+              <th style={{ position: 'sticky', left: 0, background: 'var(--surface)', textAlign: 'left', fontSize: 10, color: 'var(--text-dim)', fontWeight: 400, padding: '0 8px 6px 0', whiteSpace: 'nowrap' }}>Überraschung</th>
+              {players.map(p => (
+                <th key={p} title={p} style={{ verticalAlign: 'bottom', padding: '0 3px 6px', fontWeight: 400 }}>
+                  <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: 10, color: 'var(--text-dim)', whiteSpace: 'nowrap', margin: '0 auto' }}>{p}</div>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {upsets.map(m => {
+              const h = m.home_team?.tla || '???'
+              const a = m.away_team?.tla || '???'
+              return (
+                <tr key={m.id} style={{ borderTop: '1px solid var(--border)' }}>
+                  <td style={{ position: 'sticky', left: 0, background: 'var(--surface)', fontSize: 11, color: 'var(--text-secondary)', padding: '4px 8px 4px 0', whiteSpace: 'nowrap', minWidth: labelCol, fontVariantNumeric: 'tabular-nums' }}>
+                    {h}–{a} <span style={{ color: 'var(--text-dim)' }}>{m.score_home}:{m.score_away}</span>
+                  </td>
+                  {players.map(p => (
+                    <td key={p} style={dotCell} title={calledBy[m.id][p] == null ? `${p}: kein Tipp` : `${p}: ${calledBy[m.id][p] ? 'erkannt' : 'verpasst'}`}>
+                      {calledBy[m.id][p] == null ? <span style={{ color: 'var(--text-dim)', fontSize: 10 }}>·</span> : dot(calledBy[m.id][p])}
+                    </td>
+                  ))}
+                </tr>
+              )
+            })}
+            <tr style={{ borderTop: '2px solid var(--border)' }}>
+              <td style={{ position: 'sticky', left: 0, background: 'var(--surface)', fontSize: 10, color: 'var(--text-dim)', padding: '5px 8px 0 0', whiteSpace: 'nowrap' }}>Treffer</td>
+              {players.map(p => (
+                <td key={p} style={{ ...dotCell, fontSize: 11, color: 'var(--text-secondary)', fontWeight: 500, paddingTop: 5, fontVariantNumeric: 'tabular-nums' }}>{hits[p]}</td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </StatCard>
+  )
+}
+
+// ── 9. Tipp-Vielfalt (scoreline diversity) ────────────────────────────────
+// Per player a stacked bar over their distinct scorelines (width ∝ frequency).
+// One dominant colour = a one-trick tipper (always 2:1); many thin slivers =
+// someone who uses the whole range. Colours are shared across players so the
+// same scoreline reads the same everywhere.
+function ScoreDiversityCard({ opponentTips }) {
+  if (opponentTips.length === 0) return null
+
+  // Global scoreline frequency → colour map for the most common scorelines.
+  const globalCount = {}
+  for (const t of opponentTips) {
+    const k = `${t.pred_home_goals}:${t.pred_away_goals}`
+    globalCount[k] = (globalCount[k] || 0) + 1
+  }
+  const topScores = Object.entries(globalCount).sort((a, b) => b[1] - a[1]).map(([k]) => k)
+  const colorOf = {}
+  topScores.forEach((k, i) => { colorOf[k] = i < RANK_CHART_COLORS.length ? RANK_CHART_COLORS[i] : 'var(--text-dim)' })
+  const segColor = k => colorOf[k] || 'var(--text-dim)'
+
+  const byPlayer = {}
+  for (const t of opponentTips) {
+    const k = `${t.pred_home_goals}:${t.pred_away_goals}`
+    if (!byPlayer[t.player_name]) byPlayer[t.player_name] = { n: 0, scores: {} }
+    byPlayer[t.player_name].n++
+    byPlayer[t.player_name].scores[k] = (byPlayer[t.player_name].scores[k] || 0) + 1
+  }
+
+  const rows = Object.entries(byPlayer).map(([player, d]) => {
+    // Order segments by global scoreline frequency (topScores), not each
+    // player's own count, so a given scoreline sits at the same position in
+    // every player's bar and the colours line up across rows.
+    const segs = topScores.filter(k => d.scores[k]).map(k => [k, d.scores[k]])
+    return { player, n: d.n, distinct: segs.length, segs }
+  })
+  if (!rows.length) return null
+  // Most diverse tippers first (most distinct scorelines), then alphabetical.
+  rows.sort((a, b) => b.distinct - a.distinct || a.player.localeCompare(b.player))
+
+  // Legend: the most common scorelines that actually got a colour.
+  const legend = topScores.slice(0, RANK_CHART_COLORS.length).filter(k => globalCount[k] > 1)
+
+  return (
+    <StatCard title="Tipp-Vielfalt" hint="Verteilung der getippten Ergebnisse je Spieler. Ein breiter Block = Lieblingstipp, viele Streifen = abwechslungsreich. Gleiche Farbe = gleiches Ergebnis.">
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 10px', fontSize: 10, color: 'var(--text-muted)', marginBottom: 12 }}>
+        {legend.map(k => (
+          <span key={k} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ width: 10, height: 10, borderRadius: 2, background: segColor(k), flexShrink: 0 }} />
+            {k}
+          </span>
+        ))}
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--text-dim)', flexShrink: 0 }} />
+          sonstige
+        </span>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {rows.map(r => (
+          <div key={r.player} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 12, color: 'var(--text-primary)', width: 96, flexShrink: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.player}</span>
+            <div style={{ flex: 1, display: 'flex', height: 16, borderRadius: 4, overflow: 'hidden', background: 'var(--surface-alt)' }}>
+              {r.segs.map(([k, c]) => (
+                <div key={k} title={`${k}: ${c}×`} style={{ width: `${(c / r.n) * 100}%`, background: segColor(k) }} />
+              ))}
+            </div>
+            <span style={{ fontSize: 11, color: 'var(--text-secondary)', width: 70, flexShrink: 0, textAlign: 'right', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+              {r.distinct} <span style={{ color: 'var(--text-dim)' }}>Var.</span>
+            </span>
+          </div>
+        ))}
+      </div>
+    </StatCard>
+  )
 }
 
 function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
+  // On the opponents-only mirror the ELO tip is hidden so fellow players
+  // don't see the model's prediction for past games.
+  const wmtOnly = isWmtOnlyDomain()
+  // Two subpages (both shown on every domain): aggregate stats vs. the
+  // per-match tip results. Pills styled like the Spieltage stage selector.
+  const [sub, setSub] = useState('stats')
+  const pill = (key, label) => (
+    <button
+      key={key}
+      onClick={() => setSub(key)}
+      style={{
+        background: sub === key ? 'var(--border)' : 'none',
+        border: `1px solid ${sub === key ? 'var(--border-hover)' : 'var(--border)'}`,
+        color: sub === key ? 'var(--text-primary)' : 'var(--text-secondary)',
+        borderRadius: 6, padding: '4px 10px', fontSize: 11,
+        cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
+      }}>
+      {label}
+    </button>
+  )
   const matchById = {}
   for (const m of matches) matchById[m.id] = m
 
@@ -1979,15 +3273,42 @@ function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={equalButtonGrid(['Statistiken', 'Einzelergebnisse'])}>
+        {pill('stats', 'Statistiken')}
+        {pill('results', 'Einzelergebnisse')}
+      </div>
+
+      {sub === 'stats' && (<>
       <RankingChart snapshots={rankingSnapshots} matches={matches} />
 
+      <PointsGapChart snapshots={rankingSnapshots} matches={matches} />
+
+      <PointsProgressChart snapshots={rankingSnapshots} matches={matches} />
+
+      <DayWinnerLoserCard matches={matches} opponentTips={opponentTips} />
+
+      <TrefferguteCard matches={matches} opponentTips={opponentTips} />
+
+      <PointsPerDayHeatmap matches={matches} opponentTips={opponentTips} />
+      <TwinsHeatmap opponentTips={opponentTips} />
+      <RiskProfile opponentTips={opponentTips} />
+      <ScoreDiversityCard opponentTips={opponentTips} />
+      <BoldnessCard matches={matches} opponentTips={opponentTips} />
+      <UpsetRadarCard matches={matches} opponentTips={opponentTips} />
+      </>)}
+
+      {sub === 'results' && (<>
       {matchIds.length === 0 ? (
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 24, textAlign: 'center' }}>
-          <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Noch keine Tipps der Mitspieler importiert.</div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
-            Sobald die Tipps in der Tipprunde sichtbar sind, können Screenshots zum Import übergeben werden.
+        // Opponents-only mirror: don't leak the screenshot-import workflow —
+        // just show nothing until tips exist (e.g. during a Railway deploy).
+        wmtOnly ? null : (
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 24, textAlign: 'center' }}>
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Noch keine Tipps der Mitspieler importiert.</div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
+              Sobald die Tipps in der Tipprunde sichtbar sind, können Screenshots zum Import übergeben werden.
+            </div>
           </div>
-        </div>
+        )
       ) : matchIds.map(mid => {
         const m = matchById[mid]
         const tips = tipsByMatch[mid]
@@ -2016,7 +3337,7 @@ function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
               </div>
             </div>
 
-            {p && (
+            {!wmtOnly && p && (
               <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 10 }}>
                 ELO-Tipp: {bestTip(p, m.stage !== 'GROUP_STAGE').join(':')}
                 {' '}({Math.round(p.home_win_prob * 100)}% / {Math.round(p.draw_prob * 100)}% / {Math.round(p.away_win_prob * 100)}%)
@@ -2024,8 +3345,13 @@ function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
             )}
 
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8 }}>
-              Tipp-Verteilung: {tally.home}× Heimsieg · {tally.draw}× Unentschieden · {tally.away}× Auswärtssieg
+              Tipp-Verteilung:
+              <div>{tally.home}× Heimsieg</div>
+              <div>{tally.draw}× Unentschieden</div>
+              <div>{tally.away}× Auswärtssieg</div>
             </div>
+
+            {m.status === 'FINISHED' && <TipLegendInline />}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
               {tips.map(t => (
@@ -2042,6 +3368,7 @@ function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
           </div>
         )
       })}
+      </>)}
     </div>
   )
 }

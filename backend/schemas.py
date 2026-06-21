@@ -356,3 +356,17 @@ class DrvRideOut(BaseModel):
     started_at: UtcDt
     ended_at: UtcDtOpt
 
+
+# ── scheduler log ───────────────────────────────────────────────────────────────
+
+class SchedulerLogOut(BaseModel):
+    id: int
+    ran_at: UtcDt
+    job: str
+    result: str
+    next_run_at: UtcDtOpt
+    next_run_reason: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
