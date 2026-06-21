@@ -314,27 +314,33 @@ function prevMatchesForTeam(allMatches, teamId, beforeDate) {
 }
 
 // A team's result (Sieg/Unentschieden/Niederlage) in a given match.
-function teamOutcome(m, teamId) {
-  const isHome = m.home_team?.id === teamId
-  const gf = isHome ? m.score_home : m.score_away
-  const ga = isHome ? m.score_away : m.score_home
-  if (gf > ga) return { letter: 'S', color: '#4d8a4d' }
-  if (gf < ga) return { letter: 'N', color: '#8a4d4d' }
-  return { letter: 'U', color: 'var(--text-dim)' }
+// Labels + colours for how the app's prognosis scored against a finished match.
+const PREV_CAT = {
+  exact:    { label: 'Exakt',     color: '#4d8a4d' },
+  diff:     { label: 'Differenz', color: '#4d6fa0' },
+  tendency: { label: 'Tendenz',   color: '#c8a84d' },
+  wrong:    { label: 'falsch',    color: '#8a4d4d' },
 }
 
-// One "bisherige Spiele" row per previous match, from the given team's view.
-function PrevMatchRow({ m, teamId }) {
-  const o = teamOutcome(m, teamId)
+// One "bisherige Spiele" row: the result plus what the app had predicted and
+// how that prediction scored (Exakt / Differenz / Tendenz / falsch).
+function PrevMatchRow({ m }) {
   const hTla = m.home_team?.tla ?? '?'
   const aTla = m.away_team?.tla ?? '?'
+  let prog = null
+  if (m.prediction) {
+    const [pH, pA] = bestTip(m.prediction, m.stage !== 'GROUP_STAGE')
+    const cat = classifyTip(m, { pred_home_goals: pH, pred_away_goals: pA })
+    if (cat) prog = { pH, pA, cat }
+  }
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: 'var(--text-dim)', padding: '2px 0', fontVariantNumeric: 'tabular-nums' }}>
-      <span style={{ color: o.color, fontWeight: 600, width: 10, flexShrink: 0 }}>{o.letter}</span>
+    <div style={{ fontSize: 11, color: 'var(--text-dim)', padding: '2px 0', fontVariantNumeric: 'tabular-nums' }}>
       <span style={{ color: 'var(--text-secondary)' }}>{hTla} {m.score_home}:{m.score_away} {aTla}</span>
-      <span style={{ marginLeft: 'auto', color: 'var(--text-dim)' }}>
-        {new Date(m.utc_date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}
-      </span>
+      {prog && (
+        <span> – Prognose {prog.pH}:{prog.pA}{' '}
+          <span style={{ color: PREV_CAT[prog.cat].color }}>({PREV_CAT[prog.cat].label})</span>
+        </span>
+      )}
     </div>
   )
 }
@@ -480,13 +486,13 @@ function MatchCard({ match, teamStatuses = {}, allMatches = [] }) {
                   {homePrev.length > 0 && (
                     <div style={{ marginBottom: awayPrev.length > 0 ? 8 : 0 }}>
                       <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginBottom: 2 }}>{homeTla}</div>
-                      {homePrev.map(m => <PrevMatchRow key={m.id} m={m} teamId={match.home_team.id} />)}
+                      {homePrev.map(m => <PrevMatchRow key={m.id} m={m} />)}
                     </div>
                   )}
                   {awayPrev.length > 0 && (
                     <div>
                       <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginBottom: 2 }}>{awayTla}</div>
-                      {awayPrev.map(m => <PrevMatchRow key={m.id} m={m} teamId={match.away_team.id} />)}
+                      {awayPrev.map(m => <PrevMatchRow key={m.id} m={m} />)}
                     </div>
                   )}
                 </div>
@@ -1081,7 +1087,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v4.2</span>
+          <span className="topbar-version">v4.3</span>
         </div>
       </div>
 
