@@ -584,6 +584,7 @@ def _do_refresh_fdorg(db: Session) -> tuple[int, str]:
 
     updated = 0
     newly_finished: list[models.WmtMatch] = []
+    overridden_ids = {o.match_id for o in db.query(models.WmtMatchScoreOverride).all()}
 
     for m in matches_data:
         match_id = m.get("id")
@@ -632,6 +633,13 @@ def _do_refresh_fdorg(db: Session) -> tuple[int, str]:
             db.add(match)
             db.flush()
             updated += 1
+        elif match.id in overridden_ids:
+            # Manually-pinned result — refresh metadata only, never touch score/status.
+            match.last_fetched = datetime.utcnow()
+            if home_team:
+                match.home_team_id = home_team.id
+            if away_team:
+                match.away_team_id = away_team.id
         else:
             was_finished = match.status == "FINISHED"
             match.status = status
@@ -668,6 +676,7 @@ def _do_refresh_openligadb(db: Session) -> tuple[int, str]:
     updated = 0
     skipped_no_id = 0
     newly_finished: list[models.WmtMatch] = []
+    overridden_ids = {o.match_id for o in db.query(models.WmtMatchScoreOverride).all()}
 
     for m in matches_data:
         openligadb_id = m.get("matchID")
@@ -706,6 +715,13 @@ def _do_refresh_openligadb(db: Session) -> tuple[int, str]:
             db.add(match)
             db.flush()
             updated += 1
+        elif match.id in overridden_ids:
+            # Manually-pinned result — refresh metadata only, never touch score/status.
+            match.last_fetched = datetime.utcnow()
+            if home_team:
+                match.home_team_id = home_team.id
+            if away_team:
+                match.away_team_id = away_team.id
         else:
             was_finished = match.status == "FINISHED"
             match.status = status
@@ -2225,7 +2241,10 @@ def _match_out(match: models.WmtMatch, db: Session) -> schemas.WmtMatchOut:
         .order_by(models.WmtPrediction.created_at.desc())
         .first()
     )
-    return _assemble_match_out(match, home, away, pred)
+    overridden = (
+        db.query(models.WmtMatchScoreOverride).filter_by(match_id=match.id).first() is not None
+    )
+    return _assemble_match_out(match, home, away, pred, overridden=overridden)
 
 
 def _assemble_match_out(
@@ -2234,6 +2253,7 @@ def _assemble_match_out(
     away: Optional[models.WmtTeam],
     pred: Optional[models.WmtPrediction],
     all_preds: Optional[list[models.WmtPrediction]] = None,
+    overridden: bool = False,
 ) -> schemas.WmtMatchOut:
     return schemas.WmtMatchOut(
         id=match.id,
@@ -2249,6 +2269,7 @@ def _assemble_match_out(
         away_team=_team_out(away),
         prediction=_pred_out(pred),
         predictions=[_pred_out(p) for p in (all_preds or ([pred] if pred else []))],
+        score_overridden=overridden,
     )
 
 
@@ -2319,6 +2340,7 @@ def list_matches(db: Session = Depends(get_db)):
     all_preds_by_match: dict[int, list[models.WmtPrediction]] = {}
     for p in db.query(models.WmtPrediction).order_by(models.WmtPrediction.created_at.desc()).all():
         all_preds_by_match.setdefault(p.match_id, []).append(p)
+    overridden_ids = {o.match_id for o in db.query(models.WmtMatchScoreOverride).all()}
     return [
         _assemble_match_out(
             m,
@@ -2326,6 +2348,7 @@ def list_matches(db: Session = Depends(get_db)):
             teams.get(m.away_team_id) if m.away_team_id else None,
             all_preds_by_match.get(m.id, [None])[0],
             all_preds_by_match.get(m.id, []),
+            overridden=m.id in overridden_ids,
         )
         for m in matches
     ]
@@ -2338,6 +2361,52 @@ def match_predictions(mid: int, db: Session = Depends(get_db)):
         .filter_by(match_id=mid)
         .order_by(models.WmtPrediction.created_at.desc())
         .all()
+    )
+
+
+@router.put("/matches/{match_id}/score", response_model=schemas.WmtMatchOut)
+def set_match_score(match_id: int, payload: schemas.WmtMatchScoreOverrideIn, db: Session = Depends(get_db)):
+    """Pin a manual result for a match (e.g. when football-data.org reports a wrong
+    score). The override survives every subsequent refresh until it's deleted.
+    Note: ELO already applied at original-finish time is not recomputed."""
+    match = db.get(models.WmtMatch, match_id)
+    if not match:
+        raise HTTPException(status_code=404, detail="Spiel nicht gefunden")
+    status = payload.status or "FINISHED"
+    ov = db.query(models.WmtMatchScoreOverride).filter_by(match_id=match_id).first()
+    if ov:
+        ov.score_home = payload.score_home
+        ov.score_away = payload.score_away
+        ov.status = status
+        ov.note = payload.note
+        ov.created_at = datetime.utcnow()
+    else:
+        db.add(models.WmtMatchScoreOverride(
+            match_id=match_id,
+            score_home=payload.score_home,
+            score_away=payload.score_away,
+            status=status,
+            note=payload.note,
+        ))
+    match.score_home = payload.score_home
+    match.score_away = payload.score_away
+    match.status = status
+    db.commit()
+    db.refresh(match)
+    return _match_out(match, db)
+
+
+@router.delete("/matches/{match_id}/score", response_model=schemas.WmtRefreshOut)
+def clear_match_score(match_id: int, db: Session = Depends(get_db)):
+    """Remove a manual result pin — the next refresh restores the feed's value."""
+    ov = db.query(models.WmtMatchScoreOverride).filter_by(match_id=match_id).first()
+    if not ov:
+        raise HTTPException(status_code=404, detail="Keine manuelle Korrektur für dieses Spiel")
+    db.delete(ov)
+    db.commit()
+    return schemas.WmtRefreshOut(
+        message="Manuelle Korrektur entfernt — nächste Aktualisierung übernimmt wieder den Feed-Wert.",
+        updated=1,
     )
 
 

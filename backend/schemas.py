@@ -210,6 +210,14 @@ class WmtMatchOut(BaseModel):
     away_team: Optional[WmtTeamOut]
     prediction: Optional[WmtPredictionOut]
     predictions: list[WmtPredictionOut] = []
+    score_overridden: bool = False
+
+
+class WmtMatchScoreOverrideIn(BaseModel):
+    score_home: int
+    score_away: int
+    status: Optional[str] = None   # defaults to FINISHED
+    note: Optional[str] = None
 
 
 class WmtSummaryOut(BaseModel):
