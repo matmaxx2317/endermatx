@@ -1018,7 +1018,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v4.0</span>
+          <span className="topbar-version">v4.1</span>
         </div>
       </div>
 
@@ -2396,7 +2396,7 @@ function PointsGapChart({ snapshots, matches }) {
     })
   }
 
-  const H = 360, padL = 34, padR = 84, padT = 12, padB = 22
+  const H = 360, padL = 34, padR = 84, padT = 12, padB = 46
   const plotW = (width - padL - padR) * zoom
   const W = padL + plotW + padR
   const plotH = H - padT - padB
@@ -2404,9 +2404,17 @@ function PointsGapChart({ snapshots, matches }) {
   const xPos = g => padL + (axisMax === 0 ? 0 : (g / axisMax) * plotW)
   const yPos = gap => padT + (gap / maxGap) * plotH
 
-  const gridStep = Math.max(1, Math.ceil(maxGap / 5))
+  // Horizontal grid line every 5 points.
   const gridLines = []
-  for (let g = 0; g <= maxGap; g += gridStep) gridLines.push(g)
+  for (let g = 0; g <= maxGap; g += 5) gridLines.push(g)
+
+  // One vertical helper line + "HOME-AWAY" label per match below the chart,
+  // evenly spaced in chronological order (same as Rangverlauf).
+  const sortedMatches = [...matches].sort((a, b) => new Date(a.utc_date) - new Date(b.utc_date))
+  const matchMarkers = sortedMatches.map((m, i) => ({
+    x: xPos(i + 1),
+    label: `${m.home_team?.tla || '???'}-${m.away_team?.tla || '???'}`,
+  }))
 
   const ends = {}
   for (const p of players) {
@@ -2431,6 +2439,14 @@ function PointsGapChart({ snapshots, matches }) {
             <g key={g}>
               <line x1={padL} y1={yPos(g)} x2={W - padR} y2={yPos(g)} stroke="var(--border)" strokeWidth={0.5} />
               <text x={padL - 6} y={yPos(g) + 3} textAnchor="end" fontSize={9} fill="var(--text-muted)">{g}</text>
+            </g>
+          ))}
+          {matchMarkers.map((mk, i) => (
+            <g key={`m${i}`}>
+              <line x1={mk.x} y1={padT} x2={mk.x} y2={padT + plotH} stroke="var(--border)" strokeWidth={0.5} opacity={0.4} />
+              <text x={mk.x} y={padT + plotH + 4} textAnchor="end" fontSize={7} fill="var(--text-faint)" transform={`rotate(-90 ${mk.x} ${padT + plotH + 4})`}>
+                {mk.label}
+              </text>
             </g>
           ))}
           {players.map(p => {
@@ -2545,7 +2561,7 @@ function PointsProgressChart({ snapshots, matches }) {
     })
   }
 
-  const H = 360, padL = 34, padR = 84, padT = 12, padB = 22
+  const H = 360, padL = 34, padR = 84, padT = 12, padB = 46
   const plotW = (width - padL - padR) * zoom
   const W = padL + plotW + padR
   const plotH = H - padT - padB
@@ -2554,9 +2570,17 @@ function PointsProgressChart({ snapshots, matches }) {
   // High points at the top (better = higher), so invert.
   const yPos = pts => padT + (1 - pts / maxPts) * plotH
 
-  const gridStep = Math.max(1, Math.ceil(maxPts / 5))
+  // Horizontal grid line every 5 points.
   const gridLines = []
-  for (let g = 0; g <= maxPts; g += gridStep) gridLines.push(g)
+  for (let g = 0; g <= maxPts; g += 5) gridLines.push(g)
+
+  // One vertical helper line + "HOME-AWAY" label per match below the chart,
+  // evenly spaced in chronological order (same as Rangverlauf).
+  const sortedMatches = [...matches].sort((a, b) => new Date(a.utc_date) - new Date(b.utc_date))
+  const matchMarkers = sortedMatches.map((m, i) => ({
+    x: xPos(i + 1),
+    label: `${m.home_team?.tla || '???'}-${m.away_team?.tla || '???'}`,
+  }))
 
   const ends = {}
   for (const p of players) {
@@ -2581,6 +2605,14 @@ function PointsProgressChart({ snapshots, matches }) {
             <g key={g}>
               <line x1={padL} y1={yPos(g)} x2={W - padR} y2={yPos(g)} stroke="var(--border)" strokeWidth={0.5} />
               <text x={padL - 6} y={yPos(g) + 3} textAnchor="end" fontSize={9} fill="var(--text-muted)">{g}</text>
+            </g>
+          ))}
+          {matchMarkers.map((mk, i) => (
+            <g key={`m${i}`}>
+              <line x1={mk.x} y1={padT} x2={mk.x} y2={padT + plotH} stroke="var(--border)" strokeWidth={0.5} opacity={0.4} />
+              <text x={mk.x} y={padT + plotH + 4} textAnchor="end" fontSize={7} fill="var(--text-faint)" transform={`rotate(-90 ${mk.x} ${padT + plotH + 4})`}>
+                {mk.label}
+              </text>
             </g>
           ))}
           {players.map(p => {
