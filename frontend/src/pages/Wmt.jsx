@@ -301,7 +301,45 @@ function teamStatusColor(status) {
   return 'var(--text-primary)'
 }
 
-function MatchCard({ match, teamStatuses = {} }) {
+// Finished matches involving a team that kicked off before `beforeDate`,
+// chronological ascending. Used for the "bisherige Spiele" block.
+function prevMatchesForTeam(allMatches, teamId, beforeDate) {
+  if (!teamId) return []
+  const before = new Date(beforeDate)
+  return allMatches
+    .filter(m => m.status === 'FINISHED' && m.score_home != null && m.score_away != null &&
+      (m.home_team?.id === teamId || m.away_team?.id === teamId) &&
+      new Date(m.utc_date) < before)
+    .sort((a, b) => new Date(a.utc_date) - new Date(b.utc_date))
+}
+
+// A team's result (Sieg/Unentschieden/Niederlage) in a given match.
+function teamOutcome(m, teamId) {
+  const isHome = m.home_team?.id === teamId
+  const gf = isHome ? m.score_home : m.score_away
+  const ga = isHome ? m.score_away : m.score_home
+  if (gf > ga) return { letter: 'S', color: '#4d8a4d' }
+  if (gf < ga) return { letter: 'N', color: '#8a4d4d' }
+  return { letter: 'U', color: 'var(--text-dim)' }
+}
+
+// One "bisherige Spiele" row per previous match, from the given team's view.
+function PrevMatchRow({ m, teamId }) {
+  const o = teamOutcome(m, teamId)
+  const hTla = m.home_team?.tla ?? '?'
+  const aTla = m.away_team?.tla ?? '?'
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: 'var(--text-dim)', padding: '2px 0', fontVariantNumeric: 'tabular-nums' }}>
+      <span style={{ color: o.color, fontWeight: 600, width: 10, flexShrink: 0 }}>{o.letter}</span>
+      <span style={{ color: 'var(--text-secondary)' }}>{hTla} {m.score_home}:{m.score_away} {aTla}</span>
+      <span style={{ marginLeft: 'auto', color: 'var(--text-dim)' }}>
+        {new Date(m.utc_date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}
+      </span>
+    </div>
+  )
+}
+
+function MatchCard({ match, teamStatuses = {}, allMatches = [] }) {
   const p = match.prediction
   const isFinished = match.status === 'FINISHED'
   const isLive = match.status === 'IN_PLAY' || match.status === 'PAUSED'
@@ -312,6 +350,44 @@ function MatchCard({ match, teamStatuses = {} }) {
   const homeStatus = match.home_team ? teamStatuses[match.home_team.id] ?? null : null
   const awayStatus = match.away_team ? teamStatuses[match.away_team.id] ?? null : null
   const [tipHome, tipAway] = p ? bestTip(p, match.stage !== 'GROUP_STAGE') : [null, null]
+
+  const homePrev = prevMatchesForTeam(allMatches, match.home_team?.id, match.utc_date)
+  const awayPrev = prevMatchesForTeam(allMatches, match.away_team?.id, match.utc_date)
+
+  // Prediction history: each entry plus a change note when its tip differs from
+  // the older one. The VERLAUF only shows entries where the tip actually changed
+  // (the "yellow" ones); if it never changed, just the latest entry is shown.
+  const isKo = match.stage !== 'GROUP_STAGE'
+  const predList = match.predictions || []
+  const histEntries = predList.map((ph, i) => {
+    const prev = predList[i + 1]
+    const [tipH, tipA] = bestTip(ph, isKo)
+    const prevTip = prev ? bestTip(prev, isKo) : null
+    const tipChanged = prevTip && (tipH !== prevTip[0] || tipA !== prevTip[1])
+
+    let changeNote = null
+    if (tipChanged) {
+      const [prevTipH, prevTipA] = prevTip
+      const dHome = (ph.home_elo != null && prev.home_elo != null) ? Math.round(ph.home_elo - prev.home_elo) : null
+      const dAway = (ph.away_elo != null && prev.away_elo != null) ? Math.round(ph.away_elo - prev.away_elo) : null
+      const nachMatch = ph.reasoning?.match(/nach: ([^.]+)/)
+      const trigger = nachMatch ? nachMatch[1].trim() : null
+
+      let note = `Tipp: ${prevTipH}:${prevTipA} → ${tipH}:${tipA}`
+      const triggerItems = trigger ? trigger.split(', ') : []
+      if (triggerItems.length > 0) {
+        note += `\nAuslöser:\n${triggerItems.join('\n')}`
+      }
+      const eloParts = []
+      if (dHome != null) eloParts.push(`${homeTla} ${dHome > 0 ? '+' : ''}${dHome}`)
+      if (dAway != null) eloParts.push(`${awayTla} ${dAway > 0 ? '+' : ''}${dAway}`)
+      if (eloParts.length) note += `\nELO: ${eloParts.join(' · ')}.`
+      changeNote = note
+    }
+    return { ph, i, tipH, tipA, changeNote }
+  })
+  const changedEntries = histEntries.filter(e => e.changeNote)
+  const shownEntries = changedEntries.length > 0 ? changedEntries : histEntries.slice(0, 1)
 
   const tipBgColor = isFinished ? 'var(--surface)' : 'rgba(77,111,160,0.06)'
 
@@ -396,69 +472,56 @@ function MatchCard({ match, teamStatuses = {} }) {
                 </div>
               )}
 
-              {match.predictions?.length >= 1 && (
+              {(homePrev.length > 0 || awayPrev.length > 0) && (
                 <div style={{ marginTop: 12 }}>
                   <div style={{ fontSize: 10, color: 'var(--text-dim)', letterSpacing: '0.1em', marginBottom: 6 }}>
-                    VERLAUF ({match.predictions.length} {match.predictions.length === 1 ? 'VERSION' : 'VERSIONEN'})
+                    BISHERIGE SPIELE
                   </div>
-                  {match.predictions.map((ph, i) => {
-                    const prev = match.predictions[i + 1]
-                    const isKo = match.stage !== 'GROUP_STAGE'
-                    const [tipH, tipA] = bestTip(ph, isKo)
-                    const prevTip = prev ? bestTip(prev, isKo) : null
-                    const tipChanged = prevTip && (tipH !== prevTip[0] || tipA !== prevTip[1])
+                  {homePrev.length > 0 && (
+                    <div style={{ marginBottom: awayPrev.length > 0 ? 8 : 0 }}>
+                      <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginBottom: 2 }}>{homeTla}</div>
+                      {homePrev.map(m => <PrevMatchRow key={m.id} m={m} teamId={match.home_team.id} />)}
+                    </div>
+                  )}
+                  {awayPrev.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginBottom: 2 }}>{awayTla}</div>
+                      {awayPrev.map(m => <PrevMatchRow key={m.id} m={m} teamId={match.away_team.id} />)}
+                    </div>
+                  )}
+                </div>
+              )}
 
-                    let changeNote = null
-                    if (tipChanged) {
-                      const [prevTipH, prevTipA] = prevTip
-                      const dHome = (ph.home_elo != null && prev.home_elo != null) ? Math.round(ph.home_elo - prev.home_elo) : null
-                      const dAway = (ph.away_elo != null && prev.away_elo != null) ? Math.round(ph.away_elo - prev.away_elo) : null
-                      const nachMatch = ph.reasoning?.match(/nach: ([^.]+)/)
-                      const trigger = nachMatch ? nachMatch[1].trim() : null
-
-                      let note = `Tipp: ${prevTipH}:${prevTipA} → ${tipH}:${tipA}`
-                      const triggerItems = trigger ? trigger.split(', ') : []
-                      if (triggerItems.length > 0) {
-                        note += `\nAuslöser:\n${triggerItems.join('\n')}`
-                      }
-                      const eloParts = []
-                      if (dHome != null) eloParts.push(`${homeTla} ${dHome > 0 ? '+' : ''}${dHome}`)
-                      if (dAway != null) eloParts.push(`${awayTla} ${dAway > 0 ? '+' : ''}${dAway}`)
-                      if (eloParts.length) note += `\nELO: ${eloParts.join(' · ')}.`
-                      changeNote = note
-                    }
-
-                    return (
-                      <div key={ph.id} style={{
-                        padding: '6px 0',
-                        borderTop: '1px solid var(--border)',
-                        fontSize: 11,
-                        color: i === 0 ? 'var(--text-secondary)' : 'var(--text-dim)',
-                      }}>
-                        <span style={{ marginRight: 8 }}>{formatDateLong(ph.created_at)}</span>
-                        <span style={{ fontVariantNumeric: 'tabular-nums' }}>
-                          {tipH}:{tipA}
-                          {' '}<span style={{ color: 'var(--text-dim)' }}>
-                            (xG {ph.pred_home_goals.toFixed(1)}:{ph.pred_away_goals.toFixed(1)})
-                          </span>
-                          {' '}({(ph.home_win_prob * 100).toFixed(0)}%/
-                          {(ph.draw_prob * 100).toFixed(0)}%/
-                          {(ph.away_win_prob * 100).toFixed(0)}%)
+              {shownEntries.length >= 1 && (
+                <div style={{ marginTop: 12 }}>
+                  <div style={{ fontSize: 10, color: 'var(--text-dim)', letterSpacing: '0.1em', marginBottom: 6 }}>
+                    VERLAUF ({shownEntries.length} {shownEntries.length === 1 ? 'VERSION' : 'VERSIONEN'})
+                  </div>
+                  {shownEntries.map(({ ph, i, tipH, tipA, changeNote }) => (
+                    <div key={ph.id} style={{
+                      padding: '6px 0',
+                      borderTop: '1px solid var(--border)',
+                      fontSize: 11,
+                      color: i === 0 ? 'var(--text-secondary)' : 'var(--text-dim)',
+                    }}>
+                      <span style={{ marginRight: 8 }}>{formatDateLong(ph.created_at)}</span>
+                      <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+                        {tipH}:{tipA}
+                        {' '}<span style={{ color: 'var(--text-dim)' }}>
+                          (xG {ph.pred_home_goals.toFixed(1)}:{ph.pred_away_goals.toFixed(1)})
                         </span>
-                        {i === 0 && <span style={{ color: '#4d6fa0', marginLeft: 6 }}>aktuell</span>}
-                        {changeNote && (
-                          <div style={{ color: '#c8a84d', marginTop: 3, fontSize: 10, lineHeight: 1.5, whiteSpace: 'pre-line' }}>
-                            {changeNote}
-                          </div>
-                        )}
-                        {!changeNote && i > 0 && ph.reasoning && (
-                          <div style={{ color: 'var(--text-dim)', marginTop: 2, fontSize: 10, lineHeight: 1.5, whiteSpace: 'pre-line' }}>
-                            {ph.reasoning}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
+                        {' '}({(ph.home_win_prob * 100).toFixed(0)}%/
+                        {(ph.draw_prob * 100).toFixed(0)}%/
+                        {(ph.away_win_prob * 100).toFixed(0)}%)
+                      </span>
+                      {i === 0 && <span style={{ color: '#4d6fa0', marginLeft: 6 }}>aktuell</span>}
+                      {changeNote && (
+                        <div style={{ color: '#c8a84d', marginTop: 3, fontSize: 10, lineHeight: 1.5, whiteSpace: 'pre-line' }}>
+                          {changeNote}
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -1018,7 +1081,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v4.1</span>
+          <span className="topbar-version">v4.2</span>
         </div>
       </div>
 
@@ -1271,14 +1334,14 @@ export default function Wmt() {
                         {calDayLabel(isoDay).toUpperCase()}
                       </div>
                       {dayMatches.map(m => (
-                        <MatchCard key={m.id} match={m} teamStatuses={selectedKey === 'md_3' ? teamStatuses : {}} />
+                        <MatchCard key={m.id} match={m} teamStatuses={selectedKey === 'md_3' ? teamStatuses : {}} allMatches={matches} />
                       ))}
                     </div>
                   ))
                 ) : (
                   // Knockout rounds: flat list
                   currentMatches.map(m => (
-                    <MatchCard key={m.id} match={m} />
+                    <MatchCard key={m.id} match={m} allMatches={matches} />
                   ))
                 )}
               </>
