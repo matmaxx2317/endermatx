@@ -1087,7 +1087,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v4.5</span>
+          <span className="topbar-version">v4.6</span>
         </div>
       </div>
 
@@ -2801,6 +2801,18 @@ function TrefferguteCard({ matches, opponentTips }) {
 
 // ── 4. Punkte pro Spieltag (heatmap) ──────────────────────────────────────
 function PointsPerDayHeatmap({ matches, opponentTips }) {
+  // Scroll the table to its right edge on load so the current (latest) day is
+  // in view — days run chronologically left→right.
+  const scrollRef = useRef(null)
+  const didScroll = useRef(false)
+  useEffect(() => {
+    if (didScroll.current) return
+    const sc = scrollRef.current
+    if (!sc || sc.scrollWidth <= sc.clientWidth) return
+    didScroll.current = true
+    sc.scrollLeft = sc.scrollWidth - sc.clientWidth
+  })
+
   const { days, players, pts } = dailyPointsMatrix(matches, opponentTips)
   if (days.length === 0 || players.length === 0) return null
 
@@ -2808,9 +2820,10 @@ function PointsPerDayHeatmap({ matches, opponentTips }) {
     .sort((a, b) => b.total - a.total || a.p.localeCompare(b.p))
   const maxDay = Math.max(1, ...players.flatMap(p => days.map(d => pts[p][d])))
 
-  // Red → yellow → green heat scale: low score red, high score green.
+  // Yellow → orange → red heat scale: low score (incl. 0) yellow, high score
+  // red — so the strongest days draw the most attention, not the empty ones.
   const heat = t => {
-    const stops = [[231, 76, 60], [241, 196, 15], [46, 204, 113]] // rot, gelb, grün
+    const stops = [[241, 196, 15], [230, 126, 34], [231, 76, 60]] // gelb, orange, rot
     const seg = t < 0.5 ? 0 : 1
     const f = t < 0.5 ? t / 0.5 : (t - 0.5) / 0.5
     const c0 = stops[seg], c1 = stops[seg + 1]
@@ -2821,8 +2834,8 @@ function PointsPerDayHeatmap({ matches, opponentTips }) {
   const cell = { width: 30, height: 22, fontSize: 11, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }
 
   return (
-    <StatCard title="Punkte pro Spieltag" hint="Punkteausbeute je Spieler und Spieltag — Rot = wenig, Grün = viele Punkte.">
-      <div style={{ overflowX: 'auto' }}>
+    <StatCard title="Punkte pro Spieltag" hint="Punkteausbeute je Spieler und Spieltag — Gelb = wenig, Rot = viele Punkte.">
+      <div ref={scrollRef} style={{ overflowX: 'auto' }}>
         <table style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr>
