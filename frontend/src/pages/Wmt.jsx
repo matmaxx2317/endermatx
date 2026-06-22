@@ -1095,7 +1095,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v4.7</span>
+          <span className="topbar-version">v4.8</span>
         </div>
       </div>
 
@@ -3079,6 +3079,18 @@ function BoldnessCard({ matches, opponentTips }) {
 // won or held a draw). The matrix shows, per upset, which players still called
 // the correct tendency — i.e. who smells a surprise coming.
 function UpsetRadarCard({ matches, opponentTips }) {
+  // Scroll to the right edge on load so the latest upsets are in view — matches
+  // run chronologically left→right and the list grows to the right over time.
+  const scrollRef = useRef(null)
+  const didScroll = useRef(false)
+  useEffect(() => {
+    if (didScroll.current) return
+    const sc = scrollRef.current
+    if (!sc || sc.scrollWidth <= sc.clientWidth) return
+    didScroll.current = true
+    sc.scrollLeft = sc.scrollWidth - sc.clientWidth
+  })
+
   const tendency = (h, a) => h > a ? 'H' : h < a ? 'A' : 'D'
 
   const tipsByMatch = {}
@@ -3088,7 +3100,8 @@ function UpsetRadarCard({ matches, opponentTips }) {
   }
 
   // Finished matches the model clearly favoured one side (≥45%) but where that
-  // side didn't win, and that at least one player tipped.
+  // side didn't win, and that at least one player tipped. Chronological asc so
+  // the newest upset sits on the right (where the auto-scroll lands).
   const upsets = matches.filter(m => {
     if (m.status !== 'FINISHED' || m.score_home == null || m.score_away == null) return false
     const p = m.prediction
@@ -3099,7 +3112,7 @@ function UpsetRadarCard({ matches, opponentTips }) {
     if (favProb < 0.45) return false
     const actual = tendency(m.score_home, m.score_away)
     return favHome ? actual !== 'H' : actual !== 'A'
-  }).sort((a, b) => new Date(b.utc_date) - new Date(a.utc_date))
+  }).sort((a, b) => new Date(a.utc_date) - new Date(b.utc_date))
 
   if (upsets.length === 0) return null
 
@@ -3118,53 +3131,50 @@ function UpsetRadarCard({ matches, opponentTips }) {
     }
   }
 
-  const labelCol = 96
-  const dotCell = { padding: 0, textAlign: 'center' }
-  const dot = ok => (
-    <span style={{
-      display: 'inline-block', width: 9, height: 9, borderRadius: '50%',
-      background: ok ? '#2ecc71' : 'transparent',
-      border: ok ? 'none' : '1px solid var(--border)',
-    }} />
+  // Best upset-spotters on top.
+  const playerOrder = [...players].sort((a, b) => hits[b] - hits[a] || a.localeCompare(b))
+
+  // Square markers: green = hit, light gray = miss (visible on light mode too).
+  const square = ok => (
+    <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 2, background: ok ? '#2ecc71' : '#b0b8c4' }} />
   )
 
   return (
-    <StatCard title="Außenseiter-Gespür" hint="Spiele, in denen der ELO-Favorit nicht gewann. Grüner Punkt = Spieler tippte die Überraschung (richtige Tendenz).">
-      <div style={{ overflowX: 'auto' }}>
+    <StatCard title="Außenseiter-Gespür" hint="Spiele, in denen der ELO-Favorit nicht gewann. Grünes Quadrat = Spieler tippte die Überraschung (richtige Tendenz), grau = verpasst.">
+      <div ref={scrollRef} style={{ overflowX: 'auto' }}>
         <table style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr>
-              <th style={{ position: 'sticky', left: 0, background: 'var(--surface)', textAlign: 'left', fontSize: 10, color: 'var(--text-dim)', fontWeight: 400, padding: '0 8px 6px 0', whiteSpace: 'nowrap' }}>Überraschung</th>
-              {players.map(p => (
-                <th key={p} title={p} style={{ verticalAlign: 'bottom', padding: '0 3px 6px', fontWeight: 400 }}>
-                  <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: 10, color: 'var(--text-dim)', whiteSpace: 'nowrap', margin: '0 auto' }}>{p}</div>
-                </th>
-              ))}
+              <th style={{ position: 'sticky', left: 0, background: 'var(--surface)', textAlign: 'left', fontSize: 10, color: 'var(--text-dim)', fontWeight: 400, padding: '0 8px 6px 0', whiteSpace: 'nowrap', verticalAlign: 'bottom' }}>Spieler</th>
+              {upsets.map(m => {
+                const h = m.home_team?.tla || '???'
+                const a = m.away_team?.tla || '???'
+                return (
+                  <th key={m.id} title={`${h}–${a} ${m.score_home}:${m.score_away}`} style={{ verticalAlign: 'bottom', padding: '0 3px 6px', fontWeight: 400 }}>
+                    <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: 9, color: 'var(--text-dim)', whiteSpace: 'nowrap', margin: '0 auto', fontVariantNumeric: 'tabular-nums' }}>
+                      {h}–{a} {m.score_home}:{m.score_away}
+                    </div>
+                  </th>
+                )
+              })}
             </tr>
           </thead>
           <tbody>
-            {upsets.map(m => {
-              const h = m.home_team?.tla || '???'
-              const a = m.away_team?.tla || '???'
-              return (
-                <tr key={m.id} style={{ borderTop: '1px solid var(--border)' }}>
-                  <td style={{ position: 'sticky', left: 0, background: 'var(--surface)', fontSize: 11, color: 'var(--text-secondary)', padding: '4px 8px 4px 0', whiteSpace: 'nowrap', minWidth: labelCol, fontVariantNumeric: 'tabular-nums' }}>
-                    {h}–{a} <span style={{ color: 'var(--text-dim)' }}>{m.score_home}:{m.score_away}</span>
+            {playerOrder.map(p => (
+              <tr key={p} style={{ borderTop: '1px solid var(--border)' }}>
+                <td style={{ position: 'sticky', left: 0, background: 'var(--surface)', fontSize: 11, color: 'var(--text-secondary)', padding: '3px 8px 3px 0', whiteSpace: 'nowrap' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <span>{p}</span>
+                    <span style={{ color: 'var(--text-dim)', fontVariantNumeric: 'tabular-nums' }}>{hits[p]}</span>
+                  </span>
+                </td>
+                {upsets.map(m => (
+                  <td key={m.id} style={{ padding: '3px', textAlign: 'center' }} title={calledBy[m.id][p] == null ? `${p}: kein Tipp` : `${p}: ${calledBy[m.id][p] ? 'erkannt' : 'verpasst'}`}>
+                    {calledBy[m.id][p] == null ? <span style={{ color: 'var(--text-dim)', fontSize: 10 }}>·</span> : square(calledBy[m.id][p])}
                   </td>
-                  {players.map(p => (
-                    <td key={p} style={dotCell} title={calledBy[m.id][p] == null ? `${p}: kein Tipp` : `${p}: ${calledBy[m.id][p] ? 'erkannt' : 'verpasst'}`}>
-                      {calledBy[m.id][p] == null ? <span style={{ color: 'var(--text-dim)', fontSize: 10 }}>·</span> : dot(calledBy[m.id][p])}
-                    </td>
-                  ))}
-                </tr>
-              )
-            })}
-            <tr style={{ borderTop: '2px solid var(--border)' }}>
-              <td style={{ position: 'sticky', left: 0, background: 'var(--surface)', fontSize: 10, color: 'var(--text-dim)', padding: '5px 8px 0 0', whiteSpace: 'nowrap' }}>Treffer</td>
-              {players.map(p => (
-                <td key={p} style={{ ...dotCell, fontSize: 11, color: 'var(--text-secondary)', fontWeight: 500, paddingTop: 5, fontVariantNumeric: 'tabular-nums' }}>{hits[p]}</td>
-              ))}
-            </tr>
+                ))}
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
