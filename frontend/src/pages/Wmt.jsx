@@ -434,6 +434,14 @@ function MatchCard({ match, teamStatuses = {}, allMatches = [] }) {
           ) : (
             <div style={{ fontSize: 13, color: 'var(--text-dim)' }}>vs</div>
           )}
+          {match.score_overridden && (
+            <div
+              title="Ergebnis manuell korrigiert (Feed-Wert überschrieben)"
+              style={{ fontSize: 9, color: 'var(--text-dim)', letterSpacing: '0.05em', marginTop: 2 }}
+            >
+              ✎&nbsp;korrigiert
+            </div>
+          )}
         </div>
 
         <div style={{ flex: 1, textAlign: 'left' }}>

@@ -184,6 +184,24 @@ class WmtRankingSnapshot(Base):
     snapshot_time = Column(DateTime, nullable=True)
 
 
+class WmtMatchScoreOverride(Base):
+    """A manually-pinned result for a match, used when the upstream feed
+    (football-data.org) reports a wrong score that won't self-correct. While an
+    override exists, do_refresh leaves the match's score/status untouched, so the
+    correction survives the periodic refresh. Deleting the row hands control back
+    to the feed on the next refresh. ELO already applied at original-finish time
+    is intentionally NOT recomputed — the delta from a one-goal feed error is
+    negligible and re-applying would risk double-counting."""
+    __tablename__ = "wmt_match_score_overrides"
+    id          = Column(Integer, primary_key=True, autoincrement=True)
+    match_id    = Column(Integer, ForeignKey("wmt_matches.id"), nullable=False, unique=True)
+    score_home  = Column(Integer, nullable=False)
+    score_away  = Column(Integer, nullable=False)
+    status      = Column(String, default="FINISHED")
+    note        = Column(String, nullable=True)
+    created_at  = Column(DateTime, default=datetime.utcnow)
+
+
 # ── drv ────────────────────────────────────────────────────────────────────────
 
 class DrvRide(Base):
