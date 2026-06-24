@@ -397,9 +397,22 @@ function MatchCard({ match, teamStatuses = {}, allMatches = [] }) {
 
   const tipBgColor = isFinished ? 'var(--surface)' : 'rgba(77,111,160,0.06)'
 
+  // Calendar days from today to the match's day (local time). 0 = today.
+  const startOfDay = d => new Date(d.getFullYear(), d.getMonth(), d.getDate())
+  const dayDiff = Math.round(
+    (startOfDay(new Date(match.utc_date)) - startOfDay(new Date())) / 86400000
+  )
+  // Dimmed status tint composited over the themed surface:
+  //   live = red · past/finished = grey · today+next 2 days = yellow · later = green
+  const cardTint = isLive ? 'rgba(231,76,60,0.16)'
+    : isFinished ? 'rgba(128,128,128,0.14)'
+    : dayDiff <= 2 ? 'rgba(241,196,15,0.16)'
+    : 'rgba(46,204,113,0.16)'
+  const cardBg = `linear-gradient(${cardTint}, ${cardTint}), var(--surface)`
+
   return (
     <div style={{
-      background: 'var(--surface)',
+      background: cardBg,
       border: '1px solid var(--border)',
       borderRadius: 10,
       padding: '14px 16px',
@@ -1095,7 +1108,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v4.8</span>
+          <span className="topbar-version">v4.9</span>
         </div>
       </div>
 
