@@ -138,8 +138,17 @@ function bestTip(p, isKnockout) {
   )
   const best = cands[0]
   let penalty = null
-  if (isKnockout && best.th === best.ta) {
-    penalty = generatePenalty(p.home_win_prob ?? 0.5, p.away_win_prob ?? 0.5)
+  if (isKnockout) {
+    const gap = Math.abs((p.home_win_prob ?? 0) - (p.away_win_prob ?? 0))
+    if (gap < 0.10 && best.th !== best.ta) {
+      const bestDraw = cands.filter(c => c.th === c.ta).sort((x, y) => y.ev - x.ev || y.cellPr - x.cellPr)[0]
+      if (bestDraw) {
+        return [bestDraw.th, bestDraw.ta, generatePenalty(p.home_win_prob ?? 0.5, p.away_win_prob ?? 0.5)]
+      }
+    }
+    if (best.th === best.ta) {
+      penalty = generatePenalty(p.home_win_prob ?? 0.5, p.away_win_prob ?? 0.5)
+    }
   }
   return [best.th, best.ta, penalty]
 }
@@ -1127,7 +1136,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v4.11</span>
+          <span className="topbar-version">v4.12</span>
         </div>
       </div>
 
