@@ -1136,7 +1136,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v4.12</span>
+          <span className="topbar-version">v4.13</span>
         </div>
       </div>
 
@@ -2073,7 +2073,7 @@ function RankingChart({ snapshots, matches }) {
   const H = svgH
   // padR leaves room for the player-name labels to the right of each line's
   // last point; padB leaves room for the vertical match labels below the chart.
-  const padL = 28, padR = 76, padT = 12, padB = 46
+  const padL = 28, padR = 100, padT = 12, padB = 46
   const plotW = (680 - padL - padR) * zoom
   const plotH = H - padT - padB
   const W = padL + plotW + padR
@@ -2089,6 +2089,11 @@ function RankingChart({ snapshots, matches }) {
     byPlayer[p] = snapshots
       .filter(s => s.player_name === p)
       .sort((a, b) => effectiveTime(a) < effectiveTime(b) ? -1 : 1)
+  }
+  const latestPoints = {}
+  for (const p of players) {
+    const snaps = byPlayer[p]
+    latestPoints[p] = snaps.length > 0 ? snaps[snaps.length - 1].points : 0
   }
 
   // One vertical helper line + "HOME-AWAY" label per match, evenly spaced in
@@ -2212,7 +2217,7 @@ function RankingChart({ snapshots, matches }) {
                 fontWeight={500}
                 fill="var(--text-primary)"
               >
-                {g.names.join(', ')}
+                {g.names.map(n => `${n} (${latestPoints[n] ?? 0})`).join(', ')}
               </text>
             ))
 
@@ -2243,7 +2248,7 @@ function RankingChart({ snapshots, matches }) {
             style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: selected.has(p) ? 'var(--text-secondary)' : 'var(--text-faint)', cursor: 'pointer', userSelect: 'none' }}
           >
             <span style={{ width: 10, height: 10, borderRadius: 2, background: RANK_CHART_COLORS[pi % RANK_CHART_COLORS.length], display: 'inline-block', opacity: selected.has(p) ? 1 : 0.3 }} />
-            <span style={{ textDecoration: selected.has(p) ? 'none' : 'line-through' }}>{p}</span>
+            <span style={{ textDecoration: selected.has(p) ? 'none' : 'line-through' }}>{p} ({latestPoints[p] ?? 0})</span>
           </div>
         ))}
       </div>
