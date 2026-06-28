@@ -240,6 +240,80 @@ def _effective_elo(team: models.WmtTeam, factors_by_team: dict[int, list]) -> fl
     return team.elo + _factor_sum(factors_by_team.get(team.id, []))
 
 
+FORM_BONUS_CAP = 200.0
+
+def _compute_tournament_form(db: Session) -> dict[int, dict]:
+    """Turnierform aus Gruppenphase: ELO-Bonus + Stats für KO-Runden-Prognosen.
+
+    Returns {team_id: {"bonus": float, "pts": int, "gd": int, "gf": int, "n": int}}
+    """
+    group_matches = (
+        db.query(models.WmtMatch)
+        .filter(
+            models.WmtMatch.stage == "GROUP_STAGE",
+            models.WmtMatch.status == "FINISHED",
+        )
+        .all()
+    )
+    if not group_matches:
+        return {}
+
+    stats: dict[int, dict] = defaultdict(lambda: {"pts": 0, "gf": 0, "ga": 0, "n": 0})
+    for m in group_matches:
+        if m.score_home is None or not m.home_team_id or not m.away_team_id:
+            continue
+        h, a = m.home_team_id, m.away_team_id
+        stats[h]["n"] += 1
+        stats[a]["n"] += 1
+        stats[h]["gf"] += m.score_home
+        stats[h]["ga"] += m.score_away
+        stats[a]["gf"] += m.score_away
+        stats[a]["ga"] += m.score_home
+        if m.score_home > m.score_away:
+            stats[h]["pts"] += 3
+        elif m.score_home < m.score_away:
+            stats[a]["pts"] += 3
+        else:
+            stats[h]["pts"] += 1
+            stats[a]["pts"] += 1
+
+    form: dict[int, dict] = {}
+    for tid, s in stats.items():
+        if s["n"] == 0:
+            continue
+        ppg = s["pts"] / s["n"]
+        gd_pg = (s["gf"] - s["ga"]) / s["n"]
+        gf_pg = s["gf"] / s["n"]
+        bonus = (ppg - 1.5) * 80 + gd_pg * 25 + (gf_pg - WC_AVG_GOALS) * 15
+        bonus = max(-FORM_BONUS_CAP, min(FORM_BONUS_CAP, bonus))
+        form[tid] = {
+            "bonus": bonus,
+            "pts": s["pts"],
+            "gd": s["gf"] - s["ga"],
+            "gf": s["gf"],
+            "n": s["n"],
+        }
+    return form
+
+
+def _form_note_for_teams(
+    teams: list[models.WmtTeam],
+    form_data: dict[int, dict],
+) -> Optional[str]:
+    """'ARG +142 (9 Pkt, +7 TD, 8 Tore)' für die Reasoning-Zeile."""
+    parts = []
+    for team in teams:
+        f = form_data.get(team.id)
+        if not f or f["bonus"] == 0:
+            continue
+        tla = team.tla or team.short_name or team.name
+        gd_str = f"+{f['gd']}" if f["gd"] > 0 else str(f["gd"])
+        parts.append(
+            f"{tla} {f['bonus']:+.0f} ({f['pts']} Pkt, {gd_str} TD, {f['gf']} Tore)"
+        )
+    return ", ".join(parts) if parts else None
+
+
 def _factor_note_for_teams(
     teams: list[models.WmtTeam],
     factors_by_team: dict[int, list],
@@ -351,6 +425,7 @@ def build_reasoning(
     home_xg: float = 0.0, away_xg: float = 0.0,
     trigger_note: Optional[str] = None,
     factor_note: Optional[str] = None,
+    form_note: Optional[str] = None,
 ) -> str:
     diff = home_elo - away_elo
     if abs(diff) < 30:
@@ -370,6 +445,8 @@ def build_reasoning(
         result += f" {trigger_note}."
     if factor_note:
         result += f"\nFaktoren: {factor_note}."
+    if form_note:
+        result += f"\nTurnierform: {form_note}."
     return result
 
 
@@ -521,6 +598,7 @@ def _apply_elo_and_predictions(
     # Bulk-load teams, factors and latest predictions to avoid N+1 (~80 queries → 3)
     all_teams = {t.id: t for t in db.query(models.WmtTeam).all()}
     factors_by_team = _active_factors(db)
+    tournament_form = _compute_tournament_form(db)
     latest_preds: dict[int, models.WmtPrediction] = {}
     upcoming_ids = [m.id for m in upcoming]
     for p in (
@@ -539,11 +617,14 @@ def _apply_elo_and_predictions(
             continue
         home_eff = _effective_elo(home, factors_by_team)
         away_eff = _effective_elo(away, factors_by_team)
+        is_ko = match.stage != "GROUP_STAGE"
+        if is_ko and tournament_form:
+            home_eff += tournament_form.get(match.home_team_id, {}).get("bonus", 0)
+            away_eff += tournament_form.get(match.away_team_id, {}).get("bonus", 0)
         home_win, draw, away_win = elo_to_win_prob(home_eff, away_eff)
         home_xg, away_xg = elo_to_expected_goals(home_eff, away_eff)
         latest = latest_preds.get(match.id)
         if latest:
-            # Gespeicherte Prognose-ELOs sind effektive Werte — Vergleich gegen effektiv
             if (abs((latest.home_elo or 0) - home_eff) < 5.0 and
                     abs((latest.away_elo or 0) - away_eff) < 5.0):
                 continue
@@ -553,11 +634,13 @@ def _apply_elo_and_predictions(
             match.home_team_id, match.away_team_id, newly_finished, all_teams
         )
         factor_note = _factor_note_for_teams([home, away], factors_by_team)
+        form_note = _form_note_for_teams([home, away], tournament_form) if is_ko else None
         reasoning = build_reasoning(
             home.name, away.name, home_tla, away_tla,
             home_eff, away_eff, home_win, draw, away_win, home_xg, away_xg,
             trigger_note=trigger_note,
             factor_note=factor_note,
+            form_note=form_note,
         )
         db.add(models.WmtPrediction(
             match_id=match.id,
@@ -1314,13 +1397,14 @@ def _compute_top_scorer(db: Session) -> dict:
 
 
 def do_generate_bonus(db: Session, n_sims: int = 10000) -> Optional[models.WmtBonusPrediction]:
-    """Monte-Carlo-Simulation WM 2026: Gruppenphase + K.o.-Runde (auf Basis effektiver ELOs)."""
+    """Monte-Carlo-Simulation WM 2026: Gruppenphase + K.o.-Runde (auf Basis effektiver ELOs + Turnierform)."""
     all_teams = {t.id: t for t in db.query(models.WmtTeam).all()}
     if not all_teams:
         return None
 
     factors_by_team = _active_factors(db)
     eff_elo = {tid: _effective_elo(t, factors_by_team) for tid, t in all_teams.items()}
+    tournament_form = _compute_tournament_form(db)
 
     group_matches_q = (
         db.query(models.WmtMatch)
@@ -1396,22 +1480,24 @@ def do_generate_bonus(db: Session, n_sims: int = 10000) -> Optional[models.WmtBo
             )
             for rank, tid in enumerate(sorted_ids):
                 elo = eff_elo.get(tid, DEFAULT_ELO)
+                form_bonus = tournament_form.get(tid, {}).get("bonus", 0)
+                ko_elo = elo + form_bonus
                 if rank == 0:
                     group_win_count[tid] += 1
                     top2_count[tid] += 1
                     top3_count[tid] += 1
-                    qualifiers.append((tid, elo))
+                    qualifiers.append((tid, ko_elo))
                 elif rank == 1:
                     top2_count[tid] += 1
                     top3_count[tid] += 1
-                    qualifiers.append((tid, elo))
+                    qualifiers.append((tid, ko_elo))
                 elif rank == 2:
                     top3_count[tid] += 1
-                    third_pool.append((pts[tid], gd[tid], gf[tid], tid, elo))
+                    third_pool.append((pts[tid], gd[tid], gf[tid], tid, ko_elo))
 
         third_pool.sort(key=lambda x: (x[0], x[1], x[2]), reverse=True)
-        for _, _, _, tid, elo in third_pool[:8]:
-            qualifiers.append((tid, elo))
+        for _, _, _, tid, ko_elo in third_pool[:8]:
+            qualifiers.append((tid, ko_elo))
 
         if len(qualifiers) < 4:
             continue
