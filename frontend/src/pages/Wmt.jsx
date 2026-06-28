@@ -61,6 +61,16 @@ function legendGrid(players) {
   return { display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${colPx}px, 1fr))`, justifyItems: 'start', gap: '6px 8px', marginTop: 10 }
 }
 
+function spreadEndLabels(ends, minGap = 12) {
+  const labels = Object.values(ends).map(e => ({ ...e, adjustedY: e.y }))
+  labels.sort((a, b) => a.y - b.y)
+  for (let i = 1; i < labels.length; i++) {
+    const needed = labels[i - 1].adjustedY + minGap
+    if (labels[i].adjustedY < needed) labels[i].adjustedY = needed
+  }
+  return labels
+}
+
 function formatDate(utcStr) {
   if (!utcStr) return ''
   const d = new Date(utcStr)
@@ -1136,7 +1146,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v4.12</span>
+          <span className="topbar-version">v4.13</span>
         </div>
       </div>
 
@@ -2073,7 +2083,7 @@ function RankingChart({ snapshots, matches }) {
   const H = svgH
   // padR leaves room for the player-name labels to the right of each line's
   // last point; padB leaves room for the vertical match labels below the chart.
-  const padL = 28, padR = 76, padT = 12, padB = 46
+  const padL = 28, padR = 100, padT = 12, padB = 46
   const plotW = (680 - padL - padR) * zoom
   const plotH = H - padT - padB
   const W = padL + plotW + padR
@@ -2089,6 +2099,11 @@ function RankingChart({ snapshots, matches }) {
     byPlayer[p] = snapshots
       .filter(s => s.player_name === p)
       .sort((a, b) => effectiveTime(a) < effectiveTime(b) ? -1 : 1)
+  }
+  const latestPoints = {}
+  for (const p of players) {
+    const snaps = byPlayer[p]
+    latestPoints[p] = snaps.length > 0 ? snaps[snaps.length - 1].points : 0
   }
 
   // One vertical helper line + "HOME-AWAY" label per match, evenly spaced in
@@ -2212,7 +2227,7 @@ function RankingChart({ snapshots, matches }) {
                 fontWeight={500}
                 fill="var(--text-primary)"
               >
-                {g.names.join(', ')}
+                {g.names.map(n => `${n} (${latestPoints[n] ?? 0})`).join(', ')}
               </text>
             ))
 
@@ -2243,7 +2258,7 @@ function RankingChart({ snapshots, matches }) {
             style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: selected.has(p) ? 'var(--text-secondary)' : 'var(--text-faint)', cursor: 'pointer', userSelect: 'none' }}
           >
             <span style={{ width: 10, height: 10, borderRadius: 2, background: RANK_CHART_COLORS[pi % RANK_CHART_COLORS.length], display: 'inline-block', opacity: selected.has(p) ? 1 : 0.3 }} />
-            <span style={{ textDecoration: selected.has(p) ? 'none' : 'line-through' }}>{p}</span>
+            <span style={{ textDecoration: selected.has(p) ? 'none' : 'line-through' }}>{p} ({latestPoints[p] ?? 0})</span>
           </div>
         ))}
       </div>
@@ -2497,6 +2512,11 @@ function PointsGapChart({ snapshots, matches }) {
     byPlayer[p] = snapshots.filter(s => s.player_name === p)
       .sort((a, b) => effectiveTime(a) < effectiveTime(b) ? -1 : 1)
   }
+  const latestPoints = {}
+  for (const p of players) {
+    const snaps = byPlayer[p]
+    latestPoints[p] = snaps.length > 0 ? snaps[snaps.length - 1].points : 0
+  }
   const latestPointsAt = (p, time) => {
     let pts = null
     for (const s of byPlayer[p]) { if (effectiveTime(s) <= time) pts = s.points; else break }
@@ -2515,7 +2535,7 @@ function PointsGapChart({ snapshots, matches }) {
     })
   }
 
-  const H = 360, padL = 34, padR = 84, padT = 12, padB = 46
+  const H = 360, padL = 34, padR = 108, padT = 12, padB = 46
   const plotW = (width - padL - padR) * zoom
   const W = padL + plotW + padR
   const plotH = H - padT - padB
@@ -2578,9 +2598,9 @@ function PointsGapChart({ snapshots, matches }) {
               </g>
             )
           })}
-          {Object.values(ends).map((e, i) => (
-            <text key={i} x={e.x + 8} y={e.y + 3} textAnchor="start" fontSize={9} fontWeight={500} fill="var(--text-primary)">
-              {e.names.join(', ')}
+          {spreadEndLabels(ends).map((e, i) => (
+            <text key={i} x={e.x + 8} y={e.adjustedY + 3} textAnchor="start" fontSize={9} fontWeight={500} fill="var(--text-primary)">
+              {e.names.map(n => `${n} (${latestPoints[n] ?? 0})`).join(', ')}
             </text>
           ))}
         </svg>
@@ -2607,7 +2627,7 @@ function PointsGapChart({ snapshots, matches }) {
             style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: selected.has(p) ? 'var(--text-secondary)' : 'var(--text-faint)', cursor: 'pointer', userSelect: 'none' }}
           >
             <span style={{ width: 10, height: 10, borderRadius: 2, background: playerColor(players, p), display: 'inline-block', opacity: selected.has(p) ? 1 : 0.3 }} />
-            <span style={{ textDecoration: selected.has(p) ? 'none' : 'line-through' }}>{p}</span>
+            <span style={{ textDecoration: selected.has(p) ? 'none' : 'line-through' }}>{p} ({latestPoints[p] ?? 0})</span>
           </div>
         ))}
       </div>
@@ -2667,6 +2687,11 @@ function PointsProgressChart({ snapshots, matches }) {
     byPlayer[p] = snapshots.filter(s => s.player_name === p)
       .sort((a, b) => effectiveTime(a) < effectiveTime(b) ? -1 : 1)
   }
+  const latestPoints = {}
+  for (const p of players) {
+    const snaps = byPlayer[p]
+    latestPoints[p] = snaps.length > 0 ? snaps[snaps.length - 1].points : 0
+  }
 
   let maxPts = 1
   const series = {}
@@ -2677,7 +2702,7 @@ function PointsProgressChart({ snapshots, matches }) {
     })
   }
 
-  const H = 360, padL = 34, padR = 84, padT = 12, padB = 46
+  const H = 360, padL = 34, padR = 108, padT = 12, padB = 46
   const plotW = (width - padL - padR) * zoom
   const W = padL + plotW + padR
   const plotH = H - padT - padB
@@ -2741,9 +2766,9 @@ function PointsProgressChart({ snapshots, matches }) {
               </g>
             )
           })}
-          {Object.values(ends).map((e, i) => (
-            <text key={i} x={e.x + 8} y={e.y + 3} textAnchor="start" fontSize={9} fontWeight={500} fill="var(--text-primary)">
-              {e.names.join(', ')}
+          {spreadEndLabels(ends).map((e, i) => (
+            <text key={i} x={e.x + 8} y={e.adjustedY + 3} textAnchor="start" fontSize={9} fontWeight={500} fill="var(--text-primary)">
+              {e.names.map(n => `${n} (${latestPoints[n] ?? 0})`).join(', ')}
             </text>
           ))}
         </svg>
@@ -2770,7 +2795,7 @@ function PointsProgressChart({ snapshots, matches }) {
             style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: selected.has(p) ? 'var(--text-secondary)' : 'var(--text-faint)', cursor: 'pointer', userSelect: 'none' }}
           >
             <span style={{ width: 10, height: 10, borderRadius: 2, background: playerColor(players, p), display: 'inline-block', opacity: selected.has(p) ? 1 : 0.3 }} />
-            <span style={{ textDecoration: selected.has(p) ? 'none' : 'line-through' }}>{p}</span>
+            <span style={{ textDecoration: selected.has(p) ? 'none' : 'line-through' }}>{p} ({latestPoints[p] ?? 0})</span>
           </div>
         ))}
       </div>
