@@ -2465,11 +2465,10 @@ function StatCard({ title, hint, children }) {
 // rides along the top (gap 0); the spread shows whether it's a runaway or a
 // dogfight. Driven by the imported ranking snapshots.
 function PointsGapChart({ snapshots, matches }) {
-  // Fill the card width instead of a fixed 700px (which forced horizontal
-  // scroll / shrink-to-fit and made the height change barely visible).
   const wrapRef = useRef(null)
   const [width, setWidth] = useState(680)
   const [zoom, setZoom] = useState(3)
+  const [vZoom, setVZoom] = useState(1)
   useEffect(() => {
     const measure = () => { if (wrapRef.current) setWidth(Math.max(300, wrapRef.current.clientWidth)) }
     measure()
@@ -2535,7 +2534,9 @@ function PointsGapChart({ snapshots, matches }) {
     })
   }
 
-  const H = 360, padL = 34, padR = 108, padT = 12, padB = 46
+  const padL = 34, padR = 108, padT = 12, padB = 46
+  const baseH = 360
+  const H = (baseH - padT - padB) * vZoom + padT + padB
   const plotW = (width - padL - padR) * zoom
   const W = padL + plotW + padR
   const plotH = H - padT - padB
@@ -2543,36 +2544,24 @@ function PointsGapChart({ snapshots, matches }) {
   const xPos = g => padL + (axisMax === 0 ? 0 : (g / axisMax) * plotW)
   const yPos = gap => padT + (gap / maxGap) * plotH
 
-  // Horizontal grid line every 5 points.
   const gridLines = []
   for (let g = 0; g <= maxGap; g += 5) gridLines.push(g)
 
-  // One vertical helper line + "HOME-AWAY" label per match below the chart,
-  // evenly spaced in chronological order (same as Rangverlauf).
   const sortedMatches = [...matches].sort((a, b) => new Date(a.utc_date) - new Date(b.utc_date))
   const matchMarkers = sortedMatches.map((m, i) => ({
     x: xPos(i + 1),
     label: `${m.home_team?.tla || '???'}-${m.away_team?.tla || '???'}`,
   }))
 
-  const ends = {}
-  for (const p of players) {
-    if (!selected.has(p)) continue
-    const pts = series[p]
-    if (!pts.length) continue
-    const last = pts[pts.length - 1]
-    const key = `${xPos(last.games).toFixed(1)},${yPos(last.gap).toFixed(1)}`
-    if (!ends[key]) ends[key] = { x: xPos(last.games), y: yPos(last.gap), names: [] }
-    ends[key].names.push(p)
-  }
-
   return (
     <StatCard title="Punkte-Rückstand zum Spitzenreiter" hint="Abstand in Punkten zur Tabellenspitze über den Turnierverlauf — die Linie ganz oben führt.">
-      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Zoom</span>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Zoom X</span>
         <input type="range" min={1} max={5} step={0.5} value={zoom} onChange={e => setZoom(Number(e.target.value))} style={{ width: 80 }} />
+        <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Y</span>
+        <input type="range" min={1} max={5} step={0.5} value={vZoom} onChange={e => setVZoom(Number(e.target.value))} style={{ width: 80 }} />
       </div>
-      <div ref={wrapRef} style={{ overflowX: 'auto' }}>
+      <div ref={wrapRef} style={{ overflow: 'auto', maxHeight: 500 }}>
         <svg width={W} height={H} style={{ display: 'block' }}>
           {gridLines.map(g => (
             <g key={g}>
@@ -2591,18 +2580,20 @@ function PointsGapChart({ snapshots, matches }) {
           {players.map(p => {
             if (!selected.has(p)) return null
             const color = playerColor(players, p)
-            const pts = series[p].map(d => `${xPos(d.games)},${yPos(d.gap)}`).join(' ')
+            const data = series[p]
+            const pts = data.map(d => `${xPos(d.games)},${yPos(d.gap)}`).join(' ')
+            const last = data[data.length - 1]
             return (
               <g key={p}>
                 <polyline points={pts} fill="none" stroke={color} strokeWidth={1.5} opacity={0.85} />
+                {last && (
+                  <text x={xPos(last.games) + 8} y={yPos(last.gap) + 3} textAnchor="start" fontSize={9} fontWeight={500} fill={color}>
+                    {p} ({latestPoints[p] ?? 0})
+                  </text>
+                )}
               </g>
             )
           })}
-          {spreadEndLabels(ends).map((e, i) => (
-            <text key={i} x={e.x + 8} y={e.adjustedY + 3} textAnchor="start" fontSize={9} fontWeight={500} fill="var(--text-primary)">
-              {e.names.map(n => `${n} (${latestPoints[n] ?? 0})`).join(', ')}
-            </text>
-          ))}
         </svg>
       </div>
       <div style={{ display: 'flex', gap: 6, marginTop: 12 }}>
@@ -2646,6 +2637,7 @@ function PointsProgressChart({ snapshots, matches }) {
   const wrapRef = useRef(null)
   const [width, setWidth] = useState(680)
   const [zoom, setZoom] = useState(3)
+  const [vZoom, setVZoom] = useState(1)
   useEffect(() => {
     const measure = () => { if (wrapRef.current) setWidth(Math.max(300, wrapRef.current.clientWidth)) }
     measure()
@@ -2702,45 +2694,34 @@ function PointsProgressChart({ snapshots, matches }) {
     })
   }
 
-  const H = 360, padL = 34, padR = 108, padT = 12, padB = 46
+  const padL = 34, padR = 108, padT = 12, padB = 46
+  const baseH = 360
+  const H = (baseH - padT - padB) * vZoom + padT + padB
   const plotW = (width - padL - padR) * zoom
   const W = padL + plotW + padR
   const plotH = H - padT - padB
   const axisMax = totalMatches + 8
   const xPos = g => padL + (axisMax === 0 ? 0 : (g / axisMax) * plotW)
-  // High points at the top (better = higher), so invert.
   const yPos = pts => padT + (1 - pts / maxPts) * plotH
 
-  // Horizontal grid line every 5 points.
   const gridLines = []
   for (let g = 0; g <= maxPts; g += 5) gridLines.push(g)
 
-  // One vertical helper line + "HOME-AWAY" label per match below the chart,
-  // evenly spaced in chronological order (same as Rangverlauf).
   const sortedMatches = [...matches].sort((a, b) => new Date(a.utc_date) - new Date(b.utc_date))
   const matchMarkers = sortedMatches.map((m, i) => ({
     x: xPos(i + 1),
     label: `${m.home_team?.tla || '???'}-${m.away_team?.tla || '???'}`,
   }))
 
-  const ends = {}
-  for (const p of players) {
-    if (!selected.has(p)) continue
-    const pts = series[p]
-    if (!pts.length) continue
-    const last = pts[pts.length - 1]
-    const key = `${xPos(last.games).toFixed(1)},${yPos(last.points).toFixed(1)}`
-    if (!ends[key]) ends[key] = { x: xPos(last.games), y: yPos(last.points), names: [] }
-    ends[key].names.push(p)
-  }
-
   return (
     <StatCard title="Punkteverlauf" hint="Erreichte Gesamtpunkte über den Turnierverlauf — die oberste Linie führt.">
-      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Zoom</span>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Zoom X</span>
         <input type="range" min={1} max={5} step={0.5} value={zoom} onChange={e => setZoom(Number(e.target.value))} style={{ width: 80 }} />
+        <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Y</span>
+        <input type="range" min={1} max={5} step={0.5} value={vZoom} onChange={e => setVZoom(Number(e.target.value))} style={{ width: 80 }} />
       </div>
-      <div ref={wrapRef} style={{ overflowX: 'auto' }}>
+      <div ref={wrapRef} style={{ overflow: 'auto', maxHeight: 500 }}>
         <svg width={W} height={H} style={{ display: 'block' }}>
           {gridLines.map(g => (
             <g key={g}>
@@ -2759,18 +2740,20 @@ function PointsProgressChart({ snapshots, matches }) {
           {players.map(p => {
             if (!selected.has(p)) return null
             const color = playerColor(players, p)
-            const pts = series[p].map(d => `${xPos(d.games)},${yPos(d.points)}`).join(' ')
+            const data = series[p]
+            const pts = data.map(d => `${xPos(d.games)},${yPos(d.points)}`).join(' ')
+            const last = data[data.length - 1]
             return (
               <g key={p}>
                 <polyline points={pts} fill="none" stroke={color} strokeWidth={1.5} opacity={0.85} />
+                {last && (
+                  <text x={xPos(last.games) + 8} y={yPos(last.points) + 3} textAnchor="start" fontSize={9} fontWeight={500} fill={color}>
+                    {p} ({latestPoints[p] ?? 0})
+                  </text>
+                )}
               </g>
             )
           })}
-          {spreadEndLabels(ends).map((e, i) => (
-            <text key={i} x={e.x + 8} y={e.adjustedY + 3} textAnchor="start" fontSize={9} fontWeight={500} fill="var(--text-primary)">
-              {e.names.map(n => `${n} (${latestPoints[n] ?? 0})`).join(', ')}
-            </text>
-          ))}
         </svg>
       </div>
       <div style={{ display: 'flex', gap: 6, marginTop: 12 }}>
