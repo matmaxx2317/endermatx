@@ -96,7 +96,8 @@ function poissonPmf(k, lambda) {
 
 // Tipp mit maximaler Kicktipp-Punkterwartung: Poisson-Torgitter aus den xG,
 // reskaliert auf die Sieg/Remis/Niederlage-Wahrscheinlichkeiten des Modells.
-// In K.o.-Runden wird (wie bisher) nie ein Remis getippt.
+// In K.o.-Runden: wenn die Teams sehr eng beieinander liegen, wird ein Remis
+// mit realistischem Elfmeterergebnis getippt (z.B. "1:1 (5:4 i.E.)").
 function bestTip(p, isKnockout) {
   const lh = Math.max(0.05, p.pred_home_goals)
   const la = Math.max(0.05, p.pred_away_goals)
@@ -122,7 +123,6 @@ function bestTip(p, isKnockout) {
   const cands = []
   for (let th = 0; th <= 5; th++) {
     for (let ta = 0; ta <= 5; ta++) {
-      if (isKnockout && th === ta) continue
       let ev = 0, cellPr = 0
       for (const [h, a, pr] of grid) {
         ev += pr * kicktippPoints(th, ta, h, a)
@@ -131,13 +131,32 @@ function bestTip(p, isKnockout) {
       cands.push({ th, ta, ev, cellPr })
     }
   }
-  // Bei EV-Gleichstand: wahrscheinlicheres Ergebnis, dann Richtung des Favoriten
   cands.sort((x, y) =>
     y.ev - x.ev ||
     y.cellPr - x.cellPr ||
     (homeLean ? (y.th - y.ta) - (x.th - x.ta) : (y.ta - y.th) - (x.ta - x.th))
   )
-  return [cands[0].th, cands[0].ta]
+  const best = cands[0]
+  let penalty = null
+  if (isKnockout && best.th === best.ta) {
+    penalty = generatePenalty(p.home_win_prob ?? 0.5, p.away_win_prob ?? 0.5)
+  }
+  return [best.th, best.ta, penalty]
+}
+
+function generatePenalty(homeWinProb, awayWinProb) {
+  const gap = Math.abs(homeWinProb - awayWinProb)
+  const homeWins = homeWinProb >= awayWinProb
+  let w, l
+  if (gap < 0.08)      { w = 5; l = 4 }
+  else if (gap < 0.15) { w = 4; l = 3 }
+  else                 { w = 5; l = 3 }
+  return homeWins ? { h: w, a: l } : { h: l, a: w }
+}
+
+function formatTip(tipH, tipA, penalty) {
+  if (penalty) return `${tipH}:${tipA} (${penalty.h}:${penalty.a} i.E.)`
+  return `${tipH}:${tipA}`
 }
 
 function groupMatches(matches) {
@@ -329,15 +348,15 @@ function PrevMatchRow({ m }) {
   const aTla = m.away_team?.tla ?? '?'
   let prog = null
   if (m.prediction) {
-    const [pH, pA] = bestTip(m.prediction, m.stage !== 'GROUP_STAGE')
+    const [pH, pA, pen] = bestTip(m.prediction, m.stage !== 'GROUP_STAGE')
     const cat = classifyTip(m, { pred_home_goals: pH, pred_away_goals: pA })
-    if (cat) prog = { pH, pA, cat }
+    if (cat) prog = { pH, pA, pen, cat }
   }
   return (
     <div style={{ fontSize: 11, color: 'var(--text-dim)', padding: '2px 0', fontVariantNumeric: 'tabular-nums' }}>
       <span style={{ color: 'var(--text-secondary)' }}>{hTla} {m.score_home}:{m.score_away} {aTla}</span>
       {prog && (
-        <span> – Prognose {prog.pH}:{prog.pA}{' '}
+        <span> – Prognose {formatTip(prog.pH, prog.pA, prog.pen)}{' '}
           <span style={{ color: PREV_CAT[prog.cat].color }}>({PREV_CAT[prog.cat].label})</span>
         </span>
       )}
@@ -355,7 +374,7 @@ function MatchCard({ match, teamStatuses = {}, allMatches = [] }) {
   const awayTla  = match.away_team?.tla ?? '?'
   const homeStatus = match.home_team ? teamStatuses[match.home_team.id] ?? null : null
   const awayStatus = match.away_team ? teamStatuses[match.away_team.id] ?? null : null
-  const [tipHome, tipAway] = p ? bestTip(p, match.stage !== 'GROUP_STAGE') : [null, null]
+  const [tipHome, tipAway, tipPenalty] = p ? bestTip(p, match.stage !== 'GROUP_STAGE') : [null, null, null]
 
   const homePrev = prevMatchesForTeam(allMatches, match.home_team?.id, match.utc_date)
   const awayPrev = prevMatchesForTeam(allMatches, match.away_team?.id, match.utc_date)
@@ -367,19 +386,19 @@ function MatchCard({ match, teamStatuses = {}, allMatches = [] }) {
   const predList = match.predictions || []
   const histEntries = predList.map((ph, i) => {
     const prev = predList[i + 1]
-    const [tipH, tipA] = bestTip(ph, isKo)
+    const [tipH, tipA, tipPen] = bestTip(ph, isKo)
     const prevTip = prev ? bestTip(prev, isKo) : null
     const tipChanged = prevTip && (tipH !== prevTip[0] || tipA !== prevTip[1])
 
     let changeNote = null
     if (tipChanged) {
-      const [prevTipH, prevTipA] = prevTip
+      const [prevTipH, prevTipA, prevPen] = prevTip
       const dHome = (ph.home_elo != null && prev.home_elo != null) ? Math.round(ph.home_elo - prev.home_elo) : null
       const dAway = (ph.away_elo != null && prev.away_elo != null) ? Math.round(ph.away_elo - prev.away_elo) : null
       const nachMatch = ph.reasoning?.match(/nach: ([^.]+)/)
       const trigger = nachMatch ? nachMatch[1].trim() : null
 
-      let note = `Tipp: ${prevTipH}:${prevTipA} → ${tipH}:${tipA}`
+      let note = `Tipp: ${formatTip(prevTipH, prevTipA, prevPen)} → ${formatTip(tipH, tipA, tipPen)}`
       const triggerItems = trigger ? trigger.split(', ') : []
       if (triggerItems.length > 0) {
         note += `\nAuslöser:\n${triggerItems.join('\n')}`
@@ -390,7 +409,7 @@ function MatchCard({ match, teamStatuses = {}, allMatches = [] }) {
       if (eloParts.length) note += `\nELO: ${eloParts.join(' · ')}.`
       changeNote = note
     }
-    return { ph, i, tipH, tipA, changeNote }
+    return { ph, i, tipH, tipA, tipPen, changeNote }
   })
   const changedEntries = histEntries.filter(e => e.changeNote)
   const shownEntries = changedEntries.length > 0 ? changedEntries : histEntries.slice(0, 1)
@@ -473,7 +492,7 @@ function MatchCard({ match, teamStatuses = {}, allMatches = [] }) {
         }}>
           <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 8 }}>
             {isFinished ? 'Prognose war' : 'Tipp-Empfehlung'}:{' '}
-            <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{tipHome}:{tipAway}</span>
+            <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{formatTip(tipHome, tipAway, tipPenalty)}</span>
             <span style={{ color: 'var(--text-dim)', marginLeft: 6 }}>
               (xG {p.pred_home_goals.toFixed(1)} : {p.pred_away_goals.toFixed(1)})
             </span>
@@ -524,7 +543,7 @@ function MatchCard({ match, teamStatuses = {}, allMatches = [] }) {
                   <div style={{ fontSize: 10, color: 'var(--text-dim)', letterSpacing: '0.1em', marginBottom: 6 }}>
                     VERLAUF ({shownEntries.length} {shownEntries.length === 1 ? 'VERSION' : 'VERSIONEN'})
                   </div>
-                  {shownEntries.map(({ ph, i, tipH, tipA, changeNote }) => (
+                  {shownEntries.map(({ ph, i, tipH, tipA, tipPen, changeNote }) => (
                     <div key={ph.id} style={{
                       padding: '6px 0',
                       borderTop: '1px solid var(--border)',
@@ -533,7 +552,7 @@ function MatchCard({ match, teamStatuses = {}, allMatches = [] }) {
                     }}>
                       <span style={{ marginRight: 8 }}>{formatDateLong(ph.created_at)}</span>
                       <span style={{ fontVariantNumeric: 'tabular-nums' }}>
-                        {tipH}:{tipA}
+                        {formatTip(tipH, tipA, tipPen)}
                         {' '}<span style={{ color: 'var(--text-dim)' }}>
                           (xG {ph.pred_home_goals.toFixed(1)}:{ph.pred_away_goals.toFixed(1)})
                         </span>
@@ -1800,6 +1819,7 @@ function BonusView({ bonus, generating, actualResults }) {
             {' '}— Die besten zwei jeder Gruppe sowie die acht besten Gruppendritter (nach Punkten, Tordifferenz, Toren) qualifizieren sich für die Runde der 32.
             Der K.O.-Baum wird in jedem Durchlauf zufällig neu gelost, damit keine bestimmte Hälfte bevorzugt wird.
             Bei Unentschieden nach 90 Minuten entscheidet ein ELO-gewichteter Münzwurf (analog Elfmeterschießen).
+            Die Turnierform (Punkte, Tordifferenz, Tore aus der Gruppenphase) fließt als ELO-Bonus in die K.O.-Prognosen ein.
           </div>
 
           <div style={{ marginBottom: 10 }}>
@@ -3373,7 +3393,7 @@ function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
 
             {!wmtOnly && p && (
               <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 10 }}>
-                ELO-Tipp: {bestTip(p, m.stage !== 'GROUP_STAGE').join(':')}
+                ELO-Tipp: {(() => { const [h,a,pen] = bestTip(p, m.stage !== 'GROUP_STAGE'); return formatTip(h,a,pen) })()}
                 {' '}({Math.round(p.home_win_prob * 100)}% / {Math.round(p.draw_prob * 100)}% / {Math.round(p.away_win_prob * 100)}%)
               </div>
             )}
