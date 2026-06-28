@@ -654,10 +654,14 @@ def _do_refresh_fdorg(db: Session) -> tuple[list[str], str]:
             was_finished = match.status == "FINISHED"
             match.status = status
             match.last_fetched = datetime.utcnow()
-            if home_team:
-                match.home_team_id = home_team.id
-            if away_team:
-                match.away_team_id = away_team.id
+            if stage != "GROUP_STAGE":
+                match.home_team_id = home_team.id if home_team else None
+                match.away_team_id = away_team.id if away_team else None
+            else:
+                if home_team:
+                    match.home_team_id = home_team.id
+                if away_team:
+                    match.away_team_id = away_team.id
             if status == "FINISHED" and score_home is not None and score_away is not None:
                 if not was_finished:
                     match.score_home = score_home
@@ -2038,33 +2042,10 @@ def _auto_assign_next_round(db: Session) -> None:
             m.away_team_id = sorted_ids[2 * n - 1 - i]
         db.commit()
 
-    # ── Rd.32: assign from completed group stage ──────────────────────────────
-    if _has_empty_slots("LAST_32"):
-        total_grp = db.query(models.WmtMatch).filter(
-            models.WmtMatch.stage == "GROUP_STAGE",
-            models.WmtMatch.home_team_id.isnot(None),
-        ).count()
-        done_grp = db.query(models.WmtMatch).filter(
-            models.WmtMatch.stage == "GROUP_STAGE",
-            models.WmtMatch.status == "FINISHED",
-        ).count()
-        if total_grp > 0 and done_grp >= total_grp:
-            standings = _compute_group_standings(db)
-            if len(standings) >= 12:
-                qualifiers, third_pool = [], []
-                for group in sorted(standings.keys()):
-                    table = standings[group]
-                    if len(table) >= 1: qualifiers.append(table[0]["team_id"])
-                    if len(table) >= 2: qualifiers.append(table[1]["team_id"])
-                    if len(table) >= 3:
-                        t = table[2]
-                        third_pool.append((t["pts"], t["gd"], t["gf"], t["team_id"]))
-                third_pool.sort(key=lambda x: (x[0], x[1], x[2]), reverse=True)
-                qualifiers.extend(t[3] for t in third_pool[:8])
-                if len(qualifiers) >= 32:
-                    _fill_slots("LAST_32", qualifiers[:32])
-
     # ── Subsequent KO rounds from previous round winners / losers ─────────────
+    # Note: LAST_32 is NOT auto-assigned here — the FIFA bracket has fixed
+    # pairings that only the football-data.org API knows.  Fake data uses
+    # do_fake_rd32 which handles assignment itself.
     ko_chain = [
         ("LAST_32",        "LAST_16",        False),
         ("LAST_16",        "QUARTER_FINALS", False),
