@@ -2587,7 +2587,7 @@ function PointsGapChart({ snapshots, matches }) {
               <g key={p}>
                 <polyline points={pts} fill="none" stroke={color} strokeWidth={1.5} opacity={0.85} />
                 {last && (
-                  <text x={xPos(last.games) + 8} y={yPos(last.gap) + 3} textAnchor="start" fontSize={9} fontWeight={500} fill={color}>
+                  <text x={xPos(last.games) + 8} y={yPos(last.gap) + 3} textAnchor="start" fontSize={9} fontWeight={500} fill="var(--text-primary)">
                     {p} ({latestPoints[p] ?? 0})
                   </text>
                 )}
@@ -2747,7 +2747,7 @@ function PointsProgressChart({ snapshots, matches }) {
               <g key={p}>
                 <polyline points={pts} fill="none" stroke={color} strokeWidth={1.5} opacity={0.85} />
                 {last && (
-                  <text x={xPos(last.games) + 8} y={yPos(last.points) + 3} textAnchor="start" fontSize={9} fontWeight={500} fill={color}>
+                  <text x={xPos(last.games) + 8} y={yPos(last.points) + 3} textAnchor="start" fontSize={9} fontWeight={500} fill="var(--text-primary)">
                     {p} ({latestPoints[p] ?? 0})
                   </text>
                 )}
