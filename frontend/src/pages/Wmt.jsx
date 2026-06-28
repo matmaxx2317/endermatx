@@ -61,6 +61,16 @@ function legendGrid(players) {
   return { display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${colPx}px, 1fr))`, justifyItems: 'start', gap: '6px 8px', marginTop: 10 }
 }
 
+function spreadEndLabels(ends, minGap = 12) {
+  const labels = Object.values(ends).map(e => ({ ...e, adjustedY: e.y }))
+  labels.sort((a, b) => a.y - b.y)
+  for (let i = 1; i < labels.length; i++) {
+    const needed = labels[i - 1].adjustedY + minGap
+    if (labels[i].adjustedY < needed) labels[i].adjustedY = needed
+  }
+  return labels
+}
+
 function formatDate(utcStr) {
   if (!utcStr) return ''
   const d = new Date(utcStr)
@@ -2583,8 +2593,8 @@ function PointsGapChart({ snapshots, matches }) {
               </g>
             )
           })}
-          {Object.values(ends).map((e, i) => (
-            <text key={i} x={e.x + 8} y={e.y + 3} textAnchor="start" fontSize={9} fontWeight={500} fill="var(--text-primary)">
+          {spreadEndLabels(ends).map((e, i) => (
+            <text key={i} x={e.x + 8} y={e.adjustedY + 3} textAnchor="start" fontSize={9} fontWeight={500} fill="var(--text-primary)">
               {e.names.join(', ')}
             </text>
           ))}
@@ -2746,8 +2756,8 @@ function PointsProgressChart({ snapshots, matches }) {
               </g>
             )
           })}
-          {Object.values(ends).map((e, i) => (
-            <text key={i} x={e.x + 8} y={e.y + 3} textAnchor="start" fontSize={9} fontWeight={500} fill="var(--text-primary)">
+          {spreadEndLabels(ends).map((e, i) => (
+            <text key={i} x={e.x + 8} y={e.adjustedY + 3} textAnchor="start" fontSize={9} fontWeight={500} fill="var(--text-primary)">
               {e.names.join(', ')}
             </text>
           ))}
