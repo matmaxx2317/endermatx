@@ -2258,7 +2258,7 @@ function RankingChart({ snapshots, matches }) {
             style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: selected.has(p) ? 'var(--text-secondary)' : 'var(--text-faint)', cursor: 'pointer', userSelect: 'none' }}
           >
             <span style={{ width: 10, height: 10, borderRadius: 2, background: RANK_CHART_COLORS[pi % RANK_CHART_COLORS.length], display: 'inline-block', opacity: selected.has(p) ? 1 : 0.3 }} />
-            <span style={{ textDecoration: selected.has(p) ? 'none' : 'line-through' }}>{p} ({latestPoints[p] ?? 0})</span>
+            <span style={{ textDecoration: selected.has(p) ? 'none' : 'line-through' }}>{p}</span>
           </div>
         ))}
       </div>
@@ -2627,7 +2627,7 @@ function PointsGapChart({ snapshots, matches }) {
             style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: selected.has(p) ? 'var(--text-secondary)' : 'var(--text-faint)', cursor: 'pointer', userSelect: 'none' }}
           >
             <span style={{ width: 10, height: 10, borderRadius: 2, background: playerColor(players, p), display: 'inline-block', opacity: selected.has(p) ? 1 : 0.3 }} />
-            <span style={{ textDecoration: selected.has(p) ? 'none' : 'line-through' }}>{p} ({latestPoints[p] ?? 0})</span>
+            <span style={{ textDecoration: selected.has(p) ? 'none' : 'line-through' }}>{p}</span>
           </div>
         ))}
       </div>
@@ -2795,7 +2795,7 @@ function PointsProgressChart({ snapshots, matches }) {
             style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: selected.has(p) ? 'var(--text-secondary)' : 'var(--text-faint)', cursor: 'pointer', userSelect: 'none' }}
           >
             <span style={{ width: 10, height: 10, borderRadius: 2, background: playerColor(players, p), display: 'inline-block', opacity: selected.has(p) ? 1 : 0.3 }} />
-            <span style={{ textDecoration: selected.has(p) ? 'none' : 'line-through' }}>{p} ({latestPoints[p] ?? 0})</span>
+            <span style={{ textDecoration: selected.has(p) ? 'none' : 'line-through' }}>{p}</span>
           </div>
         ))}
       </div>
