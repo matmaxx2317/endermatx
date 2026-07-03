@@ -737,14 +737,15 @@ def _do_refresh_fdorg(db: Session) -> tuple[list[str], str]:
             was_finished = match.status == "FINISHED"
             match.status = status
             match.last_fetched = datetime.utcnow()
-            if stage != "GROUP_STAGE":
-                match.home_team_id = home_team.id if home_team else None
-                match.away_team_id = away_team.id if away_team else None
-            else:
-                if home_team:
-                    match.home_team_id = home_team.id
-                if away_team:
-                    match.away_team_id = away_team.id
+            # For both group and KO stages: only overwrite a team assignment
+            # when the API actually returns a team.  If the API still shows a
+            # placeholder (null TLA → home_team is None) we leave the existing
+            # assignment untouched so _auto_assign_next_round's pairings survive
+            # subsequent refreshes.
+            if home_team:
+                match.home_team_id = home_team.id
+            if away_team:
+                match.away_team_id = away_team.id
             if status == "FINISHED" and score_home is not None and score_away is not None:
                 if not was_finished:
                     match.score_home = score_home
