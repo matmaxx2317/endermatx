@@ -1162,7 +1162,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v4.14</span>
+          <span className="topbar-version">v4.15</span>
         </div>
       </div>
 
@@ -2164,6 +2164,7 @@ function RankingChart({ snapshots, matches }) {
             <g key={r}>
               <line x1={padL} y1={yPos(r)} x2={W - padR} y2={yPos(r)} stroke="var(--border)" strokeWidth={0.5} />
               <text x={padL - 6} y={yPos(r) + 3} textAnchor="end" fontSize={9} fill="var(--text-muted)">{r}</text>
+              <text x={W - padR + 4} y={yPos(r) + 3} textAnchor="start" fontSize={9} fill="var(--text-muted)">{r}</text>
             </g>
           ))}
           {matchMarkers.map((mk, i) => (
