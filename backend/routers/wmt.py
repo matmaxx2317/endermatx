@@ -2117,11 +2117,25 @@ def _auto_assign_next_round(db: Session) -> None:
             .order_by(models.WmtMatch.utc_date)
             .all()
         )
-        if not slots or len(team_ids) < len(slots) * 2:
+        if not slots:
+            return
+        # Exclude teams already placed in any match in this stage (API-assigned slots)
+        # so we never assign the same team to two different matches.
+        already_placed: set[int] = set()
+        for m in db.query(models.WmtMatch).filter(
+            models.WmtMatch.stage == stage,
+            models.WmtMatch.home_team_id.isnot(None),
+        ).all():
+            if m.home_team_id:
+                already_placed.add(m.home_team_id)
+            if m.away_team_id:
+                already_placed.add(m.away_team_id)
+        available = [tid for tid in team_ids if tid not in already_placed]
+        if len(available) < len(slots) * 2:
             return
         # Pair strongest vs weakest by ELO (same logic as do_fake_rd32 / do_fake_knockout_round)
         sorted_ids = sorted(
-            team_ids, key=lambda t: -(all_teams[t].elo if all_teams.get(t) else DEFAULT_ELO)
+            available, key=lambda t: -(all_teams[t].elo if all_teams.get(t) else DEFAULT_ELO)
         )
         n = len(slots)
         for i, m in enumerate(slots):
@@ -2932,3 +2946,44 @@ def fake_all_results(db: Session = Depends(get_db)):
     """Alle Phasen MD1–Finale in einem Schritt faken (nur für Tests)."""
     n, msg = do_fake_all(db)
     return schemas.WmtRefreshOut(message=msg, updated=n)
+
+
+@router.post("/debug/repair-ko-assignments", response_model=schemas.WmtRefreshOut)
+def repair_ko_assignments(db: Session = Depends(get_db)):
+    """Clear duplicate KO team assignments and re-run refresh.
+
+    Fixes the case where _fill_slots (ELO pairing) assigned teams that the
+    football-data.org API had already placed in other slots, causing the same
+    team to appear in multiple matches.  Clears all unfinished KO slots where
+    a team appears more than once, then re-fetches from the API so the correct
+    pairings are restored.
+    """
+    ko_stages = ["LAST_16", "QUARTER_FINALS", "SEMI_FINALS", "FINAL", "THIRD_PLACE"]
+    cleared = 0
+    for stage in ko_stages:
+        from collections import Counter
+        matches = db.query(models.WmtMatch).filter(
+            models.WmtMatch.stage == stage,
+            models.WmtMatch.status != "FINISHED",
+        ).all()
+        counts: Counter = Counter()
+        for m in matches:
+            if m.home_team_id:
+                counts[m.home_team_id] += 1
+            if m.away_team_id:
+                counts[m.away_team_id] += 1
+        dupes = {tid for tid, n in counts.items() if n > 1}
+        if not dupes:
+            continue
+        for m in matches:
+            if m.home_team_id in dupes or m.away_team_id in dupes:
+                m.home_team_id = None
+                m.away_team_id = None
+                cleared += 1
+    db.commit()
+
+    labels, err = do_refresh(db)
+    msg = f"{cleared} fehlerhafte Slot(s) zurückgesetzt, {len(labels)} Spiel(e) aktualisiert."
+    if err:
+        msg += f" Warnung: {err}"
+    return schemas.WmtRefreshOut(message=msg, updated=cleared + len(labels))

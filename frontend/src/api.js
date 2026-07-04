@@ -92,6 +92,7 @@ export const wmt = {
   fakeTp: ()                 => post('/wmt/debug/fake-tp'),
   fakeFinal: ()              => post('/wmt/debug/fake-final'),
   fakeAll: ()                => post('/wmt/debug/fake-all'),
+  repairKoAssignments: ()    => post('/wmt/debug/repair-ko-assignments'),
 }
 
 // ── drv ───────────────────────────────────────────────────────

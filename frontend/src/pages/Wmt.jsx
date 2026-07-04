@@ -658,6 +658,7 @@ export default function Wmt() {
   const [fakingTp, setFakingTp]           = useState(false)
   const [fakingFinal, setFakingFinal]     = useState(false)
   const [fakingAll, setFakingAll]         = useState(false)
+  const [repairingKo, setRepairingKo]     = useState(false)
   const [summaryCalOpen, setSummaryCalOpen]           = useState(false)
   const [generatingSummaryFor, setGeneratingSummaryFor] = useState(null)
   const [logs, setLogs]                   = useState([])
@@ -831,6 +832,21 @@ export default function Wmt() {
       addLog(`Fehler beim Refresh${e?.message ? ` — ${e.message}` : ''}`, 'error')
     } finally {
       setRefreshing(false)
+    }
+  }
+
+  async function handleRepairKo() {
+    setRepairingKo(true)
+    setView('import')
+    addLog('KO-Zuweisung wird repariert…')
+    try {
+      const res = await wmt.repairKoAssignments()
+      addLog(res.message || 'Fertig', 'done')
+      await loadAll()
+    } catch (e) {
+      addLog(`Fehler bei der KO-Reparatur${e?.message ? ` — ${e.message}` : ''}`, 'error')
+    } finally {
+      setRepairingKo(false)
     }
   }
 
@@ -1049,7 +1065,7 @@ export default function Wmt() {
   }
 
   const anyBusy = refreshing || clearing || warming || generatingBonus || adjustingNews ||
-    fakingMd1 || fakingMd2 || fakingMd3 || fakingRd32 ||
+    fakingMd1 || fakingMd2 || fakingMd3 || fakingRd32 || repairingKo ||
     fakingLast16 || fakingQf || fakingSf || fakingTp || fakingFinal || fakingAll
 
   const md1Done = matches.some(m => m.stage === 'GROUP_STAGE' && m.matchday === 1) &&
@@ -1146,7 +1162,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v4.13</span>
+          <span className="topbar-version">v4.14</span>
         </div>
       </div>
 
@@ -1172,6 +1188,11 @@ export default function Wmt() {
               icon="↻" label="Spielplan aktualisieren"
               loading={refreshing} disabled={anyBusy && !refreshing}
               onClick={() => { setMenuOpen(false); setView('import'); handleRefresh() }}
+            />
+            <MenuButton
+              icon="🔧" label="KO-Zuweisung reparieren"
+              loading={repairingKo} disabled={anyBusy && !repairingKo}
+              onClick={() => { setMenuOpen(false); handleRepairKo() }}
             />
             <MenuButton
               icon="📋" label="Morgenbericht erstellen"
