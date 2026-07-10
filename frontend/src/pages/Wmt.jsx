@@ -1162,7 +1162,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v4.15</span>
+          <span className="topbar-version">v4.17</span>
         </div>
       </div>
 
@@ -2351,95 +2351,6 @@ const CATEGORY_BY_KEY = Object.fromEntries(TIP_CATEGORIES.map(([key, label, pts]
 
 // Tagessieger / Tagesverlierer — best and worst scorer among the imported
 // opponent tips on the most recent match day (the latest US-Pacific calendar
-// day that has any finished match), with the tips that got them there. So the
-// day's winner keeps showing until the next match day produces results. Hidden
-// only when no match has finished yet at all.
-function DayWinnerLoserCard({ matches, opponentTips }) {
-  const finished = matches.filter(m => m.status === 'FINISHED')
-  if (finished.length === 0) return null
-
-  // Most recent match day = the largest (latest) Pacific day key among finished
-  // matches; string compare works because keys are zero-padded YYYY-MM-DD.
-  const dayKeys = finished.map(m => usDayKey(new Date(m.utc_date))).sort()
-  const targetKey = dayKeys[dayKeys.length - 1]
-
-  const dayMatches = finished.filter(m => usDayKey(new Date(m.utc_date)) === targetKey)
-  const dayMatchIds = new Set(dayMatches.map(m => m.id))
-  const matchById = {}
-  for (const m of dayMatches) matchById[m.id] = m
-
-  const byPlayer = {}
-  for (const t of opponentTips) {
-    if (!dayMatchIds.has(t.match_id)) continue
-    const m = matchById[t.match_id]
-    const cat = classifyTip(m, t)
-    if (!cat) continue
-    if (!byPlayer[t.player_name]) byPlayer[t.player_name] = { points: 0, tips: [] }
-    byPlayer[t.player_name].points += CATEGORY_BY_KEY[cat].pts
-    byPlayer[t.player_name].tips.push({ match: m, tip: t, cat })
-  }
-
-  const rows = Object.entries(byPlayer).map(([player, d]) => ({ player, ...d }))
-  if (rows.length === 0) return null
-  rows.sort((a, b) => b.points - a.points || a.player.localeCompare(b.player))
-
-  const winner = rows[0]
-  const loser = rows.length > 1 ? rows[rows.length - 1] : null
-
-  // targetKey is YYYY-MM-DD (Pacific) — format it directly, no timezone reparse.
-  const [yy, mm, dd] = targetKey.split('-')
-  const dateLabel = `${dd}.${mm}.${yy}`
-
-  const renderTips = entry => {
-    const tips = [...entry.tips].sort((a, b) => new Date(a.match.utc_date) - new Date(b.match.utc_date))
-    return (
-      <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {tips.map(({ match, tip, cat }) => (
-          <div key={match.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>
-            <span style={{ width: 9, height: 9, borderRadius: 2, background: TIP_OVERLAYS[cat], border: '1px solid var(--border)', flexShrink: 0 }} />
-            <span style={{ color: 'var(--text-secondary)', minWidth: 64 }}>
-              {match.home_team?.tla || '???'}–{match.away_team?.tla || '???'}
-            </span>
-            <span style={{ color: 'var(--text-muted)' }}>Tipp {tip.pred_home_goals}:{tip.pred_away_goals}</span>
-            <span style={{ color: 'var(--text-dim)' }}>Ergebnis {match.score_home}:{match.score_away}</span>
-            <span style={{ marginLeft: 'auto', color: 'var(--text-secondary)', fontWeight: 500 }}>+{CATEGORY_BY_KEY[cat].pts}</span>
-          </div>
-        ))}
-      </div>
-    )
-  }
-
-  const section = (entry, label, accent) => (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
-        <span style={{ fontSize: 11, color: accent, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4 }}>{label}</span>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, marginTop: 2 }}>
-        <span style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 500 }}>{entry.player}</span>
-        <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500 }}>{entry.points} Pkt</span>
-      </div>
-      {renderTips(entry)}
-    </div>
-  )
-
-  return (
-    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 16px' }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, marginBottom: 12 }}>
-        <div style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 500 }}>Tageswertung</div>
-        <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{dateLabel} · US-Zeit</div>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {section(winner, 'Tagessieger', '#4d8a4d')}
-        {loser && (
-          <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16 }}>
-            {section(loser, 'Tagesverlierer', '#8a4d4d')}
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
 // ── Shared helpers for the Konkurrenz stat cards ──────────────────────────
 const dayKeyOf = m => usDayKey(new Date(m.utc_date))
 const finishedScored = matches =>
@@ -2813,6 +2724,9 @@ function PointsProgressChart({ snapshots, matches }) {
 
 // ── 2. Treffergüte (stacked bars) ─────────────────────────────────────────
 function TrefferguteCard({ matches, opponentTips }) {
+  const [sortCol, setSortCol] = useState('exact')
+  const [sortDir, setSortDir] = useState(-1)
+
   const byId = {}
   for (const m of matches) byId[m.id] = m
   const stat = {}
@@ -2830,9 +2744,15 @@ function TrefferguteCard({ matches, opponentTips }) {
     points: TIP_CATEGORIES.reduce((a, [k, , p]) => a + s[k] * p, 0),
   })).filter(r => r.total > 0)
   if (!rows.length) return null
-  rows.sort((a, b) => b.points - a.points || a.player.localeCompare(b.player))
+  rows.sort((a, b) => sortDir * (b[sortCol] - a[sortCol]) || a.player.localeCompare(b.player))
+
+  const handleSort = key => {
+    if (key === sortCol) setSortDir(d => -d)
+    else { setSortCol(key); setSortDir(-1) }
+  }
 
   const num = { fontSize: 12, padding: '4px 6px', textAlign: 'center', color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }
+  const thBase = { verticalAlign: 'bottom', padding: '0 4px 6px', cursor: 'pointer', userSelect: 'none' }
 
   return (
     <StatCard title="Treffergüte" hint="Exakte Treffer, Tordifferenz, Tendenz und Fehltipps je Spieler — als Zahl und als Verteilungsbalken.">
@@ -2842,10 +2762,12 @@ function TrefferguteCard({ matches, opponentTips }) {
             <tr>
               <th style={{ textAlign: 'left', fontSize: 10, color: 'var(--text-dim)', fontWeight: 400, padding: '0 8px 6px 0', verticalAlign: 'bottom', whiteSpace: 'nowrap' }}>Spieler</th>
               {TIP_CATEGORIES.map(([key, label]) => (
-                <th key={key} style={{ verticalAlign: 'bottom', padding: '0 4px 6px' }}>
+                <th key={key} style={thBase} onClick={() => handleSort(key)}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                    <span style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: 10, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>{label}</span>
-                    <span style={{ width: 10, height: 10, borderRadius: 2, background: TIP_OVERLAYS[key], border: '1px solid var(--border)', flexShrink: 0 }} />
+                    <span style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: 10, color: sortCol === key ? 'var(--text-secondary)' : 'var(--text-dim)', whiteSpace: 'nowrap' }}>
+                      {label}{sortCol === key ? (sortDir === -1 ? ' ↓' : ' ↑') : ''}
+                    </span>
+                    <span style={{ width: 10, height: 10, borderRadius: 2, background: TIP_OVERLAYS[key], border: sortCol === key ? '1px solid var(--text-muted)' : '1px solid var(--border)', flexShrink: 0 }} />
                   </div>
                 </th>
               ))}
@@ -3387,7 +3309,6 @@ function KonkurrenzView({ matches, opponentTips, rankingSnapshots }) {
 
       <RiskProfile opponentTips={opponentTips} />
       <BoldnessCard matches={matches} opponentTips={opponentTips} />
-      <DayWinnerLoserCard matches={matches} opponentTips={opponentTips} />
       </>)}
 
       {sub === 'results' && (<>
