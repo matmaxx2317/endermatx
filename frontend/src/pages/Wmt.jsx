@@ -1162,7 +1162,7 @@ export default function Wmt() {
               {anyBusy ? '…' : '☰'}
             </button>
           )}
-          <span className="topbar-version">v4.16</span>
+          <span className="topbar-version">v4.17</span>
         </div>
       </div>
 
@@ -2724,6 +2724,9 @@ function PointsProgressChart({ snapshots, matches }) {
 
 // ── 2. Treffergüte (stacked bars) ─────────────────────────────────────────
 function TrefferguteCard({ matches, opponentTips }) {
+  const [sortCol, setSortCol] = useState('exact')
+  const [sortDir, setSortDir] = useState(-1)
+
   const byId = {}
   for (const m of matches) byId[m.id] = m
   const stat = {}
@@ -2741,9 +2744,15 @@ function TrefferguteCard({ matches, opponentTips }) {
     points: TIP_CATEGORIES.reduce((a, [k, , p]) => a + s[k] * p, 0),
   })).filter(r => r.total > 0)
   if (!rows.length) return null
-  rows.sort((a, b) => b.points - a.points || a.player.localeCompare(b.player))
+  rows.sort((a, b) => sortDir * (b[sortCol] - a[sortCol]) || a.player.localeCompare(b.player))
+
+  const handleSort = key => {
+    if (key === sortCol) setSortDir(d => -d)
+    else { setSortCol(key); setSortDir(-1) }
+  }
 
   const num = { fontSize: 12, padding: '4px 6px', textAlign: 'center', color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }
+  const thBase = { verticalAlign: 'bottom', padding: '0 4px 6px', cursor: 'pointer', userSelect: 'none' }
 
   return (
     <StatCard title="Treffergüte" hint="Exakte Treffer, Tordifferenz, Tendenz und Fehltipps je Spieler — als Zahl und als Verteilungsbalken.">
@@ -2753,10 +2762,12 @@ function TrefferguteCard({ matches, opponentTips }) {
             <tr>
               <th style={{ textAlign: 'left', fontSize: 10, color: 'var(--text-dim)', fontWeight: 400, padding: '0 8px 6px 0', verticalAlign: 'bottom', whiteSpace: 'nowrap' }}>Spieler</th>
               {TIP_CATEGORIES.map(([key, label]) => (
-                <th key={key} style={{ verticalAlign: 'bottom', padding: '0 4px 6px' }}>
+                <th key={key} style={thBase} onClick={() => handleSort(key)}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                    <span style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: 10, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>{label}</span>
-                    <span style={{ width: 10, height: 10, borderRadius: 2, background: TIP_OVERLAYS[key], border: '1px solid var(--border)', flexShrink: 0 }} />
+                    <span style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: 10, color: sortCol === key ? 'var(--text-secondary)' : 'var(--text-dim)', whiteSpace: 'nowrap' }}>
+                      {label}{sortCol === key ? (sortDir === -1 ? ' ↓' : ' ↑') : ''}
+                    </span>
+                    <span style={{ width: 10, height: 10, borderRadius: 2, background: TIP_OVERLAYS[key], border: sortCol === key ? '1px solid var(--text-muted)' : '1px solid var(--border)', flexShrink: 0 }} />
                   </div>
                 </th>
               ))}
